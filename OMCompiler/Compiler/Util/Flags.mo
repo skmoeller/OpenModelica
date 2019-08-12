@@ -549,8 +549,13 @@ constant DebugFlag WARNING_MINMAX_ATTRIBUTES = DEBUG_FLAG(186, "warnMinMax", tru
   Util.gettext("Makes a warning assert from min/max variable attributes instead of error."));
 constant DebugFlag NF_EXPAND_FUNC_ARGS = DEBUG_FLAG(187, "nfExpandFuncArgs", false,
   Util.gettext("Expand all function arguments in the new frontend."));
+<<<<<<< HEAD
 constant DebugFlag DUMP_JL = DEBUG_FLAG(188, "dumpJL", false,
   Util.gettext("Dumps the absyn representation of a program as a Julia representation"));
+=======
+constant DebugFlag DUMP_OPTIMIZATION = DEBUG_FLAG(188, "dumpOptimization", false,
+  Util.gettext("Dumps the Equations of an dynamic optimization problem."));
+>>>>>>> First Ideas->do not work!
 
 // This is a list of all debug flags, to keep track of which flags are used. A
 // flag can not be used unless it's in this list, and the list is checked at
@@ -745,7 +750,11 @@ constant list<DebugFlag> allDebugFlags = {
   FMI20_DEPENDENCIES,
   WARNING_MINMAX_ATTRIBUTES,
   NF_EXPAND_FUNC_ARGS,
+<<<<<<< HEAD
   DUMP_JL
+=======
+  DUMP_OPTIMIZATION
+>>>>>>> First Ideas->do not work!
 };
 
 public
@@ -1502,6 +1511,10 @@ constant ConfigFlag LINEARIZATION_DUMP_LANGUAGE = CONFIG_FLAG(131, "linearizatio
   SOME(STRING_OPTION({"modelica","matlab","julia","python"})),
     Util.gettext("Sets the target language for the produced code of linearization. Only works with '--generateSymbolicLinearization' and 'linearize(modelName)'."));
 
+constant ConfigFlag GENERATE_JACOBIAN_OPTIMIZATION = CONFIG_FLAG(132, "generateJacobianOptimization",
+  NONE(), EXTERNAL(), BOOL_FLAG(false), NONE(),
+  Util.gettext("Generates the jacobian for a dynamic optimization problem"));
+
 protected
 // This is a list of all configuration flags. A flag can not be used unless it's
 // in this list, and the list is checked at initialization so that all flags are
@@ -1637,7 +1650,11 @@ constant list<ConfigFlag> allConfigFlags = {
   SHOW_STRUCTURAL_ANNOTATIONS,
   INITIAL_STATE_SELECTION,
   STRICT,
+<<<<<<< HEAD
   LINEARIZATION_DUMP_LANGUAGE
+=======
+  GENERATE_JACOBIAN_OPTIMIZATION
+>>>>>>> First Ideas->do not work!
 };
 
 public function new
