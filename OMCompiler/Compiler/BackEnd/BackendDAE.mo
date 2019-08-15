@@ -790,6 +790,11 @@ type SymbolicJacobian = tuple<BackendDAE,               // symbolic equation sys
 type SparsePatternCref = tuple< .DAE.ComponentRef, list< .DAE.ComponentRef>>;
 type SparsePatternCrefs = list<SparsePatternCref>;
 
+public SymbolicHessian = tuple<BackendDAE,              // symbolic equation system, maybe a 'smaller' structure could be used here
+                               String,                  // Name of the Hessian Matrix
+                               list<Var>                // State Variables -> the Equations are derived by this variables
+                               >;
+
 public
 type SparsePattern = tuple<SparsePatternCrefs,              // column-wise sparse pattern
                            SparsePatternCrefs,              // row-wise sparse pattern
