@@ -788,7 +788,7 @@ algorithm
   end if;
 end dumpTimeEvents;
 
-protected function dumpConstraintList
+public function dumpConstraintList   //Changed the attr. to public -> wanted to dump the constraint list!!!
   input list<DAE.Constraint> inConstraintArray;
   input String heading;
 algorithm

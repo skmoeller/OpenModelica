@@ -73,17 +73,17 @@ algorithm
   {syst} := dae.eqs;
   if Flags.getConfigBool(Flags.GENERATE_JACOBIAN_OPTIMIZATION) then
     BackendDAE.EQSYSTEM(orderedVars=vars, orderedEqs=eqns) := syst;
-    BackendDump.printBackendDAE(dae);
-    dae := addOptimizationJacobian(dae); //The jacobians are stored in shared
-    //(vars, eqns, shared) := addOptimizationVarsEqns(vars, eqns, shared);
+    //BackendDump.printBackendDAE(dae);
+    //dae := addOptimizationJacobian(dae); //The jacobians are stored in shared
+    (vars, eqns, shared) := addOptimizationVarsEqns(vars, eqns, shared);
   else
     BackendDAE.EQSYSTEM(orderedVars=vars, orderedEqs=eqns) := syst;
     (vars, eqns, shared) := addOptimizationVarsEqns(vars, eqns, shared);
   end if;
-  //syst.orderedVars := vars;
-  //syst.orderedEqs := eqns;
-  //dae.eqs := {syst};
-  //dae.shared := shared;
+  syst.orderedVars := vars;
+  syst.orderedEqs := eqns;
+  dae.eqs := {syst};
+  dae.shared := shared;
 end createDynamicOptimization;
 
 protected function addOptimizationJacobian
@@ -121,8 +121,11 @@ protected
   Boolean inDynOptimization = Flags.getConfigBool(Flags.GENERATE_DYN_OPTIMIZATION_PROBLEM);
 algorithm
    classAttrs := shared.classAttrs;
+   BackendDump.printClassAttributes(listGet(classAttrs,1)); //Ziel-Funktion, besteht aus einem Meyer und eine Lagrange Term
    constraints := shared.constraints;
+   BackendDump.dumpConstraintList(constraints,"Constraints for the Problem");
    globalKnownVars := shared.globalKnownVars;
+   BackendDump.dumpVariables(globalKnownVars,"Global Known Variables-> No Stats");
    eqnsLst := {};
 
    if not(inOptimicaFlag or inDynOptimization)
