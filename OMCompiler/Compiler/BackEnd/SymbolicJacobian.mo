@@ -2134,6 +2134,8 @@ protected function generateSymbolicJacobian "author: lochel"
   output BackendDAE.BackendDAE outJacobian;
   output DAE.FunctionTree outFunctions;
 algorithm
+  print("BackendDAE before using the symbolic Jacobian");
+  BackendDump.printBackendDAE(outJacobian);
   (outJacobian,outFunctions) := matchcontinue(inBackendDAE, inVars, inDiffedVars, inSeedVars, inStateVars, inInputVars, inParamVars, inMatrixName)
     local
       BackendDAE.BackendDAE bDAE;
@@ -2245,6 +2247,8 @@ algorithm
       Error.addInternalError("function generateSymbolicJacobian failed", sourceInfo());
     then fail();
   end matchcontinue;
+  print("BackendDAE after using the symbolic Jacobian");
+  BackendDump.printBackendDAE(outJacobian);
 end generateSymbolicJacobian;
 
 public function createSeedVars "author: wbraun"
