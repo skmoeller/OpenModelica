@@ -1498,9 +1498,9 @@ constant ConfigFlag STRICT = CONFIG_FLAG(130, "strict",
   NONE(), EXTERNAL(), BOOL_FLAG(false), NONE(),
   Util.gettext("Enables stricter enforcement of Modelica language rules."));
 
-constant ConfigFlag GENERATE_JACOBIAN_OPTIMIZATION = CONFIG_FLAG(131, "generateJacobianOptimization",
+constant ConfigFlag GENERATE_SYMBOLIC_HESSIAN = CONFIG_FLAG(131, "generateSymbolicHessian",
   NONE(), EXTERNAL(), BOOL_FLAG(false), NONE(),
-  Util.gettext("Generates the jacobian for a dynamic optimization problem"));
+  Util.gettext("Generates symbolic Hessian matrix, where der(x) is differentiated w.r.t. x."));
 
 protected
 // This is a list of all configuration flags. A flag can not be used unless it's
@@ -1637,7 +1637,7 @@ constant list<ConfigFlag> allConfigFlags = {
   SHOW_STRUCTURAL_ANNOTATIONS,
   INITIAL_STATE_SELECTION,
   STRICT,
-  GENERATE_JACOBIAN_OPTIMIZATION
+  GENERATE_SYMBOLIC_HESSIAN
 };
 
 public function new

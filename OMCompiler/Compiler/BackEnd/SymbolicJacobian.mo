@@ -91,6 +91,7 @@ public function symbolicJacobian "author: lochel
   output BackendDAE.BackendDAE outDAE;
 algorithm
   if Flags.getConfigBool(Flags.GENERATE_SYMBOLIC_JACOBIAN) then
+    print("1");
     outDAE := generateSymbolicJacobianPast(inDAE);
   else
     outDAE := detectSparsePatternODE(inDAE);
@@ -271,6 +272,7 @@ protected
 algorithm
   System.realtimeTick(ClockIndexes.RT_CLOCK_EXECSTAT_JACOBIANS);
   BackendDAE.DAE(eqs=eqs,shared=shared) := inBackendDAE;
+  print("2");
   (symJacA, funcs, sparsePattern, sparseColoring) := createSymbolicJacobianforStates(inBackendDAE);
   shared := addBackendDAESharedJacobian(symJacA, sparsePattern, sparseColoring, shared);
   functionTree := BackendDAEUtil.getFunctions(shared);
@@ -313,6 +315,7 @@ algorithm
   if Flags.isSet(Flags.JAC_DUMP2) then
     BackendDump.bltdump("System to create symbolic jacobian of: ",backendDAE2);
   end if;
+  print("3");
   (outJacobian, outFunctionTree, outSparsePattern, outSparseColoring) := generateGenericJacobian(backendDAE2,states,BackendVariable.listVar1(states),BackendVariable.listVar1(inputvars),BackendVariable.listVar1(paramvars),BackendVariable.listVar1(states),varlst,"A",false);
 end createSymbolicJacobianforStates;
 
@@ -1971,6 +1974,7 @@ algorithm
   try
     outFunctionTree := shared.functionTree;
     if not onlySparsePattern then
+      print("4");
       (symbolicJacobian, outFunctionTree) := createJacobian(inBackendDAE,inDiffVars, inStateVars, inInputVars, inParameterVars, inDifferentiatedVars, inVars, inName);
       true := checkForNonLinearStrongComponents(symbolicJacobian);
       outJacobian := SOME(symbolicJacobian);
@@ -2031,6 +2035,7 @@ algorithm
         end if;
 
         // Differentiate the eqns system in reducedDAE w.r.t. independents
+        print("5");
         (backendDAE as BackendDAE.DAE(shared=_), funcs) = generateSymbolicJacobian(reducedDAE, indepVars, inDifferentiatedVars, BackendVariable.listVar1(seedlst), inStateVars, inInputVars, inParameterVars, inName);
         if Flags.isSet(Flags.JAC_DUMP2) then
           print("analytical Jacobians -> generated equations for Jacobian " + inName + " time: " + realString(clock()) + "\n");
@@ -2134,8 +2139,7 @@ protected function generateSymbolicJacobian "author: lochel"
   output BackendDAE.BackendDAE outJacobian;
   output DAE.FunctionTree outFunctions;
 algorithm
-  print("BackendDAE before using the symbolic Jacobian");
-  BackendDump.printBackendDAE(outJacobian);
+  print("6");
   (outJacobian,outFunctions) := matchcontinue(inBackendDAE, inVars, inDiffedVars, inSeedVars, inStateVars, inInputVars, inParamVars, inMatrixName)
     local
       BackendDAE.BackendDAE bDAE;
@@ -2247,8 +2251,6 @@ algorithm
       Error.addInternalError("function generateSymbolicJacobian failed", sourceInfo());
     then fail();
   end matchcontinue;
-  print("BackendDAE after using the symbolic Jacobian");
-  BackendDump.printBackendDAE(outJacobian);
 end generateSymbolicJacobian;
 
 public function createSeedVars "author: wbraun"
@@ -2349,6 +2351,7 @@ protected
   list<Integer> ass2_1 = ass2, solvedfor;
   Boolean b;
 algorithm
+
   try
     BackendDAE.DIFFINPUTDATA(allVars=SOME(allVars)) := inDiffData;
     for currEquation in inEquations loop
@@ -2912,7 +2915,6 @@ algorithm
       dependentVarsLst,
       inName,
       inOnlySparsePattern);
-
     outJacobian := BackendDAE.GENERIC_JACOBIAN(symJacBDAE, sparsePattern, sparseColoring);
     outShared := BackendDAEUtil.setSharedFunctionTree(inShared, funcs);
   else

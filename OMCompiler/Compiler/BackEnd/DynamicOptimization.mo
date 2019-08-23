@@ -52,6 +52,7 @@ protected import ComponentReference;
 protected import Config;
 
 protected import SymbolicJacobian;
+protected import SymbolicHessian;
 protected import Differentiate;
 
 protected import Expression;
@@ -68,39 +69,24 @@ protected
  BackendDAE.EqSystem syst;
  BackendDAE.EquationArray eqns;
  BackendDAE.Shared shared;
+ BackendDAE.BackendDAE hessian; //In Shared z.b den Datentyp hessian integrieren!!!
 algorithm
+  if Flags.getConfigBool(Flags.GENERATE_SYMBOLIC_HESSIAN) then // Es genuegt die Hessematrix mit den input groessen zu fuettern die zu beginn vorhanden sind, erweitertes GS wird nicht gebraucht!!!
+    hessian:=dae;
+    hessian:=SymbolicHessian.generateSymbolicHessian(hessian,{1.0,1.0});
+    //Ausgabe der "Hesse-Matrix" vorlaeufig um Ergebnis zu kontrollieren:)
+    print("\n\n System after the usage of the Hessian Matrix.\n\n");
+    BackendDump.printBackendDAE(hessian);
+  end if;
   shared := dae.shared;
   {syst} := dae.eqs;
-  if Flags.getConfigBool(Flags.GENERATE_JACOBIAN_OPTIMIZATION) then
-    BackendDAE.EQSYSTEM(orderedVars=vars, orderedEqs=eqns) := syst;
-    //BackendDump.printBackendDAE(dae);
-    //dae := addOptimizationJacobian(dae); //The jacobians are stored in shared
-    (vars, eqns, shared) := addOptimizationVarsEqns(vars, eqns, shared);
-  else
-    BackendDAE.EQSYSTEM(orderedVars=vars, orderedEqs=eqns) := syst;
-    (vars, eqns, shared) := addOptimizationVarsEqns(vars, eqns, shared);
-  end if;
+  BackendDAE.EQSYSTEM(orderedVars=vars, orderedEqs=eqns) := syst;
+  (vars, eqns, shared) := addOptimizationVarsEqns(vars, eqns, shared);
   syst.orderedVars := vars;
   syst.orderedEqs := eqns;
   dae.eqs := {syst};
   dae.shared := shared;
 end createDynamicOptimization;
-
-protected function addOptimizationJacobian
-  "This function added the jacobian matrix to the DAE. Result is used for the generation of the hessian matrix."
-  input output BackendDAE.BackendDAE dae;
-protected
-  BackendDAE.Variables vars;
-  BackendDAE.EqSystem syst;
-  BackendDAE.EquationArray eqns;
-  BackendDAE.Shared shared;
-algorithm
-  BackendDump.printBackendDAE(dae);
-  {syst}:=dae.eqs;
-  shared:=dae.shared;
-  dae := SymbolicJacobian.symbolicJacobian(dae);
-  BackendDump.printBackendDAE(dae);
-end addOptimizationJacobian;
 
 protected function addOptimizationVarsEqns
 "author: Vitalij Ruge
