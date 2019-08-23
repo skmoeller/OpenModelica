@@ -111,6 +111,7 @@ import ResolveLoops;
 import SCode;
 import SCodeUtil;
 import Sorting;
+import SymbolicHessian;
 import StackOverflow;
 import SymbolicImplicitSolver;
 import SymbolicJacobian;

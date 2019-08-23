@@ -1511,9 +1511,9 @@ constant ConfigFlag LINEARIZATION_DUMP_LANGUAGE = CONFIG_FLAG(131, "linearizatio
   SOME(STRING_OPTION({"modelica","matlab","julia","python"})),
     Util.gettext("Sets the target language for the produced code of linearization. Only works with '--generateSymbolicLinearization' and 'linearize(modelName)'."));
 
-constant ConfigFlag GENERATE_JACOBIAN_OPTIMIZATION = CONFIG_FLAG(132, "generateJacobianOptimization",
+constant ConfigFlag GENERATE_SYMBOLIC_HESSIAN = CONFIG_FLAG(132, "generateSymbolicHessian",
   NONE(), EXTERNAL(), BOOL_FLAG(false), NONE(),
-  Util.gettext("Generates the jacobian for a dynamic optimization problem"));
+  Util.gettext("Generates symbolic Hessian matrix, where der(x) is differentiated w.r.t. x."));
 
 protected
 // This is a list of all configuration flags. A flag can not be used unless it's
@@ -1651,10 +1651,14 @@ constant list<ConfigFlag> allConfigFlags = {
   INITIAL_STATE_SELECTION,
   STRICT,
 <<<<<<< HEAD
+<<<<<<< HEAD
   LINEARIZATION_DUMP_LANGUAGE
 =======
   GENERATE_JACOBIAN_OPTIMIZATION
 >>>>>>> First Ideas->do not work!
+=======
+  GENERATE_SYMBOLIC_HESSIAN
+>>>>>>> Start to build the modul for the hessian
 };
 
 public function new

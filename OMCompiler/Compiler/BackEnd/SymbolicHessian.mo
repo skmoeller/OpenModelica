@@ -85,18 +85,37 @@
  //
  // =============================================================================
 
-protected function generateSymbolicHessian
-  "Function calculates the symbolic Hessian by using the algorithm for the jacobians.";
+public function generateSymbolicHessian
+  "Function to generate the symbolic hessian with respect to the stats of an dynamic optimization problem."
+  input BackendDAE.BackendDAE inBackendDAE "Input BackendDAE";
+  input list<Real> lambda                  "Lagrange factors, at the moment used as known.";
+  output BackendDAE.BackendDAE outHessian "second derivates-> this is the hessian";
+protected
+  BackendDAE.EqSystems eqs "Equationsystem from dynamic optimization problem.";
+  BackendDAE.Shared shared "The shared type of the BackendDAE.";
+algorithm
+  outHessian:=inBackendDAE;
+  if Flags.getConfigBool(Flags.GENERATE_SYMBOLIC_HESSIAN) then
+    outHessian:=SymbolicJacobian.symbolicJacobian(inBackendDAE); //Erzeuge Jacobi Matrix , wird hier alles gebraucht???
+    //reducedJacobian und lagrangeJacobian hier aufrufen!!!
+    outHessian:=transformJacobian(outHessian); //Umbauen des Gleichungssystems der jacobi matrix damit dann JAcobi erneut verwendet werden kann
+    outHessian:=SymbolicJacobian.symbolicJacobian(outHessian); //Erzeuge jetzt Hessematrix dies wird dann genauso zurueck gegeben!
+  else
+    print("\n\n Set '--generateSymbolicHessian' to calculate the symbolic Hessian.\n\n");
+  end if;
+end generateSymbolicHessian;
+/*
+protected function calculateSymbolicHessian
+  "Function calculates the symbolic Hessian by using the algorithm for the jacobians."
  input BackendDAE.BackendDAE inBackendDAE "reducedDAE (variables and equations needed to calculate resVars)";
  input list<BackendDAE.Var> inVars        "independent vars";
  input BackendDAE.Variables inDiffedVars  "resVars";
- input BackendDAE.Variables inSeedVars;   "Seed Variables";
- input BackendDAE.Variables inStateVars;  "Stats";
- input BackendDAE.Variables inInputVars;  "Input Variables";
+ input BackendDAE.Variables inSeedVars    "Seed Variables";
+ input BackendDAE.Variables inStateVars   "Stats";
+ input BackendDAE.Variables inInputVars   "Input Variables";
  input BackendDAE.Variables inParamVars   "globalKnownVars";
- input String inMatrixName;               "Name of the Matrix";
- input list<Real> lambda ;                "Lagrange Multiplicators" //At the moment: Use them as known!!!
- output BackendDAE.BackendDAE outHessian; "The symbolic Hessian";
+ input String inMatrixName                "Name of the Matrix";
+ output BackendDAE.BackendDAE outHessian  "The symbolic Hessian";
  output DAE.FunctionTree outFunctions;
 algorithm
  (outHessian,outFunctions) := matchcontinue(inBackendDAE, inVars, inDiffedVars, inSeedVars, inStateVars, inInputVars, inParamVars, inMatrixName)
@@ -156,6 +175,7 @@ algorithm
      if Flags.isSet(Flags.JAC_DUMP2) then
        print("*** analytical Jacobians -> derived all algorithms time: " + realString(clock()) + "\n");
      end if;
+     //Add prints here to see how the vars looking
      diffVarsArr = BackendVariable.listVar1(diffVars);
      comref_diffvars = List.map(diffVars, BackendVariable.varCref);
      diffData = BackendDAE.emptyInputData;
@@ -174,7 +194,7 @@ algorithm
        print("*** analytical Jacobians -> after derive all equation: " + realString(clock()) + "\n");
      end if;
      // replace all der(x), since ExpressionSolve can't handle der(x) proper
-     derivedEquations = BackendEquation.replaceDerOpInEquationList(derivedEquations);
+     derivedEquations = BackendEquation.replaceDerOpInEquationList(derivedEquations); //Hier wird etwas verändert, checken wie das gemacht wird, vielleicht ergibt sich daraus noch Anwendung; bei minimal beispiel passiert hier nichts!!!
      if Flags.isSet(Flags.JAC_DUMP2) then
        print("*** analytical Jacobians -> created all derived equation time: " + realString(clock()) + "\n");
      end if;
@@ -197,7 +217,7 @@ algorithm
      jacKnownVars = BackendVariable.addVariables(inSeedVars, jacKnownVars);
      (jacKnownVars,_) = BackendVariable.traverseBackendDAEVarsWithUpdate(jacKnownVars, BackendVariable.setVarDirectionTpl, (DAE.INPUT()));
      jacOrderedEqs = BackendEquation.listEquation(derivedEquations);
-
+    //todo print whats in the vars of jacobian!!!!!
 
      shared = BackendDAEUtil.createEmptyShared(BackendDAE.JACOBIAN(), ei, cache, graph);
 
@@ -210,4 +230,7 @@ algorithm
      Error.addInternalError("function generateSymbolicJacobian failed", sourceInfo());
    then fail();
  end matchcontinue;
-end generateSymbolicJacobian;
+end generateSymbolicHessian;
+*/
+annotation(__OpenModelica_Interface="backend");
+end SymbolicHessian;
