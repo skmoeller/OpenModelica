@@ -71,13 +71,6 @@ protected
  BackendDAE.Shared shared;
  BackendDAE.BackendDAE hessian; //In Shared z.b den Datentyp hessian integrieren!!!
 algorithm
-  if Flags.getConfigBool(Flags.GENERATE_SYMBOLIC_HESSIAN) then // Es genuegt die Hessematrix mit den input groessen zu fuettern die zu beginn vorhanden sind, erweitertes GS wird nicht gebraucht!!!
-    hessian:=dae;
-    hessian:=SymbolicHessian.generateSymbolicHessian(hessian,{1.0,1.0});
-    //Ausgabe der "Hesse-Matrix" vorlaeufig um Ergebnis zu kontrollieren:)
-    print("\n\n System after the usage of the Hessian Matrix.\n\n");
-    BackendDump.printBackendDAE(hessian);
-  end if;
   shared := dae.shared;
   {syst} := dae.eqs;
   BackendDAE.EQSYSTEM(orderedVars=vars, orderedEqs=eqns) := syst;
@@ -86,6 +79,13 @@ algorithm
   syst.orderedEqs := eqns;
   dae.eqs := {syst};
   dae.shared := shared;
+  if Flags.getConfigBool(Flags.GENERATE_SYMBOLIC_HESSIAN) then
+    hessian:=dae;
+    hessian:=SymbolicHessian.generateSymbolicHessian(hessian,{1.0,1.0});
+    //Ausgabe der "Hesse-Matrix" vorlaeufig um Ergebnis zu kontrollieren:)
+    //print("\n\n System after the usage of the Hessian Matrix.\n\n");
+    BackendDump.printBackendDAE(hessian);
+  end if;
 end createDynamicOptimization;
 
 protected function addOptimizationVarsEqns
@@ -107,11 +107,8 @@ protected
   Boolean inDynOptimization = Flags.getConfigBool(Flags.GENERATE_DYN_OPTIMIZATION_PROBLEM);
 algorithm
    classAttrs := shared.classAttrs;
-   BackendDump.printClassAttributes(listGet(classAttrs,1)); //Ziel-Funktion, besteht aus einem Meyer und eine Lagrange Term
    constraints := shared.constraints;
-   BackendDump.dumpConstraintList(constraints,"Constraints for the Problem");
    globalKnownVars := shared.globalKnownVars;
-   BackendDump.dumpVariables(globalKnownVars,"Global Known Variables-> No Stats");
    eqnsLst := {};
 
    if not(inOptimicaFlag or inDynOptimization)
