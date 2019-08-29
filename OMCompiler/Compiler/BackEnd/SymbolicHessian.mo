@@ -90,20 +90,63 @@ public function generateSymbolicHessian
   input BackendDAE.BackendDAE inBackendDAE "Input BackendDAE";
   input list<Real> lambda                  "Lagrange factors, at the moment used as known.";
   output BackendDAE.BackendDAE outHessian "second derivates-> this is the hessian";
-protected
-  BackendDAE.EqSystems eqs "Equationsystem from dynamic optimization problem.";
-  BackendDAE.Shared shared "The shared type of the BackendDAE.";
 algorithm
-  outHessian:=inBackendDAE;
-  if Flags.getConfigBool(Flags.GENERATE_SYMBOLIC_HESSIAN) then
-    outHessian:=SymbolicJacobian.symbolicJacobian(inBackendDAE); //Erzeuge Jacobi Matrix , wird hier alles gebraucht???
-    //reducedJacobian und lagrangeJacobian hier aufrufen!!!
-    outHessian:=transformJacobian(outHessian); //Umbauen des Gleichungssystems der jacobi matrix damit dann JAcobi erneut verwendet werden kann
-    outHessian:=SymbolicJacobian.symbolicJacobian(outHessian); //Erzeuge jetzt Hessematrix dies wird dann genauso zurueck gegeben!
-  else
-    print("\n\n Set '--generateSymbolicHessian' to calculate the symbolic Hessian.\n\n");
-  end if;
+  outHessian := matchcontinue(inBackendDAE)
+  local
+    BackendDAE.EqSystems eqs;
+    BackendDAE.Shared shared;
+    BackendDAE.SymbolicJacobians linearModelMatrixes;
+    DAE.FunctionTree funcs, functionTree;
+    list< .DAE.Constraint> constraints;
+  case(_) equation
+    true = Flags.getConfigBool(Flags.GENERATE_SYMBOLIC_HESSIAN);
+    BackendDAE.DAE(eqs=eqs,shared=shared) = inBackendDAE;
+    (linearModelMatrixes, funcs) = SymbolicJacobian.createLinearModelMatrixes(inBackendDAE, Config.acceptOptimicaGrammar());
+    shared = BackendDAEUtil.setSharedSymJacs(shared, linearModelMatrixes);
+    functionTree = BackendDAEUtil.getFunctions(shared);
+    functionTree = DAE.AvlTreePathFunction.join(functionTree, funcs);
+    shared = BackendDAEUtil.setSharedFunctionTree(shared, functionTree);
+    outHessian = BackendDAE.DAE(eqs,shared);
+  then outHessian;
+
+  else inBackendDAE;
+  end matchcontinue;
+  print("\n\nOutput after linearization\n\n");
+  BackendDump.printBackendDAE(outHessian);
+  //outHessian:=transformJacobian(outHessian,lambda); //Umbauen des Gleichungssystems der jacobi matrix damit dann JAcobi erneut verwendet werden kann
+  //outHessian:=SymbolicJacobian.symbolicJacobian(outHessian); //Erzeuge jetzt Hessematrix dies wird dann genauso zurueck gegeben!
 end generateSymbolicHessian;
+
+protected function transformJacobian
+  "Function sets the lagrange factors to the jacobian matrix
+  and reduces the left side of the equation by setting it to zero."
+  input BackendDAE.BackendDAE inJacobian "Jacobian after normal calculation.";
+  input list<Real> lambda "Lagrange factors.";
+  output BackendDAE.BackendDAE outJacobian "Jacobian with leftside zero and multiplication of the lagrange factors.";
+protected
+  BackendDAE.EqSystem eqSys;
+  BackendDAE.EquationArray eqns;
+algorithm
+  outJacobian:=reduceJacobian(inJacobian);
+  outJacobian:=lagrangeJacobian(outJacobian,lambda);
+  eqSys:=listGet(outJacobian.eqs,1);
+  eqns:=eqSys.orderedEqs;
+end transformJacobian;
+
+protected function reduceJacobian
+input BackendDAE.BackendDAE inJacobian;
+output BackendDAE.BackendDAE outReducedJacobian;
+algorithm
+  outReducedJacobian:=inJacobian;
+end reduceJacobian;
+
+protected function lagrangeJacobian
+ input BackendDAE.BackendDAE reducedJacobian;
+ input list<Real> lambda;
+ output BackendDAE.BackendDAE lagrangeGradient;
+algorithm
+  lagrangeGradient:=reducedJacobian;
+end lagrangeJacobian;
 /*
 protected function calculateSymbolicHessian
   "Function calculates the symbolic Hessian by using the algorithm for the jacobians."

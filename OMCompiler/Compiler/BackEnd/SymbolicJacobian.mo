@@ -90,8 +90,7 @@ public function symbolicJacobian "author: lochel
   input BackendDAE.BackendDAE inDAE;
   output BackendDAE.BackendDAE outDAE;
 algorithm
-  if Flags.getConfigBool(Flags.GENERATE_SYMBOLIC_JACOBIAN) then
-    print("1");
+  if (Flags.getConfigBool(Flags.GENERATE_SYMBOLIC_JACOBIAN)) then
     outDAE := generateSymbolicJacobianPast(inDAE);
   else
     outDAE := detectSparsePatternODE(inDAE);
@@ -269,10 +268,10 @@ protected
   BackendDAE.SparsePattern sparsePattern;
   BackendDAE.SparseColoring sparseColoring;
   DAE.FunctionTree funcs, functionTree;
+  BackendDAE.BackendDAE jacDAE;
 algorithm
   System.realtimeTick(ClockIndexes.RT_CLOCK_EXECSTAT_JACOBIANS);
   BackendDAE.DAE(eqs=eqs,shared=shared) := inBackendDAE;
-  print("2");
   (symJacA, funcs, sparsePattern, sparseColoring) := createSymbolicJacobianforStates(inBackendDAE);
   shared := addBackendDAESharedJacobian(symJacA, sparsePattern, sparseColoring, shared);
   functionTree := BackendDAEUtil.getFunctions(shared);
@@ -315,7 +314,6 @@ algorithm
   if Flags.isSet(Flags.JAC_DUMP2) then
     BackendDump.bltdump("System to create symbolic jacobian of: ",backendDAE2);
   end if;
-  print("3");
   (outJacobian, outFunctionTree, outSparsePattern, outSparseColoring) := generateGenericJacobian(backendDAE2,states,BackendVariable.listVar1(states),BackendVariable.listVar1(inputvars),BackendVariable.listVar1(paramvars),BackendVariable.listVar1(states),varlst,"A",false);
 end createSymbolicJacobianforStates;
 
@@ -1771,7 +1769,7 @@ else
 end try;
 end createFMIModelDerivatives;
 
-protected function createLinearModelMatrixes "This function creates the linear model matrices column-wise
+public function createLinearModelMatrixes "This function creates the linear model matrices column-wise
   author: wbraun"
   input BackendDAE.BackendDAE inBackendDAE;
   input Boolean useOptimica;
@@ -1893,7 +1891,7 @@ algorithm
         conVars = BackendVariable.listVar1(conVarsList);
 
         //BackendDump.printVariables(conVars);
-        //BackendDump.printVariables(object);
+        //BackendDump.printVarList(object);
         //print(intString(BackendVariable.varsSize(object)));
         //object = BackendVariable.listVar1(object);
 
@@ -1902,10 +1900,10 @@ algorithm
 
         backendDAE2 = BackendDAEUtil.setFunctionTree(backendDAE2, functionTree);
         linearModelMatrices = {(linearModelMatrix,sparsePattern,sparseColoring)};
+
         if Flags.isSet(Flags.JAC_DUMP2) then
           print("analytical Jacobians -> generated system for matrix A time: " + realString(clock()) + "\n");
         end if;
-
         // Differentiate the System w.r.t states&inputs for matrices B
 
         optimizer_vars = BackendVariable.addVariables(statesarr, BackendVariable.copyVariables(conVars));
@@ -1974,7 +1972,6 @@ algorithm
   try
     outFunctionTree := shared.functionTree;
     if not onlySparsePattern then
-      print("4");
       (symbolicJacobian, outFunctionTree) := createJacobian(inBackendDAE,inDiffVars, inStateVars, inInputVars, inParameterVars, inDifferentiatedVars, inVars, inName);
       true := checkForNonLinearStrongComponents(symbolicJacobian);
       outJacobian := SOME(symbolicJacobian);
@@ -2035,7 +2032,6 @@ algorithm
         end if;
 
         // Differentiate the eqns system in reducedDAE w.r.t. independents
-        print("5");
         (backendDAE as BackendDAE.DAE(shared=_), funcs) = generateSymbolicJacobian(reducedDAE, indepVars, inDifferentiatedVars, BackendVariable.listVar1(seedlst), inStateVars, inInputVars, inParameterVars, inName);
         if Flags.isSet(Flags.JAC_DUMP2) then
           print("analytical Jacobians -> generated equations for Jacobian " + inName + " time: " + realString(clock()) + "\n");
@@ -2139,7 +2135,6 @@ protected function generateSymbolicJacobian "author: lochel"
   output BackendDAE.BackendDAE outJacobian;
   output DAE.FunctionTree outFunctions;
 algorithm
-  print("6");
   (outJacobian,outFunctions) := matchcontinue(inBackendDAE, inVars, inDiffedVars, inSeedVars, inStateVars, inInputVars, inParamVars, inMatrixName)
     local
       BackendDAE.BackendDAE bDAE;
@@ -2244,6 +2239,7 @@ algorithm
 
       jacobian = BackendDAE.DAE( BackendDAEUtil.createEqSystem(jacOrderedVars, jacOrderedEqs)::{},
                                  BackendDAEUtil.setSharedGlobalKnownVars(shared, jacKnownVars) );
+
     then (jacobian, functions);
 
     else

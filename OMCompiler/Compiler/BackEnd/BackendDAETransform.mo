@@ -107,7 +107,6 @@ algorithm
       Error.addInternalError("function strongComponentsScalar failed (sorting strong components)", sourceInfo());
     then fail();
   end matchcontinue;
-  BackendDump.printEqSystem(outSystem);
 end strongComponentsScalar;
 
 public function eqnAssignmentNonScalar
