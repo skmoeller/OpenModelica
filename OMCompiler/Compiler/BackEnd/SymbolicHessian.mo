@@ -119,6 +119,23 @@ algorithm
   eqns:=eqSys.orderedEqs;
 end transformJacobian;
 
+protected function generateSymbolicHessianA
+  input  BackendDAE.SymbolicJacobian A;
+  output BackendDAE.BackendDAE HessA;
+algorithm
+  // somehow get states
+  /*
+   lambdas = if true then SOME(getLambdaList(listLength(states))) else NONE();
+
+  if isSome(lambdas) then
+    linearModelMatrix = multiplyLambdas(lambdas, linearModelMatrix);
+  end if;
+*/
+
+// add up equations to one equation
+// differentiate equation wrt all states
+end generateSymbolicHessianA;
+
 protected function reduceJacobian
 input BackendDAE.BackendDAE inJacobian;
 output BackendDAE.BackendDAE outReducedJacobian;
