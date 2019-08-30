@@ -1801,7 +1801,6 @@ algorithm
       BackendDAE.ExtraInfo ei;
       FCore.Cache cache;
       FCore.Graph graph;
-
     case (backendDAE, false)
       equation
         backendDAE2 = BackendDAEUtil.copyBackendDAE(backendDAE);
@@ -1896,6 +1895,7 @@ algorithm
         //object = BackendVariable.listVar1(object);
 
         // Differentiate the System w.r.t states for matrices A
+
         (linearModelMatrix, functionTree, sparsePattern, sparseColoring) = generateGenericJacobian(backendDAE2,states,statesarr,inputvarsarr,paramvarsarr,statesarr,varlst,"A",false);
 
         backendDAE2 = BackendDAEUtil.setFunctionTree(backendDAE2, functionTree);
@@ -2088,7 +2088,6 @@ algorithm
           if Flags.isSet(Flags.JAC_DUMP2) then
             print("analytical Jacobians -> optimize jacobians time: " + realString(clock()) + "\n");
           end if;
-
           if Flags.isSet(Flags.JAC_DUMP) then
             BackendDump.bltdump("Symbolic Jacobian",backendDAE);
           else

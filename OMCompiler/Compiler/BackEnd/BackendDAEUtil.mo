@@ -7520,7 +7520,6 @@ algorithm
   dae := causalizeDAE(dae, NONE(), matchingAlgorithm, daeHandler, true);
   execStat("causalizeDAE (first run)");
   //fcall(Flags.DUMP_DAE_LOW, BackendDump.bltdump, ("bltdump", dae));
-
   // post-optimization phase
   outDAE := postOptimizeDAE(dae, postOptModules, matchingAlgorithm, daeHandler);
 

@@ -96,12 +96,20 @@ algorithm
     BackendDAE.EqSystems eqs;
     BackendDAE.Shared shared;
     BackendDAE.SymbolicJacobians linearModelMatrixes;
+    BackendDAE.SymbolicJacobian A;
+    BackendDAE.BackendDAE HessA;
     DAE.FunctionTree funcs, functionTree;
     list< .DAE.Constraint> constraints;
+    Option<list<DAE.ComponentRef>> lambdas;
+
   case(_) equation
     true = Flags.getConfigBool(Flags.GENERATE_SYMBOLIC_HESSIAN);
     BackendDAE.DAE(eqs=eqs,shared=shared) = inBackendDAE;
     (linearModelMatrixes, funcs) = SymbolicJacobian.createLinearModelMatrixes(inBackendDAE, Config.acceptOptimicaGrammar());
+
+    //A::linearModelMatrixes = linearModelMatrixes; get first matrix
+    //HessA = generateSymbolicHessianA(A);
+
     shared = BackendDAEUtil.setSharedSymJacs(shared, linearModelMatrixes);
     functionTree = BackendDAEUtil.getFunctions(shared);
     functionTree = DAE.AvlTreePathFunction.join(functionTree, funcs);
@@ -116,6 +124,23 @@ algorithm
   //outHessian:=transformJacobian(outHessian,lambda); //Umbauen des Gleichungssystems der jacobi matrix damit dann JAcobi erneut verwendet werden kann
   //outHessian:=SymbolicJacobian.symbolicJacobian(outHessian); //Erzeuge jetzt Hessematrix dies wird dann genauso zurueck gegeben!
 end generateSymbolicHessian;
+
+protected function generateSymbolicHessianA
+  input  BackendDAE.SymbolicJacobian A;
+  output BackendDAE.BackendDAE HessA;
+algorithm
+  // somehow get states
+  /*
+   lambdas = if true then SOME(getLambdaList(listLength(states))) else NONE();
+
+  if isSome(lambdas) then
+    linearModelMatrix = multiplyLambdas(lambdas, linearModelMatrix);
+  end if;
+*/
+
+// add up equations to one equation
+// differentiate equation wrt all states
+end generateSymbolicHessianA;
 
 protected function transformJacobian
   "Function sets the lagrange factors to the jacobian matrix
@@ -275,5 +300,26 @@ algorithm
  end matchcontinue;
 end generateSymbolicHessian;
 */
+
+protected function getLambdaList
+  input Integer lambdaCount;
+  output list<DAE.ComponentRef> lambdas = {};
+algorithm
+  for i in lambdaCount:-1:1 loop
+    lambdas := DAE.CREF_IDENT("$lambda", DAE.T_REAL_DEFAULT, {DAE.INDEX(DAE.ICONST(i))}) ::lambdas;
+  end for;
+end getLambdaList;
+
+protected function multiplyLambdas
+  input Option<list<DAE.ComponentRef>> lambdas;
+  input output Option<BackendDAE.SymbolicJacobian> jac;
+algorithm
+  /*
+  get ordered equations from jac
+  traverse and multiply each lambda on rhs
+  e1.rhs -> e1.rhs * lambda1
+  BackendDAEUtil.traverseArrayNoCopyWithUpdate
+  */
+end multiplyLambdas;
 annotation(__OpenModelica_Interface="backend");
 end SymbolicHessian;
