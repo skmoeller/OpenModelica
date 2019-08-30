@@ -1769,7 +1769,7 @@ else
 end try;
 end createFMIModelDerivatives;
 
-public function createLinearModelMatrixes "This function creates the linear model matrices column-wise
+protected function createLinearModelMatrixes "This function creates the linear model matrices column-wise
   author: wbraun"
   input BackendDAE.BackendDAE inBackendDAE;
   input Boolean useOptimica;
