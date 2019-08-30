@@ -73,10 +73,10 @@ protected
 algorithm
   if Flags.getConfigBool(Flags.GENERATE_SYMBOLIC_HESSIAN) then
     hessian:=dae;
-    hessian:=SymbolicHessian.generateSymbolicHessian(hessian,{1.0,1.0});
+    hessian:=SymbolicHessian.generateSymbolicHessian(hessian);
     //Ausgabe der "Hesse-Matrix" vorlaeufig um Ergebnis zu kontrollieren:)
     //print("\n\n System after the usage of the Hessian Matrix.\n\n");
-    BackendDump.printBackendDAE(hessian);
+    //BackendDump.printBackendDAE(hessian);
   end if;
   shared := dae.shared;
   {syst} := dae.eqs;
