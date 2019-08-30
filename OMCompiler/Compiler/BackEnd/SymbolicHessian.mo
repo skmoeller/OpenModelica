@@ -91,13 +91,16 @@ public function generateSymbolicHessian
   output BackendDAE.BackendDAE outHessian "second derivates-> this is the hessian";
 protected
   BackendDAE.SymbolicJacobians linearModelMatrixes;
-  BackendDAE.SymbolicJacobian JacA;
+  BackendDAE.SymbolicJacobian jacA;
+  BackendDAE.SymbolicJacobian jacB;
+  BackendDAE.SymbolicJacobian jacC;
+  BackendDAE.SymbolicJacobian jacD;
   Option<list<DAE.ComponentRef>> lambdas;
 algorithm
   outHessian:=SymbolicJacobian.generateSymbolicLinearizationPast(inBackendDAE);
   linearModelMatrixes:=BackendDAEUtil.getSharedSymJacs(outHessian.shared);
-  (SOME(JacA),_,_)::linearModelMatrixes:=linearModelMatrixes;
-  (outHessian,_,_,_,_,_):=JacA;
+  (SOME(jacA),_,_)::(SOME(jacB),_,_)::(SOME(jacC),_,_)::(SOME(jacD),_,_)::linearModelMatrixes:=linearModelMatrixes;
+  (outHessian,_,_,_,_,_):=jacA;
   //A::linearModelMatrixes = linearModelMatrixes; get first matrix
   //HessA = generateSymbolicHessianA(A);
   print("\n\nOutput after linearization\n\n");
