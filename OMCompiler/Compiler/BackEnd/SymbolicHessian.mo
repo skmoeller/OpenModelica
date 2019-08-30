@@ -92,11 +92,14 @@ public function generateSymbolicHessian
 protected
   BackendDAE.SymbolicJacobians linearModelMatrixes;
   BackendDAE.SymbolicJacobian JacA;
+  Option<list<DAE.ComponentRef>> lambdas;
 algorithm
   outHessian:=SymbolicJacobian.generateSymbolicLinearizationPast(inBackendDAE);
   linearModelMatrixes:=BackendDAEUtil.getSharedSymJacs(outHessian.shared);
   (SOME(JacA),_,_)::linearModelMatrixes:=linearModelMatrixes;
   (outHessian,_,_,_,_,_):=JacA;
+  //A::linearModelMatrixes = linearModelMatrixes; get first matrix
+  //HessA = generateSymbolicHessianA(A);
   print("\n\nOutput after linearization\n\n");
   BackendDump.printBackendDAE(outHessian);
   //outHessian:=transformJacobian(outHessian,lambda); //Umbauen des Gleichungssystems der jacobi matrix damit dann JAcobi erneut verwendet werden kann
