@@ -88,7 +88,7 @@
 public function generateSymbolicHessian
   "Function to generate the symbolic hessian with respect to the stats of an dynamic optimization problem."
   input BackendDAE.BackendDAE inBackendDAE "Input BackendDAE";
-  output BackendDAE.BackendDAE outHessian "second derivates-> this is the hessian";
+  output BackendDAE.BackendDAE outHessian "second derivates-> this is the hessian"; //Improve it by using special hessian struct
 protected
   BackendDAE.SymbolicJacobians linearModelMatrixes;
   BackendDAE.SymbolicJacobian jacA;
@@ -100,66 +100,39 @@ algorithm
   outHessian:=SymbolicJacobian.generateSymbolicLinearizationPast(inBackendDAE);
   linearModelMatrixes:=BackendDAEUtil.getSharedSymJacs(outHessian.shared);
   (SOME(jacA),_,_)::(SOME(jacB),_,_)::(SOME(jacC),_,_)::(SOME(jacD),_,_)::linearModelMatrixes:=linearModelMatrixes;
-  (outHessian,_,_,_,_,_):=jacA;
-  //A::linearModelMatrixes = linearModelMatrixes; get first matrix
-  //HessA = generateSymbolicHessianA(A);
+  outHessian:=generateSymbolicHessianA(jacA);
   print("\n\nOutput after linearization\n\n");
   BackendDump.printBackendDAE(outHessian);
-  //outHessian:=transformJacobian(outHessian,lambda); //Umbauen des Gleichungssystems der jacobi matrix damit dann JAcobi erneut verwendet werden kann
-  //outHessian:=SymbolicJacobian.symbolicJacobian(outHessian); //Erzeuge jetzt Hessematrix dies wird dann genauso zurueck gegeben!
 end generateSymbolicHessian;
 
-protected function transformJacobian
-  "Function sets the lagrange factors to the jacobian matrix
-  and reduces the left side of the equation by setting it to zero."
-  input BackendDAE.BackendDAE inJacobian "Jacobian after normal calculation.";
-  input list<Real> lambda "Lagrange factors.";
-  output BackendDAE.BackendDAE outJacobian "Jacobian with leftside zero and multiplication of the lagrange factors.";
-protected
-  BackendDAE.EqSystem eqSys;
-  BackendDAE.EquationArray eqns;
-algorithm
-  outJacobian:=reduceJacobian(inJacobian);
-  outJacobian:=lagrangeJacobian(outJacobian,lambda);
-  eqSys:=listGet(outJacobian.eqs,1);
-  eqns:=eqSys.orderedEqs;
-end transformJacobian;
-
 protected function generateSymbolicHessianA
-  input  BackendDAE.SymbolicJacobian A;
-  output BackendDAE.BackendDAE HessA;
+  "Function sets the lagrange factors and multiplies the vector to the jacobian.
+   Then it runs the jacobian routine again!"
+  input  BackendDAE.SymbolicJacobian A "Symbolic Jacobian Matrix A";
+  output BackendDAE.BackendDAE HessA "Symbolic Hessian Matrix for A";
+protected
+  list<BackendDAE.Var> stats;
+  Option<list<DAE.ComponentRef>> lambdas;
 algorithm
-  // somehow get states
+  (HessA,_,_,_,_,_):=A;
   /*
-   lambdas = if true then SOME(getLambdaList(listLength(states))) else NONE();
+  // somehow get states
+  (_,_,stats,_,_,_):=A;
+   lambdas:=if Flags.getConfigBool(Flags.GENERATE_SYMBOLIC_HESSIAN) then SOME(getLambdaList(listLength(stats))) else NONE();
 
   if isSome(lambdas) then
-    linearModelMatrix = multiplyLambdas(lambdas, linearModelMatrix);
+    A:=multiplyLambdas(lambdas,A);
   end if;
-*/
 
 // add up equations to one equation
 // differentiate equation wrt all states
+*/
 end generateSymbolicHessianA;
 
-protected function reduceJacobian
-input BackendDAE.BackendDAE inJacobian;
-output BackendDAE.BackendDAE outReducedJacobian;
-algorithm
-  outReducedJacobian:=inJacobian;
-end reduceJacobian;
-
-protected function lagrangeJacobian
- input BackendDAE.BackendDAE reducedJacobian;
- input list<Real> lambda;
- output BackendDAE.BackendDAE lagrangeGradient;
-algorithm
-  lagrangeGradient:=reducedJacobian;
-end lagrangeJacobian;
-
 protected function getLambdaList
-  input Integer lambdaCount;
-  output list<DAE.ComponentRef> lambdas = {};
+  "Function sets the lambdas to the system."
+  input Integer lambdaCount "Number of lambdas";
+  output list<DAE.ComponentRef> lambdas = {} "List of componentrefs for lambdas";
 algorithm
   for i in lambdaCount:-1:1 loop
     lambdas := DAE.CREF_IDENT("$lambda", DAE.T_REAL_DEFAULT, {DAE.INDEX(DAE.ICONST(i))}) ::lambdas;
@@ -167,6 +140,7 @@ algorithm
 end getLambdaList;
 
 protected function multiplyLambdas
+  "Function sets the "
   input Option<list<DAE.ComponentRef>> lambdas;
   input output Option<BackendDAE.SymbolicJacobian> jac;
 algorithm
@@ -177,5 +151,11 @@ algorithm
   BackendDAEUtil.traverseArrayNoCopyWithUpdate
   */
 end multiplyLambdas;
+
+protected function addEquations
+  input output BackendDAE.EquationArray eqs;
+algorithm
+
+end addEquations;
 annotation(__OpenModelica_Interface="backend");
 end SymbolicHessian;
