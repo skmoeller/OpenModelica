@@ -90,19 +90,17 @@ public function generateSymbolicHessian
   input BackendDAE.BackendDAE inBackendDAE "Input BackendDAE";
   output BackendDAE.BackendDAE outHessian "second derivates-> this is the hessian"; //Improve it by using special hessian struct
 protected
-  BackendDAE.SymbolicJacobians linearModelMatrixes;
-  BackendDAE.SymbolicJacobian jacA;
-  BackendDAE.SymbolicJacobian jacB;
-  BackendDAE.SymbolicJacobian jacC;
-  BackendDAE.SymbolicJacobian jacD;
-  Option<list<DAE.ComponentRef>> lambdas;
+  BackendDAE.SymbolicJacobians linearModelMatrixes; //All Matrices A,B,C,D
+  BackendDAE.SymbolicJacobian jacA; //Matrix A
+  BackendDAE.SymbolicJacobian jacB; //Matrix B
+  BackendDAE.SymbolicJacobian jacC; //Matrix C
+  BackendDAE.SymbolicJacobian jacD; //Matrix D
+  Option<list<DAE.ComponentRef>> lambdas; //Lagrange factors
 algorithm
-  outHessian:=SymbolicJacobian.generateSymbolicLinearizationPast(inBackendDAE);
-  linearModelMatrixes:=BackendDAEUtil.getSharedSymJacs(outHessian.shared);
-  (SOME(jacA),_,_)::(SOME(jacB),_,_)::(SOME(jacC),_,_)::(SOME(jacD),_,_)::linearModelMatrixes:=linearModelMatrixes;
-  outHessian:=generateSymbolicHessianA(jacA);
-  print("\n\nOutput after linearization\n\n");
-  BackendDump.printBackendDAE(outHessian);
+  outHessian:=SymbolicJacobian.generateSymbolicLinearizationPast(inBackendDAE); //Generates Matrices A,B,C,D
+  linearModelMatrixes:=BackendDAEUtil.getSharedSymJacs(outHessian.shared); //Get the Matrices
+  (SOME(jacA),_,_)::(SOME(jacB),_,_)::(SOME(jacC),_,_)::(SOME(jacD),_,_)::linearModelMatrixes:=linearModelMatrixes; //Isolate A,B,C,D
+  outHessian:=generateSymbolicHessianA(jacA); //Generate the Hessian for Matrix A
 end generateSymbolicHessian;
 
 protected function generateSymbolicHessianA
@@ -114,19 +112,16 @@ protected
   list<BackendDAE.Var> stats;
   Option<list<DAE.ComponentRef>> lambdas;
 algorithm
-  (HessA,_,_,_,_,_):=A;
-  /*
-  // somehow get states
+  // somehow get states -> wich stats are important for what matrix???
   (_,_,stats,_,_,_):=A;
    lambdas:=if Flags.getConfigBool(Flags.GENERATE_SYMBOLIC_HESSIAN) then SOME(getLambdaList(listLength(stats))) else NONE();
 
   if isSome(lambdas) then
-    A:=multiplyLambdas(lambdas,A);
+    HessA:=multiplyLambdas(lambdas,A);
   end if;
 
 // add up equations to one equation
 // differentiate equation wrt all states
-*/
 end generateSymbolicHessianA;
 
 protected function getLambdaList
@@ -134,28 +129,105 @@ protected function getLambdaList
   input Integer lambdaCount "Number of lambdas";
   output list<DAE.ComponentRef> lambdas = {} "List of componentrefs for lambdas";
 algorithm
-  for i in lambdaCount:-1:1 loop
+  for i in lambdaCount:-1:1 loop //Iteration: num_lambda==num_stats
     lambdas := DAE.CREF_IDENT("$lambda", DAE.T_REAL_DEFAULT, {DAE.INDEX(DAE.ICONST(i))}) ::lambdas;
   end for;
 end getLambdaList;
 
 protected function multiplyLambdas
-  "Function sets the "
-  input Option<list<DAE.ComponentRef>> lambdas;
-  input output Option<BackendDAE.SymbolicJacobian> jac;
+  "Function sets the Lagrangenfactors to the jacobian"
+  input Option<list<DAE.ComponentRef>> lambdas_option;
+  input BackendDAE.SymbolicJacobian jac;
+  output BackendDAE.BackendDAE lambdaJac;
+protected
+  list<DAE.ComponentRef> lambdas;
+  BackendDAE.EquationArray eqns;
+  BackendDAE.EqSystem eqs;
+  BackendDAE.Equation eq;
+  Integer indexEq;
+  DAE.Exp eqExpr;
 algorithm
-  /*
-  get ordered equations from jac
+  SOME(lambdas):=lambdas_option;
+  (lambdaJac,_,_,_,_,_):=jac;
+  eqs:=listGet(lambdaJac.eqs,1); //assume that's it always have size 1!!!
+  BackendDAE.EQSYSTEM(orderedEqs=eqns) := eqs;
+  /*get ordered equations from jac
   traverse and multiply each lambda on rhs
-  e1.rhs -> e1.rhs * lambda1
-  BackendDAEUtil.traverseArrayNoCopyWithUpdate
-  */
+  e1.rhs -> e1.rhs * lambda1*/
+  indexEq:=1;
+  for lambdaList in lambdas loop
+    eq := ExpandableArray.get(indexEq,eqns);
+    eqExpr := getExpression(eq);
+    eqExpr := multiplyLambda2Expression(eqExpr,lambdaList);
+    eq := setExpression(eq,eqExpr);
+    eqns := ExpandableArray.set(indexEq,eq,eqns);
+    indexEq:=indexEq+1;
+  end for;
+  /*Updating the DAE*/
+  eqs.orderedEqs:=eqns;
+  lambdaJac.eqs := {eqs};
 end multiplyLambdas;
 
-protected function addEquations
-  input output BackendDAE.EquationArray eqs;
+protected function getExpression
+  input BackendDAE.Equation inEq;
+  output DAE.Exp rhs;
 algorithm
+  rhs := match (inEq)
+    local
+      DAE.Exp res;
+    case (BackendDAE.EQUATION(scalar = res))
+    algorithm
+      ExpressionDump.printExpStr(res);
+    then res;
+    case (BackendDAE.COMPLEX_EQUATION(right = res)) then res;
+    case (BackendDAE.ARRAY_EQUATION(right = res)) then res;
+    case (BackendDAE.SOLVED_EQUATION(exp = res)) then res;
+    case (BackendDAE.RESIDUAL_EQUATION(exp = res)) then res;
+    else
+    algorithm
+      print("\n\n***Error, used a unknown Equationcase!***\n\n");
+    then fail();
+  end match;
+end getExpression;
 
-end addEquations;
+protected function setExpression
+  input BackendDAE.Equation inEq;
+  input DAE.Exp rhsWithLambda;
+  output BackendDAE.Equation outEq;
+algorithm
+  outEq := match (inEq)
+    local
+      BackendDAE.Equation localEq;
+    case localEq as (BackendDAE.EQUATION())
+      equation
+        localEq.scalar = rhsWithLambda;
+      then localEq;
+    case localEq as (BackendDAE.COMPLEX_EQUATION())
+      equation
+        localEq.right = rhsWithLambda;
+      then localEq;
+    case localEq as (BackendDAE.ARRAY_EQUATION())
+      equation
+        localEq.right = rhsWithLambda;
+      then localEq;
+    case localEq as (BackendDAE.SOLVED_EQUATION())
+      equation
+        localEq.exp = rhsWithLambda;
+      then localEq;
+    case localEq as (BackendDAE.RESIDUAL_EQUATION())
+      equation
+        localEq.exp = rhsWithLambda;
+      then localEq;
+  end match;
+end setExpression;
+
+protected function multiplyLambda2Expression
+  input DAE.Exp inExp;
+  input DAE.ComponentRef crefLambda;
+  output DAE.Exp outExp;
+algorithm
+  outExp:=inExp;
+  ExpressionDump.printExpStr(outExp);
+end multiplyLambda2Expression;
 annotation(__OpenModelica_Interface="backend");
 end SymbolicHessian;
