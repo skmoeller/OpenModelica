@@ -149,7 +149,7 @@ protected
 algorithm
   SOME(lambdas):=lambdas_option;
   (lambdaJac,_,_,_,_,_):=jac;
-  eqs:=listGet(lambdaJac.eqs,1); //assume that's it always have size 1!!!
+  {eqs} := lambdaJac.eqs;
   BackendDAE.EQSYSTEM(orderedEqs=eqns) := eqs;
   /*get ordered equations from jac
   traverse and multiply each lambda on rhs
@@ -160,7 +160,7 @@ algorithm
     eqExpr := getExpression(eq);
     eqExpr := multiplyLambda2Expression(eqExpr,lambdaList);
     eq := setExpression(eq,eqExpr);
-    eqns := ExpandableArray.set(indexEq,eq,eqns);
+    eqns := ExpandableArray.update(indexEq,eq,eqns);
     indexEq:=indexEq+1;
   end for;
   /*Updating the DAE*/
@@ -175,10 +175,7 @@ algorithm
   rhs := match (inEq)
     local
       DAE.Exp res;
-    case (BackendDAE.EQUATION(scalar = res))
-    algorithm
-      ExpressionDump.printExpStr(res);
-    then res;
+    case (BackendDAE.EQUATION(scalar = res)) then res;
     case (BackendDAE.COMPLEX_EQUATION(right = res)) then res;
     case (BackendDAE.ARRAY_EQUATION(right = res)) then res;
     case (BackendDAE.SOLVED_EQUATION(exp = res)) then res;
@@ -218,6 +215,10 @@ algorithm
       equation
         localEq.exp = rhsWithLambda;
       then localEq;
+    else
+      equation
+        localEq = inEq;
+      then localEq;
   end match;
 end setExpression;
 
@@ -225,9 +226,15 @@ protected function multiplyLambda2Expression
   input DAE.Exp inExp;
   input DAE.ComponentRef crefLambda;
   output DAE.Exp outExp;
+protected
+  DAE.Exp expLambda;
 algorithm
-  outExp:=inExp;
-  ExpressionDump.printExpStr(outExp);
+  /*make cref to an expression*/
+  expLambda := Expression.crefToExp(crefLambda);
+  outExp := Expression.expMul(inExp,crefLambda);
+  print("test3");
+
+  print("\n\nRHS: "+ExpressionDump.printExpStr(outExp)+"\n\n");
 end multiplyLambda2Expression;
 annotation(__OpenModelica_Interface="backend");
 end SymbolicHessian;
