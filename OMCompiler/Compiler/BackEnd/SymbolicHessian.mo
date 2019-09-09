@@ -97,10 +97,11 @@ protected
   BackendDAE.SymbolicJacobian jacD; //Matrix D
   Option<list<DAE.ComponentRef>> lambdas; //Lagrange factors
 algorithm
-  outHessian:=SymbolicJacobian.generateSymbolicLinearizationPast(inBackendDAE); //Generates Matrices A,B,C,D
-  linearModelMatrixes:=BackendDAEUtil.getSharedSymJacs(outHessian.shared); //Get the Matrices
+  outHessian := SymbolicJacobian.generateSymbolicLinearizationPast(inBackendDAE); //Generates Matrices A,B,C,D
+  linearModelMatrixes := BackendDAEUtil.getSharedSymJacs(outHessian.shared); //Get the Matrices
   (SOME(jacA),_,_)::(SOME(jacB),_,_)::(SOME(jacC),_,_)::(SOME(jacD),_,_)::linearModelMatrixes:=linearModelMatrixes; //Isolate A,B,C,D
-  outHessian:=generateSymbolicHessianA(jacA); //Generate the Hessian for Matrix A
+  //Generate the Hessian for Matrix A
+  outHessian:=generateSymbolicHessianA(jacA);
 end generateSymbolicHessian;
 
 protected function generateSymbolicHessianA
@@ -111,15 +112,15 @@ protected function generateSymbolicHessianA
 protected
   list<BackendDAE.Var> stats;
   Option<list<DAE.ComponentRef>> lambdas;
+  BackendDAE.SymbolicJacobians linearModelMatrixes;
+  BackendDAE.SymbolicJacobian jacA;
 algorithm
   // somehow get states -> wich stats are important for what matrix???
   (_,_,stats,_,_,_):=A;
    lambdas:=if Flags.getConfigBool(Flags.GENERATE_SYMBOLIC_HESSIAN) then SOME(getLambdaList(listLength(stats))) else NONE();
-
   if isSome(lambdas) then
-    HessA:=multiplyLambdas(lambdas,A);
+    HessA := multiplyLambdas(lambdas,A);
   end if;
-
 // add up equations to one equation
 // differentiate equation wrt all states
 end generateSymbolicHessianA;
@@ -130,7 +131,7 @@ protected function getLambdaList
   output list<DAE.ComponentRef> lambdas = {} "List of componentrefs for lambdas";
 algorithm
   for i in lambdaCount:-1:1 loop //Iteration: num_lambda==num_stats
-    lambdas := DAE.CREF_IDENT("$lambda", DAE.T_REAL_DEFAULT, {DAE.INDEX(DAE.ICONST(i))}) ::lambdas;
+    lambdas := DAE.CREF_IDENT("$lambda", DAE.T_ARRAY_REAL_NODIM, {DAE.INDEX(DAE.ICONST(i))}) ::lambdas;
   end for;
 end getLambdaList;
 
@@ -231,10 +232,7 @@ protected
 algorithm
   /*make cref to an expression*/
   expLambda := Expression.crefToExp(crefLambda);
-  outExp := Expression.expMul(inExp,crefLambda);
-  print("test3");
-
-  print("\n\nRHS: "+ExpressionDump.printExpStr(outExp)+"\n\n");
+  outExp := Expression.expMul(inExp,expLambda);
 end multiplyLambda2Expression;
 annotation(__OpenModelica_Interface="backend");
 end SymbolicHessian;
