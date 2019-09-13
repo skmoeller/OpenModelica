@@ -171,8 +171,9 @@ algorithm
     indexEq:=indexEq+1;
   end for;
   eqExpr := Expression.makeSum(hessExpr);
-  eqns := ExpandableArray.new(1,BackendDAE.Equation);
+  eqns := ExpandableArray.new(1,eq);
   eq := setHessianEq(eq,eqExpr);
+  BackendDump.printEquation(eq);
   eqns := ExpandableArray.set(1,eq,eqns);
   /*Updating the DAE*/
   eqs.orderedEqs:=eqns;
@@ -208,7 +209,8 @@ algorithm
       BackendDAE.Equation localEq;
     case localEq as (BackendDAE.EQUATION())
       equation
-        localEq.exp = //??????????
+        // maybe wrong check with compiled code
+        localEq.exp = Expression.crefToExp(ComponentReference.makeCrefIdent(Util.hessianIdent, DAE.T_ARRAY_REAL_NODIM, {}));
         localEq.scalar = rhsWithLambda;
       then localEq;
     case localEq as (BackendDAE.COMPLEX_EQUATION())

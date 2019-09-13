@@ -104,6 +104,7 @@ public constant String leftParStr = "$lP";
 public constant String rightParStr = "$rP";
 public constant String commaStr = "$c";
 public constant String appostrophStr = "$a";
+public constant String hessianIdent = "$HESS";
 
 protected constant list<ReplacePattern> replaceStringPatterns=
          {REPLACEPATTERN(".",pointStr),
