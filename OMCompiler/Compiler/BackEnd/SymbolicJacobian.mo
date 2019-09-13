@@ -2205,6 +2205,15 @@ algorithm
         print("*** analytical Jacobians -> before derive all equation: " + realString(clock()) + "\n");
       end if;
       (derivedEquations, functions) = deriveAll(eqns, arrayList(ass2), x, diffData, functions);
+      /*If Hessian Matrix needs to calculate derive the system two times!!!*/
+      if Flags.getConfigBool(Flags.GENERATE_SYMBOLIC_HESSIAN) then
+        globalKnownVars = BackendVariable.addVariables(inSeedVars, globalKnownVars); //Add seed vars to known vars
+        diffData.knownVars = SOME(globalKnownVars); //update diffData
+        matrixName = matrixName+"1"; //Rename the Matrix name for the seeds
+        diffData.matrixName = SOME(matrixName); //update matrix name
+        (derivedEquations, functions) = deriveAll(derivedEquations, arrayList(ass2), x, diffData, functions); //Derive second time
+        BackendDump.dumpEquationList(derivedEquations,"Hessian");
+      end if;
       if Flags.isSet(Flags.JAC_DUMP2) then
         print("*** analytical Jacobians -> after derive all equation: " + realString(clock()) + "\n");
       end if;
