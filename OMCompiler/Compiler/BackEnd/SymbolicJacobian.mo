@@ -1973,7 +1973,9 @@ algorithm
     outFunctionTree := shared.functionTree;
     if not onlySparsePattern then
       (symbolicJacobian, outFunctionTree) := createJacobian(inBackendDAE,inDiffVars, inStateVars, inInputVars, inParameterVars, inDifferentiatedVars, inVars, inName);
-      true := checkForNonLinearStrongComponents(symbolicJacobian);
+      if not Flags.getConfigBool(Flags.GENERATE_SYMBOLIC_HESSIAN) then
+        true := checkForNonLinearStrongComponents(symbolicJacobian);
+      end if;
       outJacobian := SOME(symbolicJacobian);
     else
       outJacobian := NONE();
@@ -2039,8 +2041,9 @@ algorithm
 
         // Add the function tree to the jacobian backendDAE
         backendDAE = BackendDAEUtil.setFunctionTree(backendDAE, funcs);
-
-        backendDAE = optimizeJacobianMatrix(backendDAE,comref_differentiatedVars,comref_vars);
+        if not Flags.getConfigBool(Flags.GENERATE_SYMBOLIC_HESSIAN) then
+          backendDAE = optimizeJacobianMatrix(backendDAE,comref_differentiatedVars,comref_vars);
+        end if;
         if Flags.isSet(Flags.JAC_DUMP2) then
           print("analytical Jacobians -> generated Jacobian DAE time: " + realString(clock()) + "\n");
         end if;
