@@ -791,9 +791,8 @@ type SparsePatternCref = tuple< .DAE.ComponentRef, list< .DAE.ComponentRef>>;
 type SparsePatternCrefs = list<SparsePatternCref>;
 
 public
-type SymbolicHessian = tuple<BackendDAE,              // symbolic equation system, maybe a 'smaller' structure could be used here
-                               String,                  // Name of the Hessian Matrix
-                               list<Var>                // State Variables -> the Equations are derived by this variables
+type SymbolicHessian = tuple<BackendDAE,              // symbolic equation system
+                               String                 // Name of the Hessian Matrix
                                >;
 
 public

@@ -35,48 +35,20 @@
    description: This package contains stuff to calculate the symbolic Hessian Matrix with the help of the symbolic Jacobian."
 
 
- public import Absyn;
  public import BackendDAE;
  public import DAE;
- public import FCore;
- public import FGraph;
 
  protected
  import Array;
- import BackendDAEOptimize;
- import BackendDAETransform;
  import BackendDAEUtil;
  import BackendDump;
- import BackendEquation;
- import BackendVariable;
- import BackendVarTransform;
- import BaseHashSet;
- import Ceval;
- import ClockIndexes;
- import Config;
  import ComponentReference;
- import Debug;
- import Differentiate;
- import DynamicOptimization;
  import SymbolicJacobian;
- import ElementSource;
- import ExecStat.execStat;
  import ExpandableArray;
  import Expression;
- import ExpressionDump;
- import ExpressionSimplify;
- import Error;
  import Flags;
- import GC;
- import Global;
- import Graph;
- import HashSet;
- import IndexReduction;
  import List;
- import System;
  import Util;
- import Values;
- import ValuesUtil;
 
  // =============================================================================
  //
@@ -88,34 +60,42 @@
 public function generateSymbolicHessian
   "Function to generate the symbolic hessian with respect to the stats of an dynamic optimization problem."
   input BackendDAE.BackendDAE inBackendDAE "Input BackendDAE";
-  output BackendDAE.BackendDAE outHessian "second derivates-> this is the hessian"; //Improve it by using special hessian struct
+  output BackendDAE.BackendDAE outHessian "second derivates-> this is the hessian"; //Improve it by using special hessian struct -> need to added!!!
 protected
   BackendDAE.SymbolicJacobians linearModelMatrixes; //All Matrices A,B,C,D
-  BackendDAE.SymbolicJacobian jacA; //Matrix A
-  BackendDAE.SymbolicJacobian jacB; //Matrix B
-  BackendDAE.SymbolicJacobian jacC; //Matrix C
-  BackendDAE.SymbolicJacobian jacD; //Matrix D
-  Option<list<DAE.ComponentRef>> lambdas; //Lagrange factors
+  list< Option< BackendDAE.BackendDAE > > SymbolicHessians = {};
+  Option< list< DAE.ComponentRef > > lambdas; //Lagrange factors
 algorithm
-  outHessian := SymbolicJacobian.generateSymbolicLinearizationPast(inBackendDAE); //Generates Matrices A,B,C,D and calculates the second derive
+  outHessian := SymbolicJacobian.generateSymbolicLinearizationPast(inBackendDAE); //Generates Matrices A,B,C,D and calculates the second derivativ
   linearModelMatrixes := BackendDAEUtil.getSharedSymJacs(outHessian.shared); //Get the Matrices from shared
-  (SOME(jacA),_,_)::(SOME(jacB),_,_)::(SOME(jacC),_,_)::(SOME(jacD),_,_)::linearModelMatrixes:=linearModelMatrixes; //Isolate A,B,C,D
-  outHessian:=generateSymbolicHessianA(jacA);//Generate the Hessian for Matrix A by adding the lambdas and add up all equations
+  for jacobian in linearModelMatrixes loop
+    _ := match jacobian
+    local
+      BackendDAE.SymbolicJacobian symJac;
+    case ((SOME(symJac),_,_))
+    equation
+      SymbolicHessians = SOME(createSymbolicHessian(symJac))::SymbolicHessians;//Generate the Hessians for Matrix A by adding the lambdas and add up all equations -> write in list!!!
+    then "";
+    else then "";
+    end match;
+  end for;
+  SymbolicHessians := listReverse(SymbolicHessians);
 end generateSymbolicHessian;
 
-protected function generateSymbolicHessianA
+protected function createSymbolicHessian
   "Function sets the lagrange factors and multiplies the vector to the jacobian.
    Then it runs the jacobian routine again!"
-  input  BackendDAE.SymbolicJacobian A "Symbolic Jacobian Matrix A";
-  output BackendDAE.BackendDAE HessA "Symbolic Hessian Matrix for A";
+  input  BackendDAE.SymbolicJacobian Jac "Symbolic Jacobian Matrix";
+  output BackendDAE.BackendDAE Hessian "Symbolic Hessian Matrix";
 protected
-  Option<list<DAE.ComponentRef>> lambdas;
+  Option< list< DAE.ComponentRef > > lambdas;
+  String nameMatrix;
   BackendDAE.SymbolicJacobians linearModelMatrixes;
-  list<BackendDAE.Equation> eqns, derivedEquations;
+  list< BackendDAE.Equation > eqns, derivedEquations;
   DAE.FunctionTree functions;
 algorithm
-  (HessA,_,_,_,_,_) := A;
-  _ := match A
+  (Hessian, nameMatrix,_,_,_,_) := Jac;
+  _ := match Jac
       local list<BackendDAE.Var> states;
     case (_,_,states,_,_,_)
     equation
@@ -123,18 +103,16 @@ algorithm
     then "";
     else then "";
     end match;
-  /*Section for setting the lambdas & add up equations to one equation*/
-
+  /*Section for setting the lambdas & add up equations to one equation -> New vars!!!*/
   if isSome(lambdas) then
-    HessA := multiplyLambdas(lambdas,HessA); //multiple the lagrange factors and add the equations
-    HessA := addEquations(HessA);
+    Hessian := multiplyLambdas(lambdas, Hessian, nameMatrix); //multiple the lagrange factors and add the equations
   end if;
-end generateSymbolicHessianA;
+end createSymbolicHessian;
 
 protected function getLambdaList
   "Function sets the lambdas to the system."
   input Integer lambdaCount "Number of lambdas";
-  output list<DAE.ComponentRef> lambdas = {} "List of componentrefs for lambdas";
+  output list< DAE.ComponentRef > lambdas = {} "List of componentrefs for lambdas";
 algorithm
   for i in lambdaCount:-1:1 loop //Iteration: num_lambda==num_stats
     lambdas := DAE.CREF_IDENT("$lambda", DAE.T_ARRAY_REAL_NODIM, {DAE.INDEX(DAE.ICONST(i))}) ::lambdas;
@@ -142,45 +120,43 @@ algorithm
 end getLambdaList;
 
 protected function multiplyLambdas
-  "Function sets the Lagrangenfactors to the jacobian"
-  input Option<list<DAE.ComponentRef>> lambdas_option;
-  input BackendDAE.BackendDAE jac;
-  output BackendDAE.BackendDAE lambdaJac;
+  "Function calculates '(lambda)^T*Jacobian' -> First multiply the lambdas, then add the equation up to one."
+  input Option< list< DAE.ComponentRef > > lambdasOption; //List of lambdas
+  input BackendDAE.BackendDAE jac; //Jacobi Matrix
+  input String matrixName; //Name of the jacobian (A,B,C,D)
+  output BackendDAE.BackendDAE lambdaJac; //Equationsystem with only one equation -> that is the hessian!
 protected
-  list<DAE.ComponentRef> lambdas;
-  BackendDAE.EquationArray eqns;
-  BackendDAE.EqSystem eqs;
+  list<DAE.ComponentRef> lambdas; //Lambdas without option typ!
+  BackendDAE.EquationArray eqns; //Array for the hessian!
+  BackendDAE.EqSystem eqs; //
   BackendDAE.Equation eq;
   Integer indexEq;
   DAE.Exp eqExpr;
   list<DAE.Exp> hessExpr = {};
 algorithm
-  SOME(lambdas):=lambdas_option;
+  SOME(lambdas) := lambdasOption;
   lambdaJac := jac;
   {eqs} := lambdaJac.eqs;
-  BackendDAE.EQSYSTEM(orderedEqs=eqns) := eqs;
+  BackendDAE.EQSYSTEM(orderedEqs = eqns) := eqs;
   /*get ordered equations from jac
   traverse and multiply each lambda on rhs
-  e1.rhs -> e1.rhs * lambda1*/
+  e1.rhs -> e1.rhs * lambda[1]*/
   indexEq := 1;
   for lambdaList in lambdas loop
-    eq := ExpandableArray.get(indexEq,eqns);
-    eqExpr := getExpression(eq);
-    eqExpr := multiplyLambda2Expression(eqExpr,lambdaList);
+    eq := ExpandableArray.get(indexEq, eqns);
+    eqExpr := getRhsExpression(eq);
+    eqExpr := multiplyLambda2Expression(eqExpr, lambdaList);
     hessExpr := eqExpr::hessExpr;
-    indexEq:=indexEq+1;
+    indexEq := indexEq+1;
   end for;
-  eqExpr := Expression.makeSum(hessExpr);
-  eqns := ExpandableArray.new(1,eq);
-  eq := setHessianEq(eq,eqExpr);
-  BackendDump.printEquation(eq);
-  eqns := ExpandableArray.set(1,eq,eqns);
+  eqns := addEquations(hessExpr, eq, matrixName);
   /*Updating the DAE*/
-  eqs.orderedEqs:=eqns;
+  eqs.orderedEqs := eqns;
   lambdaJac.eqs := {eqs};
 end multiplyLambdas;
 
-protected function getExpression
+protected function getRhsExpression
+  "Function checks the type of the equation and outputs the right hand side."
   input BackendDAE.Equation inEq;
   output DAE.Exp rhs;
 algorithm
@@ -194,14 +170,45 @@ algorithm
     case (BackendDAE.RESIDUAL_EQUATION(exp = res)) then res;
     else
     algorithm
-      print("\n\n***Error, used a unknown Equationcase!***\n\n");
+      print("\n\n***Error, used an unknown Equation!***\n\n");
     then fail();
   end match;
-end getExpression;
+end getRhsExpression;
 
-protected function setHessianEq
+protected function multiplyLambda2Expression
+  "Function takes RHS of an Equation and multiplies the lagrange factor."
+  input DAE.Exp inExp;
+  input DAE.ComponentRef crefLambda;
+  output DAE.Exp outExp;
+protected
+  DAE.Exp expLambda;
+algorithm
+  /*make cref to an expression*/
+  expLambda := Expression.crefToExp(crefLambda);
+  outExp := Expression.expMul(inExp, expLambda);
+end multiplyLambda2Expression;
+
+protected function addEquations
+  "Helper Function for adding up all the Equations."
+  input list<DAE.Exp> hessExpr;
+  input BackendDAE.Equation inEq;
+  input String matrixName;
+  output BackendDAE.EquationArray eqns;
+protected
+  DAE.Exp EqSum;
+  BackendDAE.Equation eq;
+algorithm
+  EqSum := Expression.makeSum(hessExpr);
+  eqns := ExpandableArray.new(1, inEq);
+  eq := setHessian(inEq, EqSum, matrixName);
+  eqns := ExpandableArray.set(1, eq, eqns);
+end addEquations;
+
+protected function setHessian
+  "Function sets the new Equation for the Hessian on the RHS and creates a new Variable for the LHS -> '$HessA = lambda[i]*eq[i]+...'."
   input BackendDAE.Equation inEq;
   input DAE.Exp rhsWithLambda;
+  input String matrixName;
   output BackendDAE.Equation outEq;
 algorithm
   outEq := match (inEq)
@@ -210,19 +217,22 @@ algorithm
     case localEq as (BackendDAE.EQUATION())
       equation
         // maybe wrong check with compiled code
-        localEq.exp = Expression.crefToExp(ComponentReference.makeCrefIdent(Util.hessianIdent, DAE.T_ARRAY_REAL_NODIM, {}));
+        localEq.exp = Expression.crefToExp(ComponentReference.makeCrefIdent(Util.hessianIdent + matrixName, DAE.T_ARRAY_REAL_NODIM, {}));
         localEq.scalar = rhsWithLambda;
       then localEq;
     case localEq as (BackendDAE.COMPLEX_EQUATION())
       equation
+        localEq.left = Expression.crefToExp(ComponentReference.makeCrefIdent(Util.hessianIdent + matrixName, DAE.T_ARRAY_REAL_NODIM, {}));
         localEq.right = rhsWithLambda;
       then localEq;
     case localEq as (BackendDAE.ARRAY_EQUATION())
       equation
+        localEq.left = Expression.crefToExp(ComponentReference.makeCrefIdent(Util.hessianIdent + matrixName, DAE.T_ARRAY_REAL_NODIM, {}));
         localEq.right = rhsWithLambda;
       then localEq;
     case localEq as (BackendDAE.SOLVED_EQUATION())
       equation
+        localEq.componentRef = ComponentReference.makeCrefIdent(Util.hessianIdent + matrixName, DAE.T_ARRAY_REAL_NODIM, {});
         localEq.exp = rhsWithLambda;
       then localEq;
     case localEq as (BackendDAE.RESIDUAL_EQUATION())
@@ -234,25 +244,7 @@ algorithm
         localEq = inEq;
       then localEq;
   end match;
-end setHessianEq;
+end setHessian;
 
-protected function multiplyLambda2Expression
-  input DAE.Exp inExp;
-  input DAE.ComponentRef crefLambda;
-  output DAE.Exp outExp;
-protected
-  DAE.Exp expLambda;
-algorithm
-  /*make cref to an expression*/
-  expLambda := Expression.crefToExp(crefLambda);
-  outExp := Expression.expMul(inExp,expLambda);
-end multiplyLambda2Expression;
-
-protected function addEquations
-  input BackendDAE.BackendDAE inHess;
-  output BackendDAE.BackendDAE outHess;
-algorithm
-  outHess := inHess;
-end addEquations;
 annotation(__OpenModelica_Interface="backend");
 end SymbolicHessian;
