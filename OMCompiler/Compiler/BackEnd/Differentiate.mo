@@ -533,7 +533,7 @@ end differentiateWhenEquations;
 //
 // =============================================================================
 
-protected function differentiateExp
+public function differentiateExp
   input DAE.Exp inExp;
   input DAE.ComponentRef inDiffwrtCref;
   input BackendDAE.DifferentiateInputData inInputData;

@@ -2208,14 +2208,13 @@ algorithm
         print("*** analytical Jacobians -> before derive all equation: " + realString(clock()) + "\n");
       end if;
       (derivedEquations, functions) = deriveAll(eqns, arrayList(ass2), x, diffData, functions);
-      /*If Hessian Matrix needs to calculate derive the system two times!!!*/
+      /*If Hessian calculated derive the RHS of the system two times!!!*/
       if Flags.getConfigBool(Flags.GENERATE_SYMBOLIC_HESSIAN) then
         globalKnownVars = BackendVariable.addVariables(inSeedVars, globalKnownVars); //Add seed vars to known vars
         diffData.knownVars = SOME(globalKnownVars); //update diffData
         matrixName = matrixName+"1"; //Rename the Matrix name for the seeds
         diffData.matrixName = SOME(matrixName); //update matrix name
-        (derivedEquations, functions) = deriveAll(derivedEquations, arrayList(ass2), x, diffData, functions); //Derive second time
-        BackendDump.dumpEquationList(derivedEquations,"Hessian");
+        (derivedEquations, functions) = deriveAll(derivedEquations, arrayList(ass2), x, diffData, functions, true); //Derive second time
       end if;
       if Flags.isSet(Flags.JAC_DUMP2) then
         print("*** analytical Jacobians -> after derive all equation: " + realString(clock()) + "\n");
@@ -2348,11 +2347,13 @@ protected function deriveAll
   input DAE.ComponentRef inDiffCref;
   input BackendDAE.DifferentiateInputData inDiffData;
   input DAE.FunctionTree inFunctions;
+  input Boolean calculateSecondDerivatives = false;
   output list<BackendDAE.Equation> outDerivedEquations = {};
   output DAE.FunctionTree outFunctions = inFunctions;
 protected
   BackendDAE.Variables allVars;
   BackendDAE.Equation currDerivedEquation;
+  DAE.Exp rhs;
   list<BackendDAE.Equation> tmpEquations;
   list<BackendDAE.Var> solvedvars;
   list<Integer> ass2_1 = ass2, solvedfor;
@@ -2368,10 +2369,16 @@ algorithm
         print("\n");
       end if;
 
-      (currDerivedEquation, outFunctions) := Differentiate.differentiateEquation(currEquation, inDiffCref, inDiffData, BackendDAE.GENERIC_GRADIENT(), outFunctions);
+      /*If second derivates needed to be calculated -> just derive RHS!!!*/
+      if calculateSecondDerivatives then
+        rhs := BackendEquation.getEquationRHS(currEquation);
+        (rhs, outFunctions) := Differentiate.differentiateExp(rhs, inDiffCref, inDiffData, BackendDAE.GENERIC_GRADIENT(), outFunctions, 20); //20 is default value from Differentiate!!
+        currDerivedEquation := BackendEquation.setEquationRHS(currEquation, rhs);
+      else
+        (currDerivedEquation, outFunctions) := Differentiate.differentiateEquation(currEquation, inDiffCref, inDiffData, BackendDAE.GENERIC_GRADIENT(), outFunctions);
+      end if;
       tmpEquations := BackendEquation.scalarComplexEquations(currDerivedEquation, outFunctions);
       outDerivedEquations := listAppend(tmpEquations, outDerivedEquations);
-
       if Flags.isSet(Flags.JAC_DUMP_EQN) then
         BackendDump.printEquationList(outDerivedEquations);
         print("\n");
