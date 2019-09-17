@@ -42,6 +42,7 @@
  import Array;
  import BackendDAEUtil;
  import BackendDump;
+ import BackendEquation;
  import ComponentReference;
  import SymbolicJacobian;
  import ExpandableArray;
@@ -74,7 +75,7 @@ algorithm
       BackendDAE.SymbolicJacobian symJac;
     case ((SOME(symJac),_,_))
     equation
-      SymbolicHessians = SOME(createSymbolicHessian(symJac))::SymbolicHessians;//Generate the Hessians for Matrix A by adding the lambdas and add up all equations -> write in list!!!
+      SymbolicHessians = SOME(createSymbolicHessian(symJac))::SymbolicHessians;//Generate the Hessians by adding the lambdas and add up all equations -> write in list!!!
     then "";
     else then "";
     end match;
@@ -107,6 +108,8 @@ algorithm
   if isSome(lambdas) then
     Hessian := multiplyLambdas(lambdas, Hessian, nameMatrix); //multiple the lagrange factors and add the equations
   end if;
+  print("\n\n Hessian for "+nameMatrix+"\n\n");
+  BackendDump.dumpDAE(Hessian);
 end createSymbolicHessian;
 
 protected function getLambdaList
@@ -144,7 +147,7 @@ algorithm
   indexEq := 1;
   for lambdaList in lambdas loop
     eq := ExpandableArray.get(indexEq, eqns);
-    eqExpr := getRhsExpression(eq);
+    eqExpr := BackendEquation.getEquationRHS(eq);
     eqExpr := multiplyLambda2Expression(eqExpr, lambdaList);
     hessExpr := eqExpr::hessExpr;
     indexEq := indexEq+1;
@@ -154,26 +157,6 @@ algorithm
   eqs.orderedEqs := eqns;
   lambdaJac.eqs := {eqs};
 end multiplyLambdas;
-
-protected function getRhsExpression
-  "Function checks the type of the equation and outputs the right hand side."
-  input BackendDAE.Equation inEq;
-  output DAE.Exp rhs;
-algorithm
-  rhs := match (inEq)
-    local
-      DAE.Exp res;
-    case (BackendDAE.EQUATION(scalar = res)) then res;
-    case (BackendDAE.COMPLEX_EQUATION(right = res)) then res;
-    case (BackendDAE.ARRAY_EQUATION(right = res)) then res;
-    case (BackendDAE.SOLVED_EQUATION(exp = res)) then res;
-    case (BackendDAE.RESIDUAL_EQUATION(exp = res)) then res;
-    else
-    algorithm
-      print("\n\n***Error, used an unknown Equation!***\n\n");
-    then fail();
-  end match;
-end getRhsExpression;
 
 protected function multiplyLambda2Expression
   "Function takes RHS of an Equation and multiplies the lagrange factor."
