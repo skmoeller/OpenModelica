@@ -2041,9 +2041,7 @@ algorithm
 
         // Add the function tree to the jacobian backendDAE
         backendDAE = BackendDAEUtil.setFunctionTree(backendDAE, funcs);
-        if not Flags.getConfigBool(Flags.GENERATE_SYMBOLIC_HESSIAN) then
-          backendDAE = optimizeJacobianMatrix(backendDAE,comref_differentiatedVars,comref_vars);
-        end if;
+        backendDAE = optimizeJacobianMatrix(backendDAE,comref_differentiatedVars,comref_vars);
         if Flags.isSet(Flags.JAC_DUMP2) then
           print("analytical Jacobians -> generated Jacobian DAE time: " + realString(clock()) + "\n");
         end if;
@@ -2169,7 +2167,7 @@ algorithm
       FCore.Graph graph;
       BackendDAE.Shared shared;
 
-      String matrixName;
+      String matrixName, matrixNameForHess;
       array<Integer> ass2;
       list<Integer> assLst;
 
@@ -2210,10 +2208,11 @@ algorithm
       (derivedEquations, functions) = deriveAll(eqns, arrayList(ass2), x, diffData, functions);
       /*If Hessian calculated derive the RHS of the system two times!!!*/
       if Flags.getConfigBool(Flags.GENERATE_SYMBOLIC_HESSIAN) then
+        /*solve(...)*/
         globalKnownVars = BackendVariable.addVariables(inSeedVars, globalKnownVars); //Add seed vars to known vars
         diffData.knownVars = SOME(globalKnownVars); //update diffData
-        matrixName = matrixName+"1"; //Rename the Matrix name for the seeds
-        diffData.matrixName = SOME(matrixName); //update matrix name
+        matrixNameForHess = matrixName+"1"; //Rename the Matrix name for the seeds
+        diffData.matrixName = SOME(matrixNameForHess); //update matrix name
         (derivedEquations, functions) = deriveAll(derivedEquations, arrayList(ass2), x, diffData, functions, true); //Derive second time
       end if;
       if Flags.isSet(Flags.JAC_DUMP2) then
@@ -2229,10 +2228,15 @@ algorithm
 
       // all variables for new equation system
       // d(ordered vars)/d(dummyVar)
-      diffVars = BackendVariable.varList(orderedVars);
-      derivedVariables = createAllDiffedVars(diffVars, x, diffedVars, matrixName);
+      if Flags.getConfigBool(Flags.GENERATE_SYMBOLIC_HESSIAN) and false then
+        jacOrderedVars = BackendVariable.emptyVars();
+      else
+        diffVars = BackendVariable.varList(orderedVars);
+        derivedVariables = createAllDiffedVars(diffVars, x, diffedVars, matrixName);
 
-      jacOrderedVars = BackendVariable.listVar1(derivedVariables);
+        jacOrderedVars = BackendVariable.listVar1(derivedVariables);
+      end if;
+
       // known vars: all variable from original system + seed
       size = BackendVariable.varsSize(orderedVars) +
              BackendVariable.varsSize(globalKnownVars) +
