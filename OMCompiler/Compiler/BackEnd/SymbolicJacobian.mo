@@ -2162,7 +2162,6 @@ algorithm
 
       list<list<BackendDAE.Equation>> derivedEquationslst;
 
-
       FCore.Cache cache;
       FCore.Graph graph;
       BackendDAE.Shared shared;
@@ -2195,6 +2194,7 @@ algorithm
       diffVarsArr = BackendVariable.listVar1(diffVars);
       comref_diffvars = List.map(diffVars, BackendVariable.varCref);
       diffData = BackendDAE.emptyInputData;
+
       diffData.independenentVars = SOME(diffVarsArr);
       diffData.dependenentVars = SOME(diffedVars);
       diffData.knownVars = SOME(globalKnownVars);
@@ -2208,12 +2208,27 @@ algorithm
       (derivedEquations, functions) = deriveAll(eqns, arrayList(ass2), x, diffData, functions);
       /*If Hessian calculated derive the RHS of the system two times!!!*/
       if Flags.getConfigBool(Flags.GENERATE_SYMBOLIC_HESSIAN) then
-        /*solve(...)*/
+
+        diffVars = BackendVariable.varList(orderedVars);
+        derivedVariables = createAllDiffedVars(diffVars, x, diffedVars, matrixName);
+
+        jacOrderedVars = BackendVariable.listVar1(derivedVariables);
+
+        diffVarsArr = BackendVariable.addVariables(jacOrderedVars, diffVarsArr);
+        diffData.independenentVars = SOME(diffVarsArr);
+
+        diffedVars = BackendVariable.addVariables(jacOrderedVars, diffedVars);
+        diffData.dependenentVars = SOME(diffedVars);
+
+        orderedVars = BackendVariable.addVariables(jacOrderedVars, orderedVars);
+        diffData.allVars = SOME(orderedVars);
+
         globalKnownVars = BackendVariable.addVariables(inSeedVars, globalKnownVars); //Add seed vars to known vars
         diffData.knownVars = SOME(globalKnownVars); //update diffData
         matrixNameForHess = matrixName+"1"; //Rename the Matrix name for the seeds
         diffData.matrixName = SOME(matrixNameForHess); //update matrix name
         (derivedEquations, functions) = deriveAll(derivedEquations, arrayList(ass2), x, diffData, functions, true); //Derive second time
+
       end if;
       if Flags.isSet(Flags.JAC_DUMP2) then
         print("*** analytical Jacobians -> after derive all equation: " + realString(clock()) + "\n");
@@ -2224,18 +2239,25 @@ algorithm
         print("*** analytical Jacobians -> created all derived equation time: " + realString(clock()) + "\n");
       end if;
 
+        print("----------------------------------------\n");
+        BackendDump.printEquationList(derivedEquations);
+        print("----------------------------------------\n");
       // create BackendDAE.DAE with differentiated vars and equations
 
       // all variables for new equation system
       // d(ordered vars)/d(dummyVar)
-      if Flags.getConfigBool(Flags.GENERATE_SYMBOLIC_HESSIAN) and false then
-        jacOrderedVars = BackendVariable.emptyVars();
+
+      if Flags.getConfigBool(Flags.GENERATE_SYMBOLIC_HESSIAN) or false then
+        diffVars = BackendVariable.varList(jacOrderedVars);
+        derivedVariables = createAllDiffedVars(diffVars, x, diffedVars, matrixName + "1");
+        jacOrderedVars = BackendVariable.listVar1(derivedVariables);
       else
         diffVars = BackendVariable.varList(orderedVars);
         derivedVariables = createAllDiffedVars(diffVars, x, diffedVars, matrixName);
 
         jacOrderedVars = BackendVariable.listVar1(derivedVariables);
       end if;
+
 
       // known vars: all variable from original system + seed
       size = BackendVariable.varsSize(orderedVars) +
@@ -2357,7 +2379,6 @@ protected function deriveAll
 protected
   BackendDAE.Variables allVars;
   BackendDAE.Equation currDerivedEquation;
-  DAE.Exp rhs;
   list<BackendDAE.Equation> tmpEquations;
   list<BackendDAE.Var> solvedvars;
   list<Integer> ass2_1 = ass2, solvedfor;
@@ -2373,14 +2394,9 @@ algorithm
         print("\n");
       end if;
 
-      /*If second derivates needed to be calculated -> just derive RHS!!!*/
-      if calculateSecondDerivatives then
-        rhs := BackendEquation.getEquationRHS(currEquation);
-        (rhs, outFunctions) := Differentiate.differentiateExp(rhs, inDiffCref, inDiffData, BackendDAE.GENERIC_GRADIENT(), outFunctions, 20); //20 is default value from Differentiate!!
-        currDerivedEquation := BackendEquation.setEquationRHS(currEquation, rhs);
-      else
-        (currDerivedEquation, outFunctions) := Differentiate.differentiateEquation(currEquation, inDiffCref, inDiffData, BackendDAE.GENERIC_GRADIENT(), outFunctions);
-      end if;
+      (currDerivedEquation, outFunctions) := Differentiate.differentiateEquation(currEquation, inDiffCref, inDiffData, BackendDAE.GENERIC_GRADIENT(), outFunctions);
+      //BackendDump.printEquationList({currDerivedEquation});
+
       tmpEquations := BackendEquation.scalarComplexEquations(currDerivedEquation, outFunctions);
       outDerivedEquations := listAppend(tmpEquations, outDerivedEquations);
       if Flags.isSet(Flags.JAC_DUMP_EQN) then
