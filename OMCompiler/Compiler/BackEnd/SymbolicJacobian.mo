@@ -1981,7 +1981,9 @@ algorithm
       outJacobian := NONE();
     end if;
     // generate sparse pattern
+    if not Flags.getConfigBool(Flags.GENERATE_SYMBOLIC_HESSIAN) then
     (outSparsePattern,outSparseColoring) := generateSparsePattern(inBackendDAE, inDiffVars, BackendVariable.varList(inDifferentiatedVars));
+    end if;
   else
     fail();
   end try;
@@ -2239,9 +2241,9 @@ algorithm
         print("*** analytical Jacobians -> created all derived equation time: " + realString(clock()) + "\n");
       end if;
 
-        print("----------------------------------------\n");
-        BackendDump.printEquationList(derivedEquations);
-        print("----------------------------------------\n");
+      //print("----------------------------------------\n");
+      //BackendDump.printEquationList(derivedEquations);
+      //print("----------------------------------------\n");
       // create BackendDAE.DAE with differentiated vars and equations
 
       // all variables for new equation system

@@ -92,12 +92,12 @@ algorithm
     local String nameMatrix;
           BackendDAE.BackendDAE dae;
           list<BackendDAE.Var> states;
-    case (dae,nameMatrix,states,_,_,_) guard nameMatrix == "A" then SOME(createSymbolicHessianA(dae, nameMatrix,states));
+    case (dae,nameMatrix,states,_,_,_) guard nameMatrix == "A" then SOME(createSymbolicHessian(dae, nameMatrix,states));
   else then NONE();
   end match;
 end wrapperCreateSymbolicHessian;
 
-protected function createSymbolicHessianA
+protected function createSymbolicHessian
   "Function sets the lagrange factors and multiplies the vector to the jacobian.
    Then it runs the jacobian routine again!"
   input BackendDAE.BackendDAE JacDAE "Symbolic Jacobian Matrix";
@@ -115,7 +115,7 @@ algorithm
   end if;
   print("\n\n Hessian for "+nameMatrix+"\n\n");
   BackendDump.dumpDAE(Hessian);
-end createSymbolicHessianA;
+end createSymbolicHessian;
 
 protected function getLambdaList
   "Function sets the lambdas to the system."
