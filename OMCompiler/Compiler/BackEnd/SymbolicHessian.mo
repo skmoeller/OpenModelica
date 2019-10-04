@@ -135,18 +135,22 @@ protected function multiplyLambdas
   output BackendDAE.BackendDAE lambdaJac; //Equationsystem with only one equation -> that is the hessian!
 protected
   list<DAE.ComponentRef> lambdas; //Lambdas without option typ!
-  BackendDAE.EquationArray eqns; //Array for the hessian!
+  BackendDAE.EquationArray eqns, jacEqns; //Array for the hessian!
   BackendDAE.EqSystem eqs;
   BackendDAE.Variables vars;
   BackendDAE.Equation eq;
-  Integer indexEq;
+  Integer indexEq, NumOfEqs;
   DAE.Exp eqExpr;
   list<DAE.Exp> hessExpr = {};
 algorithm
+
   SOME(lambdas) := lambdasOption;
   lambdaJac := jac;
   {eqs} := lambdaJac.eqs;
   BackendDAE.EQSYSTEM(orderedVars = vars, orderedEqs = eqns) := eqs;
+  jacEqns := eqns;
+  NumOfEqs := ExpandableArray.getNumberOfElements(eqns);
+
   /*get ordered equations from jac
   traverse and multiply each lambda on rhs
   e1.rhs -> e1.rhs * lambda[1]*/
@@ -159,6 +163,7 @@ algorithm
     indexEq := indexEq+1;
   end for;
   (vars, eqns) := addEquations(hessExpr, eq, matrixName, vars);
+  eqns := addConstraintEquation(jacEqns, eqns, NumOfEqs, indexEq);
   /*Updating the DAE*/
   eqs.orderedEqs := eqns;
   eqs.orderedVars := vars;
@@ -240,6 +245,17 @@ algorithm
   end match;
   vars := BackendVariable.addVar(BackendVariable.makeVar(hessCref), vars);
 end setHessian;
+
+protected function addConstraintEquation
+  input BackendDAE.EquationArray jacEqs;
+  input output BackendDAE.EquationArray hessEqs;
+  input Integer numOfEqs;
+  input Integer idx;
+algorithm
+  for i in idx:numOfEqs loop
+    hessEqs := ExpandableArray.set(i, ExpandableArray.get(i, jacEqs), hessEqs);
+  end for;
+end addConstraintEquation;
 
 annotation(__OpenModelica_Interface="backend");
 end SymbolicHessian;
