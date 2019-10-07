@@ -143,13 +143,11 @@ protected
   list<DAE.Exp> hessExpr = {};
   list<BackendDAE.Equation> innerEqns = {}, residualEqns = {};
 algorithm
-
   SOME(lambdas) := lambdasOption;
   lambdaJac := jac;
   {eqs} := lambdaJac.eqs;
   BackendDAE.EQSYSTEM(orderedVars = vars, orderedEqs = eqns) := eqs;
   jacEqns := eqns;
-  BackendDump.dumpEquationArray(eqns, "EquationsSystem");
   (innerEqns, residualEqns) := BackendEquation.traverseEquationArray(eqns, assignEqnToInnerOrResidual, (innerEqns, residualEqns));
   BackendDump.dumpEquationList(innerEqns, "inner Equations");
   BackendDump.dumpEquationList(residualEqns, "residualEqns");
@@ -164,6 +162,7 @@ algorithm
     hessExpr := eqExpr::hessExpr;
   end for;
   (vars, eqns) := addEquations(hessExpr, eq, matrixName, vars);
+  vars := removeStateVars(vars);
   eqns := BackendEquation.addList(innerEqns, eqns);
   /*Updating the DAE*/
   eqs.orderedEqs := eqns;
@@ -218,10 +217,6 @@ algorithm
     case localEq as (BackendDAE.EQUATION())
       equation
         // maybe wrong check with compiled code
-        (_,_, isDer) = Expression.traversingexpHasDer(localEq.exp, false);
-        if isDer then
-          print("\n\n ****DER OPERTOR ON LHS!!!!****\n\n");
-        end if;
         localEq.exp = Expression.crefToExp(hessCref);
         localEq.scalar = rhsWithLambda;
       then localEq;
@@ -281,6 +276,30 @@ algorithm
     else false;
   end match;
 end isResidualEqn;
+
+protected function removeStateVars
+  input output BackendDAE.Variables variables;
+protected
+  BackendDAE.VariableArray varriableArray;
+  Integer NumOfVars;
+  array<Option<BackendDAE.Var>> varArr;
+algorithm
+  NumOfVars := variables.numberOfVars;
+  varriableArray := variables.varArr;
+  varArr := varriableArray.varOptArr;
+  for i in 1:NumOfVars loop
+    _ := match varArr[i]
+      local
+        DAE.ComponentRef cr;
+      case SOME(BackendDAE.VAR(varName = cr)) guard(Util.stringStartsWith("$DER",ComponentReference.crefFirstIdent(cr)))
+        equation
+          variables = BackendVariable.deleteVar(cr, variables);
+        then "";
+      else then "";
+    end match;
+  end for;
+
+end removeStateVars;
 
 annotation(__OpenModelica_Interface="backend");
 end SymbolicHessian;
