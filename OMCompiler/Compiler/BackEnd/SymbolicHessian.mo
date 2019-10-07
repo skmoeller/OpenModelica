@@ -149,6 +149,7 @@ algorithm
   {eqs} := lambdaJac.eqs;
   BackendDAE.EQSYSTEM(orderedVars = vars, orderedEqs = eqns) := eqs;
   jacEqns := eqns;
+  BackendDump.dumpEquationArray(eqns, "EquationsSystem");
   NumOfEqs := ExpandableArray.getNumberOfElements(eqns);
 
   /*get ordered equations from jac
@@ -213,9 +214,14 @@ algorithm
   outEq := match (inEq)
     local
       BackendDAE.Equation localEq;
+      Boolean isDer;
     case localEq as (BackendDAE.EQUATION())
       equation
         // maybe wrong check with compiled code
+        (_,_, isDer) = Expression.traversingexpHasDer(localEq.exp, false);
+        if isDer then
+          print("\n\n ****DER OPERTOR ON LHS!!!!****\n\n");
+        end if;
         localEq.exp = Expression.crefToExp(hessCref);
         localEq.scalar = rhsWithLambda;
       then localEq;
