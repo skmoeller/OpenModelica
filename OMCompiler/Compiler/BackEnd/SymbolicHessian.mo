@@ -139,9 +139,9 @@ protected
   BackendDAE.EqSystem eqs;
   BackendDAE.Variables vars;
   BackendDAE.Equation eq;
-  Integer indexEq, NumOfEqs;
   DAE.Exp eqExpr;
   list<DAE.Exp> hessExpr = {};
+  list<BackendDAE.Equation> innerEqns = {}, residualEqns = {};
 algorithm
 
   SOME(lambdas) := lambdasOption;
@@ -150,21 +150,21 @@ algorithm
   BackendDAE.EQSYSTEM(orderedVars = vars, orderedEqs = eqns) := eqs;
   jacEqns := eqns;
   BackendDump.dumpEquationArray(eqns, "EquationsSystem");
-  NumOfEqs := ExpandableArray.getNumberOfElements(eqns);
+  (innerEqns, residualEqns) := BackendEquation.traverseEquationArray(eqns, assignEqnToInnerOrResidual, (innerEqns, residualEqns));
+  BackendDump.dumpEquationList(innerEqns, "inner Equations");
+  BackendDump.dumpEquationList(residualEqns, "residualEqns");
 
   /*get ordered equations from jac
   traverse and multiply each lambda on rhs
   e1.rhs -> e1.rhs * lambda[1]*/
-  indexEq := 1;
   for lambdaList in lambdas loop
-    eq := ExpandableArray.get(indexEq, eqns);
+    eq :: residualEqns := residualEqns;
     eqExpr := BackendEquation.getEquationRHS(eq);
     eqExpr := multiplyLambda2Expression(eqExpr, lambdaList);
     hessExpr := eqExpr::hessExpr;
-    indexEq := indexEq+1;
   end for;
   (vars, eqns) := addEquations(hessExpr, eq, matrixName, vars);
-  eqns := addConstraintEquation(jacEqns, eqns, NumOfEqs, indexEq);
+  eqns := BackendEquation.addList(innerEqns, eqns);
   /*Updating the DAE*/
   eqs.orderedEqs := eqns;
   eqs.orderedVars := vars;
@@ -252,16 +252,35 @@ algorithm
   vars := BackendVariable.addVar(BackendVariable.makeVar(hessCref), vars);
 end setHessian;
 
-protected function addConstraintEquation
-  input BackendDAE.EquationArray jacEqs;
-  input output BackendDAE.EquationArray hessEqs;
-  input Integer numOfEqs;
-  input Integer idx;
+protected function assignEqnToInnerOrResidual
+  input output BackendDAE.Equation eqn;
+  input output tuple<list<BackendDAE.Equation>, list<BackendDAE.Equation>> eqnTpl;
+protected
+  list<BackendDAE.Equation> innerEqns, residualEqns;
 algorithm
-  for i in idx:numOfEqs loop
-    hessEqs := ExpandableArray.set(i, ExpandableArray.get(i, jacEqs), hessEqs);
-  end for;
-end addConstraintEquation;
+  (innerEqns, residualEqns) := eqnTpl;
+  if isResidualEqn(eqn) then
+    residualEqns := eqn :: residualEqns;
+  else
+    innerEqns := eqn :: innerEqns;
+  end if;
+  eqnTpl := (innerEqns, residualEqns);
+end assignEqnToInnerOrResidual;
+
+protected function isResidualEqn
+  input BackendDAE.Equation eqn;
+  output Boolean b;
+algorithm
+  b := match eqn
+    local
+      DAE.ComponentRef cr;
+    /* other eqn types relevant? */
+    case BackendDAE.EQUATION(exp = DAE.CREF(componentRef = cr))
+      guard(Util.stringStartsWith("$DER",ComponentReference.crefFirstIdent(cr)))
+    then true;
+    else false;
+  end match;
+end isResidualEqn;
 
 annotation(__OpenModelica_Interface="backend");
 end SymbolicHessian;
