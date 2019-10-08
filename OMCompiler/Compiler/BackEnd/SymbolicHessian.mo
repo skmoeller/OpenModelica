@@ -149,8 +149,9 @@ algorithm
   BackendDAE.EQSYSTEM(orderedVars = vars, orderedEqs = eqns) := eqs;
   jacEqns := eqns;
   (innerEqns, residualEqns) := BackendEquation.traverseEquationArray(eqns, assignEqnToInnerOrResidual, (innerEqns, residualEqns));
-  BackendDump.dumpEquationList(innerEqns, "inner Equations");
-  BackendDump.dumpEquationList(residualEqns, "residualEqns");
+  /*Dump the 'sorted' Equations*/
+  //BackendDump.dumpEquationList(innerEqns, "inner Equations");
+  //BackendDump.dumpEquationList(residualEqns, "residualEqns");
 
   /*get ordered equations from jac
   traverse and multiply each lambda on rhs
