@@ -788,7 +788,8 @@ type SymbolicJacobian = tuple<BackendDAE,               // symbolic equation sys
 
 public
 type SymbolicHessian = tuple<BackendDAE,              // symbolic equation system
-                               String                 // Name of the Hessian Matrix
+                               String,                 // Name of the Hessian Matrix
+                               list<Equation>         //Equations of the first derivatives from Jacobian
                                >;
 
 public

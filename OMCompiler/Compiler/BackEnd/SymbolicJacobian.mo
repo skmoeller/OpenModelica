@@ -1769,10 +1769,11 @@ else
 end try;
 end createFMIModelDerivatives;
 
-protected function createLinearModelMatrixes "This function creates the linear model matrices column-wise
+public function createLinearModelMatrixes "This function creates the linear model matrices column-wise
   author: wbraun"
   input BackendDAE.BackendDAE inBackendDAE;
   input Boolean useOptimica;
+  input Boolean b = false;
   output BackendDAE.SymbolicJacobians outJacobianMatrixes;
   output DAE.FunctionTree outFunctionTree;
 
@@ -2151,6 +2152,8 @@ algorithm
       BackendDAE.Variables paramVars;
       BackendDAE.Variables diffedVars "resVars";
       BackendDAE.BackendDAE jacobian;
+      /*Stuff for the Hessian*/
+      BackendDAE.SymbolicHessian hessian;
 
       // BackendDAE
       BackendDAE.Variables orderedVars, jacOrderedVars; // ordered Variables, only states and alg. vars
@@ -2160,7 +2163,7 @@ algorithm
       // end BackendDAE
 
       list<BackendDAE.Var> diffVars "independent vars", derivedVariables, diffedVarLst;
-      list<BackendDAE.Equation> eqns, derivedEquations;
+      list<BackendDAE.Equation> eqns, derivedEquations, firstDerivedEqs;
 
       list<list<BackendDAE.Equation>> derivedEquationslst;
 
@@ -2218,6 +2221,9 @@ ComponentReference.printComponentRefList(comref_diffvars);
 
       /*If Hessian calculated derive the RHS of the system two times!!!*/
       if Flags.getConfigBool(Flags.GENERATE_SYMBOLIC_HESSIAN) then
+
+        derivedEquations = BackendEquation.replaceDerOpInEquationList(derivedEquations);
+        firstDerivedEqs = derivedEquations;
 
         diffVars = BackendVariable.varList(diffedVars);
         derivedVariables = createAllDiffedVars(diffVars, x, diffedVars, matrixName);
@@ -2281,8 +2287,10 @@ ComponentReference.printComponentRefList(comref_diffvars);
       jacKnownVars = BackendVariable.addVariables(globalKnownVars, jacKnownVars);
       jacKnownVars = BackendVariable.addVariables(inSeedVars, jacKnownVars);
       (jacKnownVars,_) = BackendVariable.traverseBackendDAEVarsWithUpdate(jacKnownVars, BackendVariable.setVarDirectionTpl, (DAE.INPUT()));
+      if Flags.getConfigBool(Flags.GENERATE_SYMBOLIC_HESSIAN) then
+        derivedEquations = listAppend(firstDerivedEqs,derivedEquations);
+      end if;
       jacOrderedEqs = BackendEquation.listEquation(derivedEquations);
-
 
       shared = BackendDAEUtil.createEmptyShared(BackendDAE.JACOBIAN(), ei, cache, graph);
 
