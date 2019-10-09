@@ -2246,9 +2246,10 @@ ComponentReference.printComponentRefList(comref_diffvars);
         diffData.knownVars = SOME(globalKnownVars); //update diffData
         matrixNameForHess = matrixName+"1"; //Rename the Matrix name for the seeds
         diffData.matrixName = SOME(matrixNameForHess); //update matrix name
-        (derivedEquations, functions) = deriveAll(derivedEquations, arrayList(ass2), x, diffData, functions, true); //Derive second time
+        (derivedEquations2, functions) = deriveAll(derivedEquations, arrayList(ass2), x, diffData, functions, true); //Derive second time
         //BackendDump.dumpEquationList(derivedEquations, "derivedEquations 2");
       end if;
+    /* derivedeq1 und 2 zusammenfassen */
       if Flags.isSet(Flags.JAC_DUMP2) then
         print("*** analytical Jacobians -> after derive all equation: " + realString(clock()) + "\n");
       end if;
@@ -2268,7 +2269,9 @@ ComponentReference.printComponentRefList(comref_diffvars);
 
       if Flags.getConfigBool(Flags.GENERATE_SYMBOLIC_HESSIAN) or false then
         diffVars = BackendVariable.varList(jacOrderedVars);
-        derivedVariables = createAllDiffedVars(diffVars, x, diffedVars, matrixName + "1");
+        derivedVariables2 = createAllDiffedVars(diffVars, x, diffedVars, matrixName + "1");
+            /* derivedvars1 und 2 zusammenfassen */
+
         jacOrderedVars = BackendVariable.listVar1(derivedVariables);
       else
         diffVars = BackendVariable.varList(orderedVars);

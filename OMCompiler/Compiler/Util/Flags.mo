@@ -549,13 +549,10 @@ constant DebugFlag WARNING_MINMAX_ATTRIBUTES = DEBUG_FLAG(186, "warnMinMax", tru
   Util.gettext("Makes a warning assert from min/max variable attributes instead of error."));
 constant DebugFlag NF_EXPAND_FUNC_ARGS = DEBUG_FLAG(187, "nfExpandFuncArgs", false,
   Util.gettext("Expand all function arguments in the new frontend."));
-<<<<<<< HEAD
 constant DebugFlag DUMP_JL = DEBUG_FLAG(188, "dumpJL", false,
   Util.gettext("Dumps the absyn representation of a program as a Julia representation"));
-=======
-constant DebugFlag DUMP_OPTIMIZATION = DEBUG_FLAG(188, "dumpOptimization", false,
+constant DebugFlag DUMP_OPTIMIZATION = DEBUG_FLAG(189, "dumpOptimization", false,
   Util.gettext("Dumps the Equations of an dynamic optimization problem."));
->>>>>>> First Ideas->do not work!
 
 // This is a list of all debug flags, to keep track of which flags are used. A
 // flag can not be used unless it's in this list, and the list is checked at
@@ -750,11 +747,8 @@ constant list<DebugFlag> allDebugFlags = {
   FMI20_DEPENDENCIES,
   WARNING_MINMAX_ATTRIBUTES,
   NF_EXPAND_FUNC_ARGS,
-<<<<<<< HEAD
-  DUMP_JL
-=======
+  DUMP_JL,
   DUMP_OPTIMIZATION
->>>>>>> First Ideas->do not work!
 };
 
 public
@@ -1650,15 +1644,8 @@ constant list<ConfigFlag> allConfigFlags = {
   SHOW_STRUCTURAL_ANNOTATIONS,
   INITIAL_STATE_SELECTION,
   STRICT,
-<<<<<<< HEAD
-<<<<<<< HEAD
-  LINEARIZATION_DUMP_LANGUAGE
-=======
-  GENERATE_JACOBIAN_OPTIMIZATION
->>>>>>> First Ideas->do not work!
-=======
+  LINEARIZATION_DUMP_LANGUAGE,
   GENERATE_SYMBOLIC_HESSIAN
->>>>>>> Start to build the modul for the hessian
 };
 
 public function new
