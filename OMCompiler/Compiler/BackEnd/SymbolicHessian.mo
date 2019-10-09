@@ -67,9 +67,18 @@ protected
   BackendDAE.SymbolicJacobians linearModelMatrixes; //All Matrices A,B,C,D
   list< Option< BackendDAE.BackendDAE > > SymbolicHessians = {};
   Option< list< DAE.ComponentRef > > lambdas; //Lagrange factors
+  /*Stuff for the Jacobian*/
+  BackendDAE.EqSystems eqs;
+  BackendDAE.Shared shared;
+  DAE.FunctionTree funcs, functionTree;
 algorithm
-  outHessian := SymbolicJacobian.generateSymbolicLinearizationPast(inBackendDAE); //Generates Matrices A,B,C,D and calculates the second derivative
-  linearModelMatrixes := BackendDAEUtil.getSharedSymJacs(outHessian.shared); //Get the Matrices from shared
+  BackendDAE.DAE(eqs=eqs,shared=shared) := inBackendDAE;
+  (linearModelMatrixes, funcs) := SymbolicJacobian.createLinearModelMatrixes(inBackendDAE, true ,true);
+  shared := BackendDAEUtil.setSharedSymJacs(shared, linearModelMatrixes);
+  functionTree := BackendDAEUtil.getFunctions(shared);
+  functionTree := DAE.AvlTreePathFunction.join(functionTree, funcs);
+  shared := BackendDAEUtil.setSharedFunctionTree(shared, functionTree);
+  outHessian := BackendDAE.DAE(eqs,shared);
   for jacobian in linearModelMatrixes loop
     _ := match jacobian
     local
