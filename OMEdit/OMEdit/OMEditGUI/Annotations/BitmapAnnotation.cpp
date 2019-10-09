@@ -34,11 +34,12 @@
 
 #include "BitmapAnnotation.h"
 #include "Modeling/Commands.h"
+#include "Util/ResourceCache.h"
 
 #include <QMessageBox>
 
 BitmapAnnotation::BitmapAnnotation(QString classFileName, QString annotation, GraphicsView *pGraphicsView)
-  : ShapeAnnotation(false, pGraphicsView, 0)
+  : ShapeAnnotation(false, pGraphicsView, 0, 0)
 {
   mpComponent = 0;
   mClassFileName = classFileName;
@@ -52,28 +53,20 @@ BitmapAnnotation::BitmapAnnotation(QString classFileName, QString annotation, Gr
 }
 
 BitmapAnnotation::BitmapAnnotation(ShapeAnnotation *pShapeAnnotation, Component *pParent)
-  : ShapeAnnotation(pParent), mpComponent(pParent)
+  : ShapeAnnotation(pShapeAnnotation, pParent), mpComponent(pParent)
 {
   updateShape(pShapeAnnotation);
   setPos(mOrigin);
   setRotation(mRotation);
-  connect(pShapeAnnotation, SIGNAL(updateReferenceShapes()), pShapeAnnotation, SIGNAL(changed()));
-  connect(pShapeAnnotation, SIGNAL(added()), this, SLOT(referenceShapeAdded()));
-  connect(pShapeAnnotation, SIGNAL(changed()), this, SLOT(referenceShapeChanged()));
-  connect(pShapeAnnotation, SIGNAL(deleted()), this, SLOT(referenceShapeDeleted()));
 }
 
 BitmapAnnotation::BitmapAnnotation(ShapeAnnotation *pShapeAnnotation, GraphicsView *pGraphicsView)
-  : ShapeAnnotation(true, pGraphicsView, 0)
+  : ShapeAnnotation(true, pGraphicsView, pShapeAnnotation, 0)
 {
   mpComponent = 0;
   updateShape(pShapeAnnotation);
   setShapeFlags(true);
   mpGraphicsView->addItem(this);
-  connect(pShapeAnnotation, SIGNAL(updateReferenceShapes()), pShapeAnnotation, SIGNAL(changed()));
-  connect(pShapeAnnotation, SIGNAL(added()), this, SLOT(referenceShapeAdded()));
-  connect(pShapeAnnotation, SIGNAL(changed()), this, SLOT(referenceShapeChanged()));
-  connect(pShapeAnnotation, SIGNAL(deleted()), this, SLOT(referenceShapeDeleted()));
 }
 
 /*!
@@ -84,7 +77,7 @@ BitmapAnnotation::BitmapAnnotation(ShapeAnnotation *pShapeAnnotation, GraphicsVi
  * \param pGraphicsView
  */
 BitmapAnnotation::BitmapAnnotation(QString classFileName, GraphicsView *pGraphicsView)
-  : ShapeAnnotation(true, pGraphicsView, 0)
+  : ShapeAnnotation(true, pGraphicsView, 0, 0)
 {
   mpComponent = 0;
   mClassFileName = classFileName;
@@ -104,7 +97,7 @@ BitmapAnnotation::BitmapAnnotation(QString classFileName, GraphicsView *pGraphic
   if (!mFileName.isEmpty() && QFile::exists(mFileName)) {
     mImage.load(mFileName);
   } else {
-    mImage = QImage(":/Resources/icons/bitmap-shape.svg");
+    mImage = ResourceCache::getImage(":/Resources/icons/bitmap-shape.svg");
   }
 }
 
@@ -134,7 +127,7 @@ void BitmapAnnotation::parseShapeAnnotation(QString annotation)
   } else if (!mFileName.isEmpty() && QFile::exists(mFileName)) {
     mImage.load(mFileName);
   } else {
-    mImage = QImage(":/Resources/icons/bitmap-shape.svg");
+    mImage = ResourceCache::getImage(":/Resources/icons/bitmap-shape.svg");
   }
 }
 
@@ -191,6 +184,16 @@ QString BitmapAnnotation::getOMCShapeAnnotation()
   // get the image source
   annotationString.append(QString("\"").append(mImageSource).append("\""));
   return annotationString.join(",");
+}
+
+/*!
+ * \brief BitmapAnnotation::getOMCShapeAnnotationWithShapeName
+ * Returns Bitmap annotation in format as returned by OMC wrapped in Bitmap keyword.
+ * \return
+ */
+QString BitmapAnnotation::getOMCShapeAnnotationWithShapeName()
+{
+  return QString("Bitmap(%1)").arg(getOMCShapeAnnotation());
 }
 
 /*!

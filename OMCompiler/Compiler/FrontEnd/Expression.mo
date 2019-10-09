@@ -67,7 +67,7 @@ protected import ComponentReference;
 protected import Config;
 protected import DAEUtil;
 protected import Debug;
-protected import DoubleEndedList;
+protected import DoubleEnded;
 protected import FCore;
 protected import FGraph;
 protected import Error;
@@ -4839,7 +4839,7 @@ public function makeVar "Creates a Var given a name and Type"
   output DAE.Var v;
   annotation(__OpenModelica_EarlyInline = true);
 algorithm
-  v := DAE.TYPES_VAR(name, DAE.dummyAttrVar, tp, DAE.UNBOUND(), NONE());
+  v := DAE.TYPES_VAR(name, DAE.dummyAttrVar, tp, DAE.UNBOUND(), false, NONE());
 end makeVar;
 
 public function dimensionsMult
@@ -5469,7 +5469,7 @@ public function traverseExpList<ArgT> "Calls traverseExpBottomUp for each elemen
 protected
   DAE.Exp e1;
   Boolean allEq=true;
-  DoubleEndedList<DAE.Exp> delst;
+  DoubleEnded.MutableList<DAE.Exp> delst;
   Integer nEq=0;
 algorithm
   for e in inExpl loop
@@ -5477,22 +5477,22 @@ algorithm
     // Preserve reference equality without any allocation if nothing changed
     if (if allEq then not referenceEq(e, e1) else false) then
       allEq:=false;
-      delst := DoubleEndedList.empty(e1);
+      delst := DoubleEnded.empty(e1);
       for elt in inExpl loop
         if nEq < 1 then
           break;
         end if;
-        DoubleEndedList.push_back(delst, elt);
+        DoubleEnded.push_back(delst, elt);
         nEq := nEq-1;
       end for;
     end if;
     if allEq then
       nEq := nEq + 1;
     else
-      DoubleEndedList.push_back(delst, e1);
+      DoubleEnded.push_back(delst, e1);
     end if;
   end for;
-  expl := if allEq then inExpl else DoubleEndedList.toListAndClear(delst);
+  expl := if allEq then inExpl else DoubleEnded.toListAndClear(delst);
 end traverseExpList;
 
 public function traverseExpTopDown
@@ -6784,7 +6784,7 @@ algorithm
 
     case(DAE.CALL(path = Absyn.IDENT(name = "smooth"),expLst = {DAE.ICONST(i),e1}),(cr,false))
     guard(i>1)
-     then (e1,true, (cr,true));
+     then (e1,true, (cr, expHasCref(e1,cr)));
 
     case(DAE.CALL(), (cr,false))
     guard(isEventTriggeringFunctionExp(inExp))
@@ -6808,6 +6808,39 @@ algorithm
   end match;
 end expHasCrefInIfWork;
 
+public function expHasCrefInSmoothZero
+  "author: kabdelhak FHB 2019-09
+  Returns true if the expression contains a function call of the form
+  smooth(0, cr). Used to determine if an artificial state should
+  not be differentiated and reverted to be an algebraic variable
+  instead. "
+  input DAE.Exp exp;
+  input DAE.ComponentRef cr;
+  output Boolean b;
+algorithm
+  (_, (_, b)) := traverseExpBottomUp(exp, expHasCrefInSmoothZeroWork, (cr, false));
+end expHasCrefInSmoothZero;
+
+protected function expHasCrefInSmoothZeroWork
+  "author: kabdelhak FHB 2019-09
+  Work function to detect smooth(0, cr).
+  Q: Should it also return true if the smooth call expression
+  contains the cref in any way not only for direct identity?"
+  input output DAE.Exp exp;
+  input output tuple<DAE.ComponentRef, Boolean> tpl;
+algorithm
+  tpl := match (exp, tpl)
+    local
+      DAE.ComponentRef cr, sCr;
+      Boolean b;
+    case (DAE.CALL(path = Absyn.IDENT(name = "smooth"), expLst = {DAE.ICONST(0), DAE.CREF(componentRef = sCr)}), (cr, false))
+      algorithm
+        b := ComponentReference.crefEqual(sCr, cr);
+        //expHasCref(e, cr); use this instead for full check?
+      then (cr, b);
+    else tpl;
+  end match;
+end expHasCrefInSmoothZeroWork;
 
 public function traverseCrefsFromExp "
 Author: Frenkel TUD 2011-05, traverses all ComponentRef from an Expression."
@@ -7500,7 +7533,7 @@ protected
   DAE.Exp exp;
   DAE.Subscript nsub;
   Boolean allEq=true;
-  DoubleEndedList<DAE.Subscript> delst;
+  DoubleEnded.MutableList<DAE.Subscript> delst;
   Integer nEq=0;
 algorithm
   for sub in inSubscript loop
@@ -7522,22 +7555,22 @@ algorithm
     // Preserve reference equality without any allocation if nothing changed
     if (if allEq then not referenceEq(nsub, sub) else false) then
       allEq:=false;
-      delst := DoubleEndedList.empty(nsub);
+      delst := DoubleEnded.empty(nsub);
       for elt in inSubscript loop
         if nEq < 1 then
           break;
         end if;
-        DoubleEndedList.push_back(delst, elt);
+        DoubleEnded.push_back(delst, elt);
         nEq := nEq-1;
       end for;
     end if;
     if allEq then
       nEq := nEq + 1;
     else
-      DoubleEndedList.push_back(delst, nsub);
+      DoubleEnded.push_back(delst, nsub);
     end if;
   end for;
-  outSubscript := if allEq then inSubscript else DoubleEndedList.toListAndClear(delst);
+  outSubscript := if allEq then inSubscript else DoubleEnded.toListAndClear(delst);
 end traverseExpTopDownSubs;
 
 /***************************************************/
@@ -9869,7 +9902,7 @@ algorithm
 end dimensionsKnownAndEqual;
 
 public function dimensionKnown
-  "Checks whether a dimensions is known or not."
+  "Checks whether a dimension is known or not."
   input DAE.Dimension dim;
   output Boolean known;
 algorithm
@@ -9896,8 +9929,7 @@ algorithm
 end dimensionKnownAndNonZero;
 
 public function dimensionsKnownAndNonZero
-  "Checks whether all dimensions are known or not.
-  TODO: mahge: imprive this for speed"
+  "Checks whether all dimensions are known or not."
   input list<DAE.Dimension> dims;
   output Boolean allKnown;
 algorithm
@@ -9925,6 +9957,13 @@ algorithm
     else false;
   end match;
 end dimensionUnknown;
+
+public function hasUnknownDims
+  input list<DAE.Dimension> dims;
+  output Boolean hasUnkown;
+algorithm
+  hasUnkown := List.mapBoolOr(dims, dimensionUnknown);
+end hasUnknownDims;
 
 public function subscriptEqual
 "Returns true if two subscript lists are equal."
@@ -12299,7 +12338,7 @@ public function rangesToSubscripts
   input list<list<DAE.Subscript>> inRangelist;
   output list<list<DAE.Subscript>> outSubslst;
 algorithm
-  outSubslst := Util.allCombinations(inRangelist, NONE(), AbsynUtil.dummyInfo);
+  outSubslst := List.allCombinations(inRangelist, NONE(), AbsynUtil.dummyInfo);
 end rangesToSubscripts;
 
 public function expandSubscript

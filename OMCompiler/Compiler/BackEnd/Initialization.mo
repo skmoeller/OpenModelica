@@ -56,7 +56,7 @@ import BackendVariable;
 import BaseHashSet;
 import CheckModel;
 import ComponentReference;
-import DoubleEndedList;
+import DoubleEnded;
 import ElementSource;
 import Error;
 import ExecStat.execStat;
@@ -289,12 +289,6 @@ algorithm
       if b2 then
         Error.addMessage(Error.INITIALIZATION_OVER_SPECIFIED, {msg});
       end if;
-    end if;
-
-    // warn about iteration variables with default zero start attribute
-    b := warnAboutIterationVariablesWithDefaultZeroStartAttribute(initdae);
-    if b and (not Flags.isSet(Flags.INITIALIZATION)) then
-      Error.addMessage(Error.INITIALIZATION_ITERATION_VARIABLES, {msg});
     end if;
 
     if Flags.isSet(Flags.DUMP_EQNINORDER) and Flags.isSet(Flags.DUMP_INITIAL_SYSTEM) then
@@ -658,89 +652,6 @@ algorithm
     else inHS;
   end match;
 end collectPreVariablesTraverseExp2;
-
-// =============================================================================
-// warn about iteration variables with default zero start attribute
-//
-// =============================================================================
-
-protected function warnAboutIterationVariablesWithDefaultZeroStartAttribute "author: lochel
-  This function ... read the function name."
-  input BackendDAE.BackendDAE inDAE;
-  output Boolean outWarning;
-algorithm
-  outWarning := warnAboutIterationVariablesWithDefaultZeroStartAttribute0(inDAE.eqs, Flags.isSet(Flags.INITIALIZATION));
-end warnAboutIterationVariablesWithDefaultZeroStartAttribute;
-
-protected function warnAboutIterationVariablesWithDefaultZeroStartAttribute0 "author: lochel"
-  input list<BackendDAE.EqSystem> inEqs;
-  input Boolean inShowWarnings;
-  output Boolean outWarning = false;
-protected
-  Boolean warn;
-algorithm
-  for eqs in inEqs loop
-    warn := warnAboutIterationVariablesWithDefaultZeroStartAttribute1(eqs, inShowWarnings);
-    outWarning := outWarning or warn;
-
-    // If we found an iteration variable with default zero start attribute but
-    // -d=initialization wasn't given, we don't need to continue searching.
-    if warn and not inShowWarnings then
-      return;
-    end if;
-  end for;
-end warnAboutIterationVariablesWithDefaultZeroStartAttribute0;
-
-protected function warnAboutIterationVariablesWithDefaultZeroStartAttribute1 "author: lochel"
-  input BackendDAE.EqSystem inEqSystem;
-  input Boolean inShowWarnings;
-  output Boolean outWarning = false "True if any warnings were printed.";
-protected
-  BackendDAE.StrongComponents comps;
-  list<Integer> vlst = {};
-  list<BackendDAE.Var> vars;
-  String err;
-algorithm
-  BackendDAE.EQSYSTEM(matching=BackendDAE.MATCHING(comps=comps)) := inEqSystem;
-
-  // Go through all the strongly connected components.
-  for comp in comps loop
-    // Get the component's variables and select the correct error message.
-    (err, vlst) := match(comp)
-      case BackendDAE.EQUATIONSYSTEM(vars = vlst, jacType = BackendDAE.JAC_NONLINEAR())
-        then ("nonlinear equation system:\n", vlst);
-      case BackendDAE.EQUATIONSYSTEM(vars = vlst, jacType = BackendDAE.JAC_GENERIC())
-        then ("equation system with analytic Jacobian:\n", vlst);
-      case BackendDAE.EQUATIONSYSTEM(vars = vlst, jacType = BackendDAE.JAC_NO_ANALYTIC())
-        then ("equation system without analytic Jacobian:\n", vlst);
-      case BackendDAE.TORNSYSTEM(strictTearingSet = BackendDAE.TEARINGSET(tearingvars = vlst), linear = false)
-        then ("torn nonlinear equation system:\n", vlst);
-      // If the component is none of these types, do nothing.
-      else ("", {});
-    end match;
-
-    if not listEmpty(vlst) then
-      // Filter out the variables that are missing start values.
-      vars := List.map1r(vlst, BackendVariable.getVarAt, inEqSystem.orderedVars);
-      //vars := list(BackendVariable.getVarAt(inEqSystem.orderedVars, idx) for idx in vlst);
-      vars := list(v for v guard(not BackendVariable.varHasStartValue(v)) in vars);
-      //vars := List.filterOnTrue(vars, BackendVariable.varHasStartValue);
-
-      // Print a warning if we found any variables with missing start values.
-      if not listEmpty(vars) then
-        outWarning := true;
-
-        if inShowWarnings then
-          Error.addCompilerWarning("Iteration variables with default zero start attribute in " + err + warnAboutVars2(vars));
-        else
-          // If -d=initialization wasn't given we don't need to continue searching
-          // once we've found one.
-          return;
-        end if;
-      end if;
-    end if;
-  end for;
-end warnAboutIterationVariablesWithDefaultZeroStartAttribute1;
 
 protected function warnAboutVars2 "author: lochel
   TODO: Replace this with an general BackendDump implementation."
@@ -1251,27 +1162,27 @@ protected
   BackendDAE.BackendDAE dae;
   BackendDAE.EqSystem syst;
   list<BackendDAE.EqSystem> eqs;
-  DoubleEndedList<BackendDAE.Var> dumpVars;
-  DoubleEndedList<BackendDAE.Equation> removedEqns;
+  DoubleEnded.MutableList<BackendDAE.Var> dumpVars;
+  DoubleEnded.MutableList<BackendDAE.Equation> removedEqns;
 algorithm
   // filter empty systems
   eqs := {};
-  dumpVars := DoubleEndedList.fromList({});
-  removedEqns := DoubleEndedList.fromList({});
+  dumpVars := DoubleEnded.fromList({});
+  removedEqns := DoubleEnded.fromList({});
   for syst in inInitDAE.eqs loop
     if BackendDAEUtil.nonEmptySystem(syst) then
       eqs := syst::eqs;
     else
-      DoubleEndedList.push_list_back(removedEqns, BackendEquation.equationList(syst.orderedEqs));
-      DoubleEndedList.push_list_back(removedEqns, BackendEquation.equationList(syst.removedEqs));
+      DoubleEnded.push_list_back(removedEqns, BackendEquation.equationList(syst.orderedEqs));
+      DoubleEnded.push_list_back(removedEqns, BackendEquation.equationList(syst.removedEqs));
     end if;
   end for;
   dae := BackendDAE.DAE(eqs, inInitDAE.shared);
 
   //execStat("reset analyzeInitialSystem (initialization)");
   outDAE := BackendDAEUtil.mapEqSystemAndFold(dae, function fixInitialSystem(initVars=inInitVars, dumpVars=dumpVars, removedEqns=removedEqns), 0);
-  outRemovedEqns := DoubleEndedList.toListAndClear(removedEqns);
-  outDumpVars := DoubleEndedList.toListAndClear(dumpVars);
+  outRemovedEqns := DoubleEnded.toListAndClear(removedEqns);
+  outDumpVars := DoubleEnded.toListAndClear(dumpVars);
 end analyzeInitialSystem;
 
 protected function getInitEqIndex
@@ -1295,8 +1206,8 @@ protected function fixInitialSystem "author: lochel
   output BackendDAE.Shared outShared = inShared;
   input output Integer dummy;
   input BackendDAE.Variables initVars;
-  input DoubleEndedList<BackendDAE.Var> dumpVars;
-  input DoubleEndedList<BackendDAE.Equation> removedEqns;
+  input DoubleEnded.MutableList<BackendDAE.Var> dumpVars;
+  input DoubleEnded.MutableList<BackendDAE.Equation> removedEqns;
 protected
   BackendDAE.EquationArray eqns2;
   list<BackendDAE.Var> dumpVars2;
@@ -1378,7 +1289,7 @@ algorithm
         //BackendDump.dumpEquationList(removedEqns2, "removed equations");
         eqns2 := BackendEquation.deleteList(inEqSystem.orderedEqs, redundantEqns);
         //BackendDump.dumpEquationArray(eqns2, "remaining equations");
-        DoubleEndedList.push_list_back(removedEqns, removedEqns2);
+        DoubleEnded.push_list_back(removedEqns, removedEqns2);
       else
         eqns2 := inEqSystem.orderedEqs;
       end if;
@@ -1393,7 +1304,7 @@ algorithm
         initVarList := List.map1r(range, BackendVariable.getVarAt, inEqSystem.orderedVars);
         (eqns2, dumpVars2) := addStartValueEquations(initVarList, eqns2, {});
         //BackendDump.dumpEquationArray(eqns2, "remaining equations");
-        DoubleEndedList.push_list_back(dumpVars, dumpVars2);
+        DoubleEnded.push_list_back(dumpVars, dumpVars2);
       end if;
       outEqSystem := BackendDAEUtil.setEqSystEqs(inEqSystem, eqns2);
       //print("index-" + intString(index) + " ende\n");

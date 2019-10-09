@@ -38,7 +38,6 @@ encapsulated package Array
 
 protected
 import MetaModelica.Dangerous.{arrayGetNoBoundsChecking, arrayUpdateNoBoundsChecking, arrayCreateNoInit};
-import Error;
 
 public
 function mapNoCopy<T>
@@ -248,6 +247,41 @@ algorithm
     end for;
   end if;
 end map1;
+
+function map1Ind<TI, TO, ArgT>
+  "Takes an array, an extra arguments, and a function over the elements of the
+   array, which is applied to each element. The index is passed as an extra
+   argument. The updated elements will form a new
+   array, leaving the original array unchanged."
+  input array<TI> inArray;
+  input FuncType inFunc;
+  input ArgT inArg;
+  output array<TO> outArray;
+
+  partial function FuncType
+    input TI inElement;
+    input Integer index;
+    input ArgT inArg;
+    output TO outElement;
+  end FuncType;
+protected
+  Integer len = arrayLength(inArray);
+  TO res;
+algorithm
+  // If the array is empty, use list transformations to fix the types!
+  if len == 0 then
+    outArray := listArray({});
+  else
+    // If the array isn't empty, use the first element to create the new array.
+    res := inFunc(arrayGetNoBoundsChecking(inArray, 1), 1, inArg);
+    outArray := arrayCreateNoInit(len, res);
+    arrayUpdate(outArray, 1, res);
+
+    for i in 2:len loop
+      arrayUpdate(outArray, i, inFunc(arrayGetNoBoundsChecking(inArray, i), i, inArg));
+    end for;
+  end if;
+end map1Ind;
 
 function map0<T>
   "Applies a non-returning function to all elements in an array."
@@ -880,7 +914,6 @@ protected
 algorithm
   arrLength := arrayLength(inArr1);
   if not intEq(arrLength,arrayLength(inArr2)) then
-    Error.addMessage(Error.DIFFERENT_DIM_SIZE_IN_ARGUMENTS, {"array","Array.isEqual"});
     fail();
   end if;
   for i in 1:arrLength loop

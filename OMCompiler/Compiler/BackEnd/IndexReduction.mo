@@ -325,7 +325,7 @@ algorithm
 end eqnstplDebugString;
 
 
-protected function minimalStructurallySingularSystem "author: Frenkel TUD - 2012-04,
+public function minimalStructurallySingularSystem "author: Frenkel TUD - 2012-04,
   checks if the subset of equations is minimal structurally singular. The
   check is done for all equations and variables and for each subset.
   The number of states must be larger or equal to the number of unmatched
@@ -349,6 +349,7 @@ protected
   Integer size;
   Boolean b;
 algorithm
+
   BackendDAE.EQSYSTEM(orderedVars=vars, orderedEqs=eqns, m=SOME(m)) := syst;
   size := BackendVariable.varsSize(vars);
   statemark := arrayCreate(size, -1);
@@ -393,15 +394,15 @@ algorithm
     case {}
     then (inEqnsLstAcc, inStateIndxsAcc, inUnassEqnsAcc, inDiscEqnsAcc);
 
-    case ilst::rest equation
+    case ilst::rest algorithm
       // print("Eqns " + stringDelimitList(List.map(ilst, intString), ", ") + "\n");
-      ((unassignedEqns, eqnsLst, discEqns)) = List.fold3(ilst, unassignedContinuesEqns, vars, inAssignments2, m, ({}, {}, inDiscEqnsAcc));
+      ((unassignedEqns, eqnsLst, discEqns)) := List.fold3(ilst, unassignedContinuesEqns, vars, inAssignments2, m, ({}, {}, inDiscEqnsAcc));
       // print("unassignedEqns " + stringDelimitList(List.map(unassignedEqns, intString), ", ") + "\n");
-      stateIndxs = List.fold2(ilst, statesInEquations, (m, statemark, mark), inAssignments1, {});
+      stateIndxs := List.fold2(ilst, statesInEquations, (m, statemark, mark), inAssignments1, {});
       // print("stateIndxs " + stringDelimitList(List.map(stateIndxs, intString), ", ") + "\n");
-      b = intGe(listLength(stateIndxs), listLength(unassignedEqns));
+      b := intGe(listLength(stateIndxs), listLength(unassignedEqns));
       singulareSystemError(b, stateIndxs, unassignedEqns, eqnsLst, inSystem, inShared, inAssignments1, inAssignments2, inArg);
-      (outEqnsLst, outStateIndxs, outUnassEqnsAcc, outDiscEqns) = minimalStructurallySingularSystemMSS(rest, inSystem, inShared, inAssignments1, inAssignments2, inArg, statemark, mark+1, m, vars, eqnsLst::inEqnsLstAcc, stateIndxs::inStateIndxsAcc, unassignedEqns::inUnassEqnsAcc, discEqns);
+      (outEqnsLst, outStateIndxs, outUnassEqnsAcc, outDiscEqns) := minimalStructurallySingularSystemMSS(rest, inSystem, inShared, inAssignments1, inAssignments2, inArg, statemark, mark+1, m, vars, eqnsLst::inEqnsLstAcc, stateIndxs::inStateIndxsAcc, unassignedEqns::inUnassEqnsAcc, discEqns);
     then (outEqnsLst, outStateIndxs, outUnassEqnsAcc, outDiscEqns);
   end match;
 end minimalStructurallySingularSystemMSS;
@@ -1330,7 +1331,7 @@ algorithm
     BackendDAE.EQSYSTEM(orderedVars=vars) := inSystem;
     BackendDAE.SHARED(functionTree=funcs) := inShared;
     // do late Inline also in orgeqnslst
-    orgEqnsLst := inlineOrgEqns(orgEqnsLst,(SOME(funcs),{DAE.NORM_INLINE(),DAE.AFTER_INDEX_RED_INLINE()}));
+    orgEqnsLst := inlineOrgEqns(orgEqnsLst,(SOME(funcs),{DAE.NORM_INLINE(), DAE.AFTER_INDEX_RED_INLINE()}));
     if Flags.isSet(Flags.BLT_DUMP) then
       print("########################### STATE SELECTION ###########################\n");
     end if;
@@ -1992,11 +1993,12 @@ algorithm
       BackendDAE.Variables vars;
       BackendDAE.Var v;
       Option<DAE.ComponentRef> derName;
-    case(BackendDAE.VAR(varKind=BackendDAE.STATE(index=diffindx,derName=derName)),_,_)
+      Boolean natural;
+    case(BackendDAE.VAR(varKind=BackendDAE.STATE(index=diffindx,derName=derName,natural=natural)),_,_)
       equation
         true = intGt(diffindx,level);
         diffindx = diffindx-level;
-        v = BackendVariable.setVarKind(inVar, BackendDAE.STATE(diffindx,derName));
+        v = BackendVariable.setVarKind(inVar, BackendDAE.STATE(diffindx,derName,natural));
         vars = BackendVariable.addVar(v, iVars);
       then
          vars;
@@ -2027,7 +2029,7 @@ algorithm
   (outDummyVars,oStateSets) :=
   matchcontinue inSystem
     local
-      list<BackendDAE.Var> dummyVars,vlst;
+      list<BackendDAE.Var> dummyVars,stateVars,vlst;
       array<list<Integer>> mapEqnIncRow;
       array<Integer> mapIncRowEqn;
       Integer nv,nv1,ne,ne1,neqnarr;
@@ -2062,8 +2064,8 @@ algorithm
         hovvars = BackendVariable.listVar1(statecandidates);
         eqns1 = BackendEquation.listEquation(eqnslst);
         syst = BackendDAEUtil.createEqSystem(hovvars, eqns1);
-        (me,meT,_,_) =  BackendDAEUtil.getAdjacencyMatrixEnhancedScalar(syst,inShared,false,true);
-        m1 = incidenceMatrixfromEnhanced2(me,hovvars);
+        (me,meT,_,_) =  BackendDAEUtil.getAdjacencyMatrixEnhancedScalar(syst,inShared,false);
+        m1 = incidenceMatrixfromEnhancedStrict(me,hovvars);
         mT1 = AdjacencyMatrix.transposeAdjacencyMatrix(m1,nfreeStates);
         //  BackendDump.printEqSystem(syst);
         hovvars = sortStateCandidatesVars(hovvars,BackendVariable.daeVars(inSystem),SOME(mT1));
@@ -2123,14 +2125,14 @@ algorithm
         vars = BackendVariable.addVars(BackendVariable.varList(hovvars), vars);
         syst = BackendDAEUtil.createEqSystem(vars, eqns);
         // get advanced incidence Matrix
-        (me,meT,mapEqnIncRow,mapIncRowEqn) = BackendDAEUtil.getAdjacencyMatrixEnhancedScalar(syst,inShared,false,true);
+        (me,meT,mapEqnIncRow,mapIncRowEqn) = BackendDAEUtil.getAdjacencyMatrixEnhancedScalar(syst,inShared,false);
         if Flags.isSet(Flags.BLT_DUMP) then
           BackendDump.dumpAdjacencyMatrixEnhanced(me);
           print("\n");
           BackendDump.dumpAdjacencyMatrixTEnhanced(meT);
         end if;
         // get indicenceMatrix from Enhanced
-        m = incidenceMatrixfromEnhanced2(me,vars);
+        m = incidenceMatrixfromEnhancedStrict(me,vars);
         nv = BackendVariable.varsSize(vars);
         ne = BackendEquation.equationArraySize(eqns);
         mT = AdjacencyMatrix.transposeAdjacencyMatrix(m,nv);
@@ -2140,28 +2142,36 @@ algorithm
         vec1 = arrayCreate(nv,-1);
         vec2 = arrayCreate(ne,-1);
         BackendDAEEXT.getAssignment(vec1,vec2);
+        // get the matched state candidates -> dummys
+        // get the unmatched state candidates -> actual states
+        // force StateSelect.never vars
+        (dstates, states, vec1, vec2) = forceStateSelectNever(vec1, vec2, vars, eqns, me, inShared, so);
         if Flags.isSet(Flags.BLT_DUMP) then
           print("\n");
           BackendDump.dumpMatching(vec1);
           print("\n");
           BackendDump.dumpMatching(vec2);
         end if;
-        // get the matched state candidates -> dummyVars
         (dstates,_) = checkAssignment(1,nv,vec1,vars);
         dummyVars = List.map1r(List.map(dstates,Util.tuple22),BackendVariable.getVarAt,vars);
+        stateVars = List.map1r(List.map(states,Util.tuple22),BackendVariable.getVarAt,vars);
         dummyVars = List.select(dummyVars, BackendVariable.isStateVar);
-        if Flags.isSet(Flags.BLT_DUMP) then
-          BackendDump.dumpVarList(dummyVars, "Selected dummy states:");
-        end if;
         // get assigned and unassigned equations
         unassigned = Matching.getUnassigned(ne, vec2, {});
         _ = Matching.getAssigned(ne, vec2, {});
         if Flags.isSet(Flags.BLT_DUMP) then
           if listEmpty(unassigned) then
             print("Perfect Matching, no dynamic index reduction needed! There are no unassigned equations.\n\n");
+            if Flags.isSet(Flags.BLT_DUMP) then
+              BackendDump.dumpVarList(dummyVars, "Selected dummy states:");
+              BackendDump.dumpVarList(stateVars, "Selected continuous states:");
+            end if;
           else
             print("No perfect matching possible, dynamic index reduction needed.\n");
             BackendDump.dumpEquationList(BackendEquation.getEquationArraySubsetLst(eqns,unassigned),"Unassigned equations:");
+            if Flags.isSet(Flags.BLT_DUMP) then
+              BackendDump.dumpVarList(dummyVars, "Statically selected dummy states:");
+            end if;
             print("\n");
           end if;
         end if;
@@ -2209,6 +2219,121 @@ algorithm
         (dummyVars,stateSets);
   end matchcontinue;
 end selectStatesWork1;
+
+protected function forceStateSelectNever
+  input array<Integer> vec_old1;
+  input array<Integer> vec_old2;
+  input BackendDAE.Variables vars;
+  input BackendDAE.EquationArray eqns;
+  input BackendDAE.AdjacencyMatrixEnhanced me;
+  input BackendDAE.Shared inShared;
+  input BackendDAE.StateOrder so;
+  output list<tuple<DAE.ComponentRef,Integer>> dummyStates;
+  output list<tuple<DAE.ComponentRef,Integer>> states;
+  output array<Integer> vec1 = vec_old1;
+  output array<Integer> vec2 = vec_old2;
+protected
+  Integer nv, nv2, ne, never_i, eq_i, old_i;
+  BackendDAE.Var var;
+  HashTable3.HashTable ht;
+  array<Integer> vec_res1, vec_res2;
+  list<BackendDAE.Var> neverVars = {};
+  BackendDAE.Variables neverVarsArray;
+  list<Integer> neverIdx = {};
+  BackendDAE.EqSystem syst2;
+  BackendDAE.AdjacencyMatrixEnhanced me2;
+  BackendDAE.IncidenceMatrix m, mT;
+  list<tuple<Integer,Integer>> tplLst;
+  String msg;
+algorithm
+  nv := BackendVariable.varsSize(vars);
+  ne := BackendEquation.equationArraySize(eqns);
+  BackendDAE.STATEORDER(invHashTable = ht) := so;
+  (dummyStates,states) := checkAssignment(1,nv,vec_old1,vars);
+
+  for state in states loop
+    var := BackendVariable.getVarAt(vars,Util.tuple22(state));
+    if varStateSelectNever(var) and not BaseHashTable.hasKey(BackendVariable.varCref(var), ht) then
+      neverVars := var::neverVars;
+      neverIdx := Util.tuple22(state)::neverIdx;
+    end if;
+  end for;
+
+  // If there are any unmatched stateSelect.never vars dump them and start algorithm
+  if not listEmpty(neverVars) then
+    if Flags.isSet(Flags.BLT_DUMP) then
+      BackendDump.dumpVarList(neverVars, "StateSelect.never variables that will tried to be forced as dummys");
+    else
+      msg := System.gettext(BackendDump.varListStringShort(neverVars,"") +
+      "They were forced to be statically selected as dummys, this could lead to errors during simulation, please use -d=bltdump for more information.\n");
+      Error.addMessage(Error.STATE_STATESELECT_NEVER_FORCED, {msg});
+    end if;
+
+    // If there are unmatched equations try to match full system with casual rules for stateSelect.never vars
+    if Matching.anyUnassigned(ne, vec2) then
+      // non strict rules to be able to solve for nonlinear stateSelect.never states
+      m := incidenceMatrixfromEnhanced(me,vars,so);
+      mT := AdjacencyMatrix.transposeAdjacencyMatrix(m,nv);
+
+      (vec2,vec1,_) := Matching.ContinueMatching(mT,ne,nv,vec2,vec1);
+      (dummyStates,states) := checkAssignment(1,nv,vec1,vars);
+
+      // look for leftover unmatched stateSelect.never vars
+      neverVars := {};
+      neverIdx := {};
+      for state in states loop
+        var := BackendVariable.getVarAt(vars,Util.tuple22(state));
+        if varStateSelectNever(var) and not BaseHashTable.hasKey(BackendVariable.varCref(var), ht) then
+          neverVars := var::neverVars;
+          neverIdx := Util.tuple22(state)::neverIdx;
+        end if;
+      end for;
+    end if;
+
+    // if there are (still) unmatched never vars try to solve them individually and swap out in original matching
+    if not listEmpty(neverVars) then
+      neverVarsArray := BackendVariable.listVar1(neverVars);
+
+      nv2 := BackendVariable.varsSize(neverVarsArray);
+      syst2 := BackendDAEUtil.createEqSystem(neverVarsArray, eqns);
+      (me2,_,_,_) :=  BackendDAEUtil.getAdjacencyMatrixEnhancedScalar(syst2,inShared,false);
+
+      // non strict rules to be able to solve for nonlinear stateSelect.never states
+      m := incidenceMatrixfromEnhancedPartial(me2,vars,neverVarsArray,vec2,so);
+
+      if not AdjacencyMatrix.isEmpty(m) then
+        mT := AdjacencyMatrix.transposeAdjacencyMatrix(m,nv2);
+        Matching.matchingExternalsetIncidenceMatrix(ne,nv2,mT);
+        BackendDAEEXT.matching(ne,nv2,3,-1,1.0,1);
+        vec_res1 := arrayCreate(nv2,-1);
+        vec_res2 := arrayCreate(ne,-1);
+        BackendDAEEXT.getAssignment(vec_res1,vec_res2);
+
+        // swap out new matchings
+         tplLst := List.zip(neverIdx,List.intRange(listLength(neverIdx)));
+        for tpl in tplLst loop
+          (never_i, eq_i) := tpl;
+          // assigning matched never var to matched eq
+          vec1[never_i] := vec_res1[eq_i];
+          old_i := vec2[vec_res1[eq_i]];
+          vec2[vec_res1[eq_i]] := never_i;
+          // unassigning old matched var if the equation was matched
+          if not intEq(old_i,-1) then
+            vec1[old_i] := -1;
+          end if;
+        end for;
+      end if;
+    end if;
+
+    if Flags.isSet(Flags.BLT_DUMP) then
+      print("\n###################################\n" +
+            "INCLUDES FORCED STATESELECT.NEVER()\n" +
+            "###################################\n");
+    end if;
+
+    (dummyStates,states) := checkAssignment(1,nv,vec1,vars);
+  end if;
+end forceStateSelectNever;
 
 protected function selectBlock
   input list<Integer> comp;
@@ -3242,29 +3367,29 @@ algorithm
   end match;
 end varStateSelectNever;
 
-protected function incidenceMatrixfromEnhanced2
+protected function incidenceMatrixfromEnhancedStrict
 "author: Frenkel TUD 2012-11
   converts an AdjacencyMatrixEnhanced into a IncidenceMatrix"
   input BackendDAE.AdjacencyMatrixEnhanced me;
   input BackendDAE.Variables vars;
   output BackendDAE.IncidenceMatrix m;
 algorithm
-  m := Array.map1(me,incidenceMatrixElementfromEnhanced2,vars);
-end incidenceMatrixfromEnhanced2;
+  m := Array.map1(me,incidenceMatrixElementfromEnhancedStrict,vars);
+end incidenceMatrixfromEnhancedStrict;
 
-protected function incidenceMatrixElementfromEnhanced2
+protected function incidenceMatrixElementfromEnhancedStrict
 "author: Frenkel TUD 2012-11
-  helper for incidenceMatrixfromEnhanced2"
+  helper for incidenceMatrixfromEnhancedStrict"
   input BackendDAE.AdjacencyMatrixElementEnhanced iRow;
   input BackendDAE.Variables vars;
   output BackendDAE.IncidenceMatrixElement oRow;
 algorithm
-  oRow := List.fold1(iRow, incidenceMatrixElementElementfromEnhanced2, vars, {});
+  oRow := List.fold1(iRow, incidenceMatrixElementElementfromEnhancedStrict, vars, {});
   oRow := List.map(oRow,intAbs);
   oRow := listReverse(oRow);
-end incidenceMatrixElementfromEnhanced2;
+end incidenceMatrixElementfromEnhancedStrict;
 
-protected function incidenceMatrixElementElementfromEnhanced2
+protected function incidenceMatrixElementElementfromEnhancedStrict
 "author: Frenkel TUD 2012-11
   converts an AdjacencyMatrix entry into a IncidenceMatrix entry"
   input tuple<Integer, BackendDAE.Solvability, BackendDAE.Constraints> inTpl;
@@ -3278,32 +3403,117 @@ algorithm
     case ((i,BackendDAE.SOLVABILITY_CONSTONE(),_),_,_) then i::iRow;
     case ((i,BackendDAE.SOLVABILITY_CONST(),_),_,_) then i::iRow;
     case ((i,BackendDAE.SOLVABILITY_PARAMETER(b=true),_),_,_) then i::iRow;
-//    case ((i,BackendDAE.SOLVABILITY_PARAMETER(b=false)),_,_) then incidenceMatrixElementElementfromEnhanced2_1(i,vars,iRow);
-//    case ((i,BackendDAE.SOLVABILITY_LINEAR(b=_)),_,_) then incidenceMatrixElementElementfromEnhanced2_1(i,vars,iRow);
-//    case ((i,BackendDAE.SOLVABILITY_NONLINEAR()),_,_) then incidenceMatrixElementElementfromEnhanced2_1(i,vars,iRow);
-//    case ((i,BackendDAE.SOLVABILITY_NONLINEAR()),_,_) then iRow;
     else iRow;
   end match;
-end incidenceMatrixElementElementfromEnhanced2;
+end incidenceMatrixElementElementfromEnhancedStrict;
 
-// protected function incidenceMatrixElementElementfromEnhanced2_1
-//   input Integer i;
-//   input BackendDAE.Variables vars;
-//   input list<Integer> iRow;
-//   output list<Integer> oRow;
-// protected
-//   BackendDAE.Var v;
-//   DAE.StateSelect s;
-//   Integer si;
-//   Boolean b;
-// algorithm
-//   v := BackendVariable.getVarAt(vars,intAbs(i));
-//   s := BackendVariable.varStateSelect(v);
-//   si := BackendVariable.stateSelectToInteger(s);
-// //  oRow := List.consOnTrue(intLt(si,0),i,iRow);
-//   b := BackendVariable.isStateVar(v);
-//   oRow := List.consOnTrue(intLt(si,0) or not b,i,iRow);
-// end incidenceMatrixElementElementfromEnhanced2_1;
+protected function incidenceMatrixfromEnhanced
+"author: kabdelhak FHB 2019-08
+  converts an AdjacencyMatrixEnhanced into a IncidenceMatrix"
+  input BackendDAE.AdjacencyMatrixEnhanced me;
+  input BackendDAE.Variables vars;
+  input BackendDAE.StateOrder so;
+  output BackendDAE.IncidenceMatrix m;
+algorithm
+  m := Array.map1(me,incidenceMatrixElementfromEnhanced,(vars,so));
+end incidenceMatrixfromEnhanced;
+
+protected function incidenceMatrixElementfromEnhanced
+"author: kabdelhak FHB 2019-08
+  helper for incidenceMatrixfromEnhanced"
+  input BackendDAE.AdjacencyMatrixElementEnhanced iRow;
+  input tuple<BackendDAE.Variables, BackendDAE.StateOrder> tpl;
+  output BackendDAE.IncidenceMatrixElement oRow;
+algorithm
+  oRow := List.fold1(iRow, incidenceMatrixElementElementfromEnhanced, tpl, {});
+  oRow := List.map(oRow,intAbs);
+  oRow := listReverse(oRow);
+end incidenceMatrixElementfromEnhanced;
+
+protected function incidenceMatrixfromEnhancedPartial
+"author: kabdelhak FHB 2019-08
+  converts an AdjacencyMatrixEnhanced into a IncidenceMatrix.
+  does not allow unmatching of stateSelect.never variables."
+  input BackendDAE.AdjacencyMatrixEnhanced me;
+  input BackendDAE.Variables vars;
+  input BackendDAE.Variables neverVars;
+  input array<Integer> ass;
+  input BackendDAE.StateOrder so;
+  output BackendDAE.IncidenceMatrix m;
+algorithm
+  m := Array.map1Ind(me,incidenceMatrixElementfromEnhancedPartial,(vars,neverVars,ass,so));
+end incidenceMatrixfromEnhancedPartial;
+
+protected function incidenceMatrixElementfromEnhancedPartial
+"author: kabdelhak FHB 2019-08
+  helper for incidenceMatrixfromEnhanced
+  does not allow unmatching of stateSelect.never variables."
+  input BackendDAE.AdjacencyMatrixElementEnhanced iRow;
+  input Integer index;
+  input tuple<BackendDAE.Variables,BackendDAE.Variables,array<Integer>,BackendDAE.StateOrder> varsAssTpl;
+  output BackendDAE.IncidenceMatrixElement oRow;
+protected
+  BackendDAE.Variables vars;
+  BackendDAE.Variables neverVars;
+  array<Integer> ass;
+  BackendDAE.StateOrder so;
+algorithm
+  (vars, neverVars, ass, so) := varsAssTpl;
+  if intEq(ass[index], -1) or (not BackendVariable.varStateSelectNever(BackendVariable.getVarAt(vars,ass[index]))) then
+    oRow := List.fold1(iRow, incidenceMatrixElementElementfromEnhanced, (neverVars, so), {});
+    oRow := List.map(oRow,intAbs);
+    oRow := listReverse(oRow);
+  else
+    oRow := {};
+  end if;
+end incidenceMatrixElementfromEnhancedPartial;
+
+protected function incidenceMatrixElementElementfromEnhanced
+"author: kabdelhak FHB 2019-08
+  converts an AdjacencyMatrix entry into an IncidenceMatrix entry
+  ToDo: remove nonlinear (?)"
+  input tuple<Integer, BackendDAE.Solvability, BackendDAE.Constraints> inTpl;
+  input tuple<BackendDAE.Variables, BackendDAE.StateOrder> tpl;
+  input list<Integer> iRow;
+  output list<Integer> oRow;
+algorithm
+  oRow := match inTpl
+    local Integer i;
+    case (i,BackendDAE.SOLVABILITY_SOLVED(),_) then i::iRow;
+    case (i,BackendDAE.SOLVABILITY_CONSTONE(),_) then i::iRow;
+    case (i,BackendDAE.SOLVABILITY_CONST(),_) then i::iRow;
+    case (i,BackendDAE.SOLVABILITY_PARAMETER(b=true),_) then i::iRow;
+    case (i,BackendDAE.SOLVABILITY_PARAMETER(b=false),_) then incidenceMatrixElementElementfromEnhanced_1(i,tpl,iRow);
+    case (i,BackendDAE.SOLVABILITY_LINEAR(b=true),_) then incidenceMatrixElementElementfromEnhanced_1(i,tpl,iRow);
+    case (i,BackendDAE.SOLVABILITY_NONLINEAR(),_) then incidenceMatrixElementElementfromEnhanced_1(i,tpl,iRow);
+    else iRow;
+  end match;
+end incidenceMatrixElementElementfromEnhanced;
+
+protected function incidenceMatrixElementElementfromEnhanced_1
+  "author: kabdelhak FHB 2019-08
+  Only append if stateSelect.never and the state is not the derivative of another state
+  - ticket #5459
+  Non-strict rules can only be applied on stateSelect.never, since they are forced in by the user.
+  If they are derivatives of another state, this rule does not apply, since (theoretically) the derivative
+  of the other state is actually what is simulated and the original state with stateSelect.never is not
+  considered anyways."
+  input Integer i;
+  input tuple<BackendDAE.Variables, BackendDAE.StateOrder> tpl;
+  input list<Integer> iRow;
+  output list<Integer> oRow;
+protected
+  BackendDAE.Variables vars;
+  BackendDAE.StateOrder so;
+  HashTable3.HashTable ht;
+  BackendDAE.Var v;
+  Boolean b;
+algorithm
+  (vars, so as BackendDAE.STATEORDER(invHashTable = ht)) := tpl;
+  v := BackendVariable.getVarAt(vars,intAbs(i));
+  b := BackendVariable.varStateSelectNever(v) and not BaseHashTable.hasKey(BackendVariable.varCref(v), ht);
+  oRow := List.consOnTrue(b,i,iRow);
+end incidenceMatrixElementElementfromEnhanced_1;
 
 protected function checkAssignment
 "author: Frenkel TUD 2012-05
@@ -3338,6 +3548,7 @@ algorithm
     local
       HashTableCrIntToExp.HashTable ht;
       DAE.ComponentRef name,cr;
+      Boolean natural;
       DAE.VarDirection dir;
       DAE.VarParallelism prl;
       DAE.Type tp;
@@ -3355,7 +3566,7 @@ algorithm
       Option<DAE.ComponentRef> derName;
       DAE.VarInnerOuter io;
    // state no derivative known
-    case (BackendDAE.VAR(varName=name,varKind=BackendDAE.STATE(index=diffcount,derName=NONE()),varDirection=dir,varParallelism=prl,varType=tp,arryDim=dim,source=source,tearingSelectOption=ts,hideResult=hideResult,comment=comment,connectorType=ct,innerOuter=io),_,_)
+    case (BackendDAE.VAR(varName=name,varKind=BackendDAE.STATE(index=diffcount,derName=NONE(),natural=natural),varDirection=dir,varParallelism=prl,varType=tp,arryDim=dim,source=source,tearingSelectOption=ts,hideResult=hideResult,comment=comment,connectorType=ct,innerOuter=io),_,_)
       guard intGt(diffcount,1)
       equation
         n = diffcount-level;
@@ -3369,13 +3580,13 @@ algorithm
         dattr = BackendVariable.getVariableAttributefromType(tp);
         odattr = DAEUtil.setFixedAttr(SOME(dattr), SOME(DAE.BCONST(false)));
         //kind = if_(intGt(n,1),BackendDAE.DUMMY_DER(),BackendDAE.STATE(1,NONE()));
-        var = BackendDAE.VAR(cr,BackendDAE.STATE(1,NONE()),dir,prl,tp,NONE(),NONE(),dim,source,odattr,ts,hideResult,comment,ct,io,false);
+        var = BackendDAE.VAR(cr,BackendDAE.STATE(1,NONE(),natural),dir,prl,tp,NONE(),NONE(),dim,source,odattr,ts,hideResult,comment,ct,io,false);
       then (var,ht);
    // state
-    case (BackendDAE.VAR(varKind=BackendDAE.STATE(index=diffcount,derName=derName)),_,_)
+    case (BackendDAE.VAR(varKind=BackendDAE.STATE(index=diffcount,derName=derName,natural=natural)),_,_)
       guard intGt(diffcount,1)
       equation
-        var = BackendVariable.setVarKind(inVar, BackendDAE.STATE(1,derName));
+        var = BackendVariable.setVarKind(inVar, BackendDAE.STATE(1,derName,natural));
       then (var,iHt);
     else (inVar,iHt);
   end matchcontinue;
@@ -3514,7 +3725,7 @@ algorithm
         /* Dummy variables are algebraic variables without start value, min/max, .., hence fixed = false */
         dattr = BackendVariable.getVariableAttributefromType(tp);
         odattr = DAEUtil.setFixedAttr(SOME(dattr), SOME(DAE.BCONST(false)));
-        kind = if intGt(diffCount,0) then BackendDAE.STATE(diffCount,NONE()) else BackendDAE.DUMMY_DER();
+        kind = if intGt(diffCount,0) then BackendDAE.STATE(diffCount,NONE(),true) else BackendDAE.DUMMY_DER();
         var = BackendDAE.VAR(name,kind,dir,prl,tp,NONE(),NONE(),dim,source,odattr,ts,hideResult,comment,ct,io,false);
         (vlst,ht,n) = makeHigherStatesRepl1(diffCount-1,diffedCount+1,iOrigName,name,inVar,vars,var::iVarLst,ht,iN+1);
       then (vlst,ht,n);
@@ -3565,6 +3776,7 @@ algorithm
       BackendDAE.StateOrder so;
       HashTableCrIntToExp.HashTable ht;
       DAE.ComponentRef name,cr;
+      Boolean natural;
       DAE.VarDirection dir;
       DAE.VarParallelism prl;
       DAE.Type tp;
@@ -3586,18 +3798,18 @@ algorithm
       guard intEq(diffcount,1)
       then (var,inTpl);
     // state with stateSelect.always, diffed more than once, known derivative
-    case (var as BackendDAE.VAR(varKind=BackendDAE.STATE(derName=SOME(cr)),values = SOME(DAE.VAR_ATTR_REAL(stateSelectOption = SOME(DAE.ALWAYS())))),_)
+    case (var as BackendDAE.VAR(varKind=BackendDAE.STATE(derName=SOME(cr),natural=natural),values = SOME(DAE.VAR_ATTR_REAL(stateSelectOption = SOME(DAE.ALWAYS())))),_)
       equation
-        var = BackendVariable.setVarKind(var, BackendDAE.STATE(1,SOME(cr)));
+        var = BackendVariable.setVarKind(var, BackendDAE.STATE(1,SOME(cr),natural));
       then (var,inTpl);
     // state with stateSelect.always, diffed more than once, unknown derivative
-    case (var as BackendDAE.VAR(varName=name,varKind=BackendDAE.STATE(index=diffcount,derName=NONE()),values = SOME(DAE.VAR_ATTR_REAL(stateSelectOption = SOME(DAE.ALWAYS())))),(vars,so,varlst,ht))
+    case (var as BackendDAE.VAR(varName=name,varKind=BackendDAE.STATE(index=diffcount,derName=NONE(), natural=natural),values = SOME(DAE.VAR_ATTR_REAL(stateSelectOption = SOME(DAE.ALWAYS())))),(vars,so,varlst,ht))
       equation
         // then replace not the highest state but the lower
         cr = ComponentReference.crefPrefixDer(name);
         // add replacement for each derivative
         (varlst,ht) = makeAllDummyVarandDummyDerivativeRepl1(diffcount-1,2,name,cr,var,vars,so,varlst,ht);
-        var = BackendVariable.setVarKind(var, BackendDAE.STATE(1,NONE()));
+        var = BackendVariable.setVarKind(var, BackendDAE.STATE(1,NONE(),natural));
       then (var,(vars,so,varlst,ht));
     // state, replaceable with known derivative
     case (var as BackendDAE.VAR(name,BackendDAE.STATE(derName=SOME(_)),dir,prl,tp,bind,tplExp,dim,source,attr,ts,hideResult,comment,ct,io),(vars,so,varlst,ht))
@@ -3931,7 +4143,7 @@ algorithm
   eqns := BackendEquation.listEquation(eqnslst);
   syst := BackendDAEUtil.createEqSystem(vars, eqns);
   (me, _, mapEqnIncRow, mapIncRowEqn) := BackendDAEUtil.getAdjacencyMatrixEnhancedScalar(syst, shared, false);
-  m := incidenceMatrixfromEnhanced2(me, vars);
+  m := incidenceMatrixfromEnhancedStrict(me, vars);
   // match the equations, umatched are constrained equations
   nv := BackendVariable.varsSize(vars);
   ne := BackendEquation.equationArraySize(eqns);
@@ -4021,7 +4233,7 @@ algorithm
         (vars,changedVars);
     case(v::vlst,index::ilst,_,_)
       equation
-        v = BackendVariable.setVarKind(v, BackendDAE.STATE(1,NONE()));
+        v = BackendVariable.setVarKind(v, BackendDAE.STATE(1,NONE(),true));
         vars = BackendVariable.addVar(v, inVars);
         (vars,changedVars) = algebraicState(vlst,ilst,vars,index::iChangedVars);
       then
@@ -4058,14 +4270,14 @@ algorithm
       BackendDAE.Var var;
       BackendDAE.Variables vars;
       Integer diffcounter;
-      Boolean b;
+      Boolean b, natural;
       Integer i;
       list<Integer> ilst,changedVars;
       list<BackendDAE.Var> vlst;
       DAE.VarInnerOuter io;
     case ({},_,_,_,_) then (inVars,iChangedVars);
     case (BackendDAE.VAR(varName = cr,
-              varKind = BackendDAE.STATE(diffcounter,dcr),
+              varKind = BackendDAE.STATE(diffcounter,dcr,natural),
               varDirection = dir,
               varParallelism = prl,
               varType = tp,
@@ -4082,7 +4294,7 @@ algorithm
     equation
       b = intGt(counter,diffcounter);
       diffcounter = if b then counter else diffcounter;
-      var = BackendDAE.VAR(cr, BackendDAE.STATE(diffcounter,dcr), dir, prl, tp, bind, tplExp, dim, source, attr, ts, hideResult, comment, ct,io, false);
+      var = BackendDAE.VAR(cr, BackendDAE.STATE(diffcounter,dcr,natural), dir, prl, tp, bind, tplExp, dim, source, attr, ts, hideResult, comment, ct,io, false);
       vars = if b then BackendVariable.addVar(var, inVars) else inVars;
       changedVars = List.consOnTrue(b,i,iChangedVars);
       (vars,ilst) = increaseDifferentiation(vlst,ilst,counter,vars,changedVars);
@@ -4132,7 +4344,7 @@ algorithm
   set := ComponentReference.makeCrefIdent("$STATESET" + intString(index),DAE.T_COMPLEX_DEFAULT,{});
   tp := if intGt(setsize,1) then DAE.T_ARRAY(DAE.T_REAL_DEFAULT,{DAE.DIM_INTEGER(setsize)}) else DAE.T_REAL_DEFAULT;
   crstates := ComponentReference.joinCrefs(set,ComponentReference.makeCrefIdent("x",tp,{}));
-  oSetVars := BackendVariable.generateArrayVar(crstates,BackendDAE.STATE(1,NONE()),tp,NONE());
+  oSetVars := BackendVariable.generateArrayVar(crstates,BackendDAE.STATE(1,NONE(),false),tp,NONE());
   oSetVars := List.map1(oSetVars,BackendVariable.setVarFixed,false);
   crset := List.map(oSetVars,BackendVariable.varCref);
   tp := if intGt(setsize,1) then DAE.T_ARRAY(DAE.T_INTEGER_DEFAULT,{DAE.DIM_INTEGER(setsize),DAE.DIM_INTEGER(nCandidates)})

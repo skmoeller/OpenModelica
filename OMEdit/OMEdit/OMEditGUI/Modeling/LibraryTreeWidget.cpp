@@ -47,6 +47,7 @@
 #include "ModelicaClassDialog.h"
 #include "Git/GitCommands.h"
 #include "Git/CommitChangesDialog.h"
+#include "Util/ResourceCache.h"
 
 /*!
  * \class LibraryTreeItem
@@ -86,6 +87,7 @@ LibraryTreeItem::LibraryTreeItem()
   setOMSBusConnector(0);
   setOMSTLMBusConnector(0);
   setFMUInfo(0);
+  setExternalTLMModelInfo(0);
   setSubModelPath("");
   setModelState(oms_modelState_virgin);
 }
@@ -132,6 +134,7 @@ LibraryTreeItem::LibraryTreeItem(LibraryType type, QString text, QString nameStr
   setOMSBusConnector(0);
   setOMSTLMBusConnector(0);
   setFMUInfo(0);
+  setExternalTLMModelInfo(0);
   setSubModelPath("");
   setModelState(oms_modelState_virgin);
 }
@@ -417,54 +420,54 @@ QString LibraryTreeItem::getTooltip() const {
 QIcon LibraryTreeItem::getLibraryTreeItemIcon() const
 {
   if (mLibraryType == LibraryTreeItem::CompositeModel) {
-    return QIcon(":/Resources/icons/tlm-icon.svg");
+    return ResourceCache::getIcon(":/Resources/icons/tlm-icon.svg");
   } else if (mLibraryType == LibraryTreeItem::OMS) {
     if (isTopLevel()) {
-      return QIcon(":/Resources/icons/model-icon.svg");
+      return ResourceCache::getIcon(":/Resources/icons/model-icon.svg");
     } else if (isSystemElement()) {
       if (isTLMSystem()) {
-        return QIcon(":/Resources/icons/tlm-system-icon.svg");
+        return ResourceCache::getIcon(":/Resources/icons/tlm-system-icon.svg");
       } else if (isWCSystem()) {
-        return QIcon(":/Resources/icons/wc-system-icon.svg");
+        return ResourceCache::getIcon(":/Resources/icons/wc-system-icon.svg");
       } else {
-        return QIcon(":/Resources/icons/sc-system-icon.svg");
+        return ResourceCache::getIcon(":/Resources/icons/sc-system-icon.svg");
       }
     } else if (isFMUComponent()) {
-      return QIcon(":/Resources/icons/fmu-icon.svg");
+      return ResourceCache::getIcon(":/Resources/icons/fmu-icon.svg");
     } else if (isTableComponent()) {
       if (mSubModelPath.endsWith(".csv")) {
-        return QIcon(":/Resources/icons/csv.svg");
+        return ResourceCache::getIcon(":/Resources/icons/csv.svg");
       } else {
-        return QIcon(":/Resources/icons/mat.svg");
+        return ResourceCache::getIcon(":/Resources/icons/mat.svg");
       }
     } else if (mpOMSConnector) {
       switch (mpOMSConnector->type) {
         case oms_signal_type_real:
           switch (mpOMSConnector->causality) {
             case oms_causality_input:
-              return QIcon(":/Resources/icons/real-input-connector.svg");
+              return ResourceCache::getIcon(":/Resources/icons/real-input-connector.svg");
             case oms_causality_output:
-              return QIcon(":/Resources/icons/real-output-connector.svg");
+              return ResourceCache::getIcon(":/Resources/icons/real-output-connector.svg");
             default:
-              return QIcon(":/Resources/icons/package-icon.svg");
+              return ResourceCache::getIcon(":/Resources/icons/package-icon.svg");
           }
         case oms_signal_type_integer:
           switch (mpOMSConnector->causality) {
             case oms_causality_input:
-              return QIcon(":/Resources/icons/integer-input-connector.svg");
+              return ResourceCache::getIcon(":/Resources/icons/integer-input-connector.svg");
             case oms_causality_output:
-              return QIcon(":/Resources/icons/integer-output-connector.svg");
+              return ResourceCache::getIcon(":/Resources/icons/integer-output-connector.svg");
             default:
-              return QIcon(":/Resources/icons/package-icon.svg");
+              return ResourceCache::getIcon(":/Resources/icons/package-icon.svg");
           }
         case oms_signal_type_boolean:
           switch (mpOMSConnector->causality) {
             case oms_causality_input:
-              return QIcon(":/Resources/icons/boolean-input-connector.svg");
+              return ResourceCache::getIcon(":/Resources/icons/boolean-input-connector.svg");
             case oms_causality_output:
-              return QIcon(":/Resources/icons/boolean-output-connector.svg");
+              return ResourceCache::getIcon(":/Resources/icons/boolean-output-connector.svg");
             default:
-              return QIcon(":/Resources/icons/package-icon.svg");
+              return ResourceCache::getIcon(":/Resources/icons/package-icon.svg");
           }
         default:
           qDebug() << "Unhanled connector type" << mpOMSConnector->type;
@@ -475,47 +478,47 @@ QIcon LibraryTreeItem::getLibraryTreeItemIcon() const
     } else if (mpOMSTLMBusConnector) {
       switch (mpOMSTLMBusConnector->domain) {
         case oms_tlm_domain_input:
-          return QIcon(":/Resources/icons/tlm-input-bus-connector.svg");
+          return ResourceCache::getIcon(":/Resources/icons/tlm-input-bus-connector.svg");
         case oms_tlm_domain_output:
-          return QIcon(":/Resources/icons/tlm-output-bus-connector.svg");
+          return ResourceCache::getIcon(":/Resources/icons/tlm-output-bus-connector.svg");
         case oms_tlm_domain_rotational:
-          return QIcon(":/Resources/icons/tlm-rotational-bus-connector.svg");
+          return ResourceCache::getIcon(":/Resources/icons/tlm-rotational-bus-connector.svg");
         case oms_tlm_domain_hydraulic:
-          return QIcon(":/Resources/icons/tlm-hydraulic-bus-connector.svg");
+          return ResourceCache::getIcon(":/Resources/icons/tlm-hydraulic-bus-connector.svg");
         case oms_tlm_domain_electric:
-          return QIcon(":/Resources/icons/tlm-electric-bus-connector.svg");
+          return ResourceCache::getIcon(":/Resources/icons/tlm-electric-bus-connector.svg");
         case oms_tlm_domain_mechanical:
         default:
-          return QIcon(":/Resources/icons/tlm-mechanical-bus-connector.svg");
+          return ResourceCache::getIcon(":/Resources/icons/tlm-mechanical-bus-connector.svg");
       }
     }
   } else if (mLibraryType == LibraryTreeItem::Modelica) {
     switch (getRestriction()) {
       case StringHandler::Model:
-        return QIcon(":/Resources/icons/model-icon.svg");
+        return ResourceCache::getIcon(":/Resources/icons/model-icon.svg");
       case StringHandler::Class:
-        return QIcon(":/Resources/icons/class-icon.svg");
+        return ResourceCache::getIcon(":/Resources/icons/class-icon.svg");
       case StringHandler::Connector:
-        return QIcon(":/Resources/icons/connector-icon.svg");
+        return ResourceCache::getIcon(":/Resources/icons/connector-icon.svg");
       case StringHandler::ExpandableConnector:
-        return QIcon(":/Resources/icons/connect-mode.svg");
+        return ResourceCache::getIcon(":/Resources/icons/connect-mode.svg");
       case StringHandler::Record:
-        return QIcon(":/Resources/icons/record-icon.svg");
+        return ResourceCache::getIcon(":/Resources/icons/record-icon.svg");
       case StringHandler::Block:
-        return QIcon(":/Resources/icons/block-icon.svg");
+        return ResourceCache::getIcon(":/Resources/icons/block-icon.svg");
       case StringHandler::Function:
-        return QIcon(":/Resources/icons/function-icon.svg");
+        return ResourceCache::getIcon(":/Resources/icons/function-icon.svg");
       case StringHandler::Package:
-        return QIcon(":/Resources/icons/package-icon.svg");
+        return ResourceCache::getIcon(":/Resources/icons/package-icon.svg");
       case StringHandler::Type:
       case StringHandler::Operator:
       case StringHandler::OperatorRecord:
       case StringHandler::OperatorFunction:
-        return QIcon(":/Resources/icons/type-icon.svg");
+        return ResourceCache::getIcon(":/Resources/icons/type-icon.svg");
       case StringHandler::Optimization:
-        return QIcon(":/Resources/icons/optimization-icon.svg");
+        return ResourceCache::getIcon(":/Resources/icons/optimization-icon.svg");
       default:
-        return QIcon(":/Resources/icons/type-icon.svg");
+        return ResourceCache::getIcon(":/Resources/icons/type-icon.svg");
     }
   }
   return QIcon();
@@ -949,14 +952,24 @@ void LibraryTreeItem::handleUnloaded()
 void LibraryTreeItem::handleShapeAdded(ShapeAnnotation *pShapeAnnotation, GraphicsView *pGraphicsView)
 {
   if (mpModelWidget) {
+    bool primitivesVisible = true;
+    int index = mpModelWidget->getInheritedClassesList().indexOf(pGraphicsView->getModelWidget()->getLibraryTreeItem()) + 1;
     GraphicsView *pCurrentGraphicsView = 0;
     if (pGraphicsView->getViewType() == StringHandler::Icon) {
+      if (index > 0) {
+        primitivesVisible = mpModelWidget->getInheritedClassIconMap().value(index).mPrimitivesVisible;
+      }
       pCurrentGraphicsView = mpModelWidget->getIconGraphicsView();
     } else {
+      if (index > 0) {
+        primitivesVisible = mpModelWidget->getInheritedClassDiagramMap().value(index).mPrimitivesVisible;
+      }
       pCurrentGraphicsView = mpModelWidget->getDiagramGraphicsView();
     }
-    pCurrentGraphicsView->addInheritedShapeToList(mpModelWidget->createInheritedShape(pShapeAnnotation, pCurrentGraphicsView));
-    pCurrentGraphicsView->reOrderShapes();
+    if (primitivesVisible) {
+      pCurrentGraphicsView->addInheritedShapeToList(mpModelWidget->createInheritedShape(pShapeAnnotation, pCurrentGraphicsView));
+      pCurrentGraphicsView->reOrderShapes();
+    }
   }
   emit shapeAdded(pShapeAnnotation, pGraphicsView);
 }
@@ -968,7 +981,6 @@ void LibraryTreeItem::handleShapeAdded(ShapeAnnotation *pShapeAnnotation, Graphi
  */
 void LibraryTreeItem::handleComponentAdded(Component *pComponent)
 {
-  qDebug() << "LibraryTreeItem::handleComponentAdded";
   if (mpModelWidget) {
     if (pComponent->getLibraryTreeItem() && pComponent->getLibraryTreeItem()->isConnector()) {
       mpModelWidget->getIconGraphicsView()->addInheritedComponentToList(mpModelWidget->createInheritedComponent(pComponent, mpModelWidget->getIconGraphicsView()));
@@ -1800,9 +1812,8 @@ void LibraryTreeModel::showModelWidget(LibraryTreeItem *pLibraryTreeItem, bool s
   }
   // only switch to modeling perspective if show is true and we are not in a plotting or debugging perspective.
   if (show
-      && MainWindow::instance()->getPerspectiveTabBar()->currentIndex() != 2
-      && MainWindow::instance()->getPerspectiveTabBar()->currentIndex() != 3) {
-    MainWindow::instance()->getPerspectiveTabBar()->setCurrentIndex(1);
+      && !MainWindow::instance()->isDebuggingPerspectiveActive()) {
+    MainWindow::instance()->switchToModelingPerspectiveSlot();
   }
   if (!pLibraryTreeItem->getModelWidget()) {
     ModelWidget *pModelWidget = new ModelWidget(pLibraryTreeItem, MainWindow::instance()->getModelWidgetContainer());
@@ -2760,6 +2771,11 @@ LibraryTreeItem* LibraryTreeModel::createOMSLibraryTreeItemImpl(QString name, QS
         pLibraryTreeItem->setFMUInfo(pFMUInfo);
         pLibraryTreeItem->setSubModelPath(QString(pFMUInfo->path));
       }
+    } else if (pLibraryTreeItem->isExternalTLMModelComponent()) {
+        const oms_external_tlm_model_info_t *pExternalTLMModelInfo;
+        if(OMSProxy::instance()->getExternalTLMModelInfo(pLibraryTreeItem->getNameStructure(), &pExternalTLMModelInfo)) {
+            pLibraryTreeItem->setExternalTLMModelInfo(pExternalTLMModelInfo);
+        }
     } else if (pLibraryTreeItem->isTableComponent()) {
       QString path;
       if (OMSProxy::instance()->getSubModelPath(pLibraryTreeItem->getNameStructure(), &path)) {
@@ -3258,24 +3274,36 @@ void LibraryTreeView::libraryTreeItemDoubleClicked(const QModelIndex &index)
         }
         return;
       }
-    } else if (pLibraryTreeItem->getLibraryType() == LibraryTreeItem::OMS
-               && (pLibraryTreeItem->getOMSConnector()
-                   || pLibraryTreeItem->getOMSBusConnector()
-                   || pLibraryTreeItem->getOMSTLMBusConnector())) {
-      return;
-    }
-    mpLibraryWidget->getLibraryTreeModel()->showModelWidget(pLibraryTreeItem);
-    // if we are in the plotting perspective then open the Diagram Window
-    if (MainWindow::instance()->getPerspectiveTabBar()->currentIndex() == 2) {
-      if (MainWindow::instance()->getPlotWindowContainer()->getDiagramSubWindowFromMdi()) {
-        if (pLibraryTreeItem->getModelWidget()) {
-          pLibraryTreeItem->getModelWidget()->loadDiagramView();
-          pLibraryTreeItem->getModelWidget()->loadConnections();
-        }
-        MainWindow::instance()->getPlotWindowContainer()->getDiagramWindow()->drawDiagram(pLibraryTreeItem->getModelWidget());
-        MainWindow::instance()->getPlotWindowContainer()->getDiagramWindow()->show();
-        MainWindow::instance()->getPlotWindowContainer()->setActiveSubWindow(MainWindow::instance()->getPlotWindowContainer()->getDiagramSubWindowFromMdi());
+    } else if (pLibraryTreeItem->getLibraryType() == LibraryTreeItem::OMS) {
+      if ((pLibraryTreeItem->getOMSConnector() || pLibraryTreeItem->getOMSBusConnector() || pLibraryTreeItem->getOMSTLMBusConnector())) {
+        return;
       } else {
+        mpLibraryWidget->getLibraryTreeModel()->showModelWidget(pLibraryTreeItem);
+      }
+    } else if (pLibraryTreeItem->getLibraryType() == LibraryTreeItem::CompositeModel) {
+      mpLibraryWidget->getLibraryTreeModel()->showModelWidget(pLibraryTreeItem);
+    } else { // LibraryTreeItem::Modelica
+      /* if Model text is changed manually by user then validate it before opening double clicked ModelWidget. */
+      if (!MainWindow::instance()->getModelWidgetContainer()->validateText()) {
+        return;
+      }
+      /* Check if we are in the plotting perspective
+       * If yes then we first load the model and switch to Modeling perspective like normal
+       * and then switches back to plotting perspective and show the DiagramWindow
+       * If we don't do that then the window title is messed up.
+       */
+      bool isPlottingPerspectiveActive = MainWindow::instance()->isPlottingPerspectiveActive();
+      mpLibraryWidget->getLibraryTreeModel()->showModelWidget(pLibraryTreeItem);
+      // if we are in the plotting perspective then open the Diagram Window
+      if (isPlottingPerspectiveActive) {
+        MainWindow::instance()->switchToPlottingPerspectiveSlot();
+        if (MainWindow::instance()->getPlotWindowContainer()->getDiagramSubWindowFromMdi()) {
+          if (pLibraryTreeItem->getModelWidget()) {
+            pLibraryTreeItem->getModelWidget()->loadDiagramView();
+            pLibraryTreeItem->getModelWidget()->loadConnections();
+          }
+          MainWindow::instance()->getPlotWindowContainer()->getDiagramWindow()->drawDiagram(pLibraryTreeItem->getModelWidget());
+        }
         MainWindow::instance()->getPlotWindowContainer()->addDiagramWindow(pLibraryTreeItem->getModelWidget());
       }
     }
@@ -3290,12 +3318,12 @@ void LibraryTreeView::libraryTreeItemDoubleClicked(const QModelIndex &index)
 void LibraryTreeView::showContextMenu(QPoint point)
 {
   QMenu menu(this);
+  QMenu exportMenu(Helper::exportt);
   if (indexAt(point).isValid()) {
     QModelIndex index = mpLibraryWidget->getLibraryTreeProxyModel()->mapToSource(indexAt(point));
     LibraryTreeItem *pLibraryTreeItem = static_cast<LibraryTreeItem*>(index.internalPointer());
     if (pLibraryTreeItem) {
       QFileInfo fileInfo(pLibraryTreeItem->getFileName());
-      QMenu *pExportMenu = new QMenu(tr("Export"), this);
       switch (pLibraryTreeItem->getLibraryType()) {
         case LibraryTreeItem::Modelica:
         default:
@@ -3369,15 +3397,15 @@ void LibraryTreeView::showContextMenu(QPoint point)
           }
           menu.addSeparator();
           // add actions to Export menu
-          pExportMenu->addAction(mpExportFMUAction);
+          exportMenu.addAction(mpExportFMUAction);
           if (pLibraryTreeItem->isTopLevel() && pLibraryTreeItem->getRestriction() == StringHandler::Package
               && pLibraryTreeItem->getSaveContentsType() == LibraryTreeItem::SaveFolderStructure) {
-            pExportMenu->addAction(mpExportReadonlyPackageAction);
-            pExportMenu->addAction(mpExportEncryptedPackageAction);
+            exportMenu.addAction(mpExportReadonlyPackageAction);
+            exportMenu.addAction(mpExportEncryptedPackageAction);
           }
-          pExportMenu->addAction(mpExportXMLAction);
-          pExportMenu->addAction(mpExportFigaroAction);
-          menu.addMenu(pExportMenu);
+          exportMenu.addAction(mpExportXMLAction);
+          exportMenu.addAction(mpExportFigaroAction);
+          menu.addMenu(&exportMenu);
           if (pLibraryTreeItem->isSimulationAllowed()) {
             menu.addSeparator();
             menu.addAction(mpUpdateBindingsAction);
@@ -4170,10 +4198,10 @@ void LibraryWidget::openModelicaFile(QString fileName, QString encoding, bool sh
           MainWindow::instance()->getProgressBar()->setRange(0, classesList.size());
           MainWindow::instance()->showProgressBar();
         }
-        bool activateAccessAnnotations = true;
+        bool activateAccessAnnotations = false;
         QComboBox *pActivateAccessAnnotationsComboBox = OptionsDialog::instance()->getGeneralSettingsPage()->getActivateAccessAnnotationsComboBox();
-        if (pActivateAccessAnnotationsComboBox->itemData(pActivateAccessAnnotationsComboBox->currentIndex()) == GeneralSettingsPage::Never) {
-          activateAccessAnnotations = false;
+        if (pActivateAccessAnnotationsComboBox->itemData(pActivateAccessAnnotationsComboBox->currentIndex()) == GeneralSettingsPage::Always) {
+          activateAccessAnnotations = true;
         }
         foreach (QString model, classesList) {
           mpLibraryTreeModel->createLibraryTreeItem(model, mpLibraryTreeModel->getRootLibraryTreeItem(), true, false, true, -1, activateAccessAnnotations);

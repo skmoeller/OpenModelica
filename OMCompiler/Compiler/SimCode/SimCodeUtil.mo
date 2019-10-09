@@ -39,13 +39,12 @@ encapsulated package SimCodeUtil
 
 
 // public imports
+public
 import Absyn;
 import BackendDAE;
 import Ceval;
 import DAE;
-import FCore;
-import FGraph;
-import HashTable;
+import DoubleEnded;
 import HashTableCrIListArray;
 import HashTableCrILst;
 import HashTableExpToIndex;
@@ -82,7 +81,6 @@ import DAEDump;
 import DAEUtil;
 import Debug;
 import Differentiate;
-import DoubleEndedList;
 import ElementSource;
 import Error;
 import ExecStat.execStat;
@@ -237,7 +235,7 @@ protected
   list<BackendDAE.Equation> removedInitialEquationLst;
   list<BackendDAE.TimeEvent> timeEvents;
   BackendDAE.ZeroCrossingSet zeroCrossingsSet, sampleZCSet;
-  DoubleEndedList<BackendDAE.ZeroCrossing> de_relations;
+  DoubleEnded.MutableList<BackendDAE.ZeroCrossing> de_relations;
   list<BackendDAE.ZeroCrossing> zeroCrossings, sampleZC, relations;
   list<DAE.ClassAttributes> classAttributes;
   list<DAE.ComponentRef> discreteModelVars;
@@ -351,7 +349,7 @@ algorithm
     timeEvents := eventInfo.timeEvents;
     (zeroCrossings,relations,sampleZC) := match eventInfo
       case BackendDAE.EVENT_INFO(zeroCrossings=zeroCrossingsSet, relations=de_relations, samples=sampleZCSet)
-      then (ZeroCrossings.toList(zeroCrossingsSet), DoubleEndedList.toListNoCopyNoClear(de_relations), ZeroCrossings.toList(sampleZCSet));
+      then (ZeroCrossings.toList(zeroCrossingsSet), DoubleEnded.toListNoCopyNoClear(de_relations), ZeroCrossings.toList(sampleZCSet));
     end match;
     if ifcpp then
       zeroCrossings := listAppend(relations, sampleZC);
@@ -3750,7 +3748,7 @@ protected
   BackendDAE.Equation eqn;
   BackendDAE.StrongComponent comp;
   list<SimCode.SimEqSystem> simequations;
-  DoubleEndedList<SimCode.SimEqSystem> equations;
+  DoubleEnded.MutableList<SimCode.SimEqSystem> equations;
   BackendDAE.Constraints cons;
 algorithm
   if listEmpty(innerEquations) then
@@ -3759,7 +3757,7 @@ algorithm
   end if;
 
   BackendDAE.EQSYSTEM(orderedEqs = eqns) := isyst;
-  equations := DoubleEndedList.fromList(isimequations);
+  equations := DoubleEnded.fromList(isimequations);
 
   for eq in innerEquations loop
     // get Eqn
@@ -3772,10 +3770,10 @@ algorithm
     // generate comp
     comp := createTornSystemInnerEqns1(eqn, eqnindx, vars);
     (simequations, _, ouniqueEqIndex, otempvars) := createEquationsWork(genDiscrete, false, genDiscrete, skipDiscInAlgorithm, isyst, ishared, comp, ouniqueEqIndex, otempvars, cons);
-    DoubleEndedList.push_list_back(equations, simequations);
+    DoubleEnded.push_list_back(equations, simequations);
   end for;
 
-  equations_ := DoubleEndedList.toListAndClear(equations);
+  equations_ := DoubleEnded.toListAndClear(equations);
 end createTornSystemInnerEqns;
 
 protected function createTornSystemInnerEqns1
@@ -4254,10 +4252,10 @@ protected
   BackendDAE.Equation eqn;
   BackendDAE.StrongComponent comp;
   list<SimCode.SimEqSystem> simequations;
-  DoubleEndedList<SimCode.SimEqSystem> dblLstEqns;
+  DoubleEnded.MutableList<SimCode.SimEqSystem> dblLstEqns;
   SimCode.OMSIFunction omsiFuncEquations;
 algorithm
-  dblLstEqns := DoubleEndedList.fromList(equations);
+  dblLstEqns := DoubleEnded.fromList(equations);
 
   for eq in innerEquations loop
     // get Eqn
@@ -4271,10 +4269,10 @@ algorithm
     // generate comp
     comp := createTornSystemInnerEqns1(eqn, eqnindx, vars);
     (omsiFuncEquations, uniqueEqIndex) := generateEquationsForComponents({comp}, syst, shared, uniqueEqIndex);
-    DoubleEndedList.push_list_back(dblLstEqns, omsiFuncEquations.equations);
+    DoubleEnded.push_list_back(dblLstEqns, omsiFuncEquations.equations);
   end for;
 
-  equations := DoubleEndedList.toListAndClear(dblLstEqns);
+  equations := DoubleEnded.toListAndClear(dblLstEqns);
 end generateInnerEqns;
 
 
@@ -4490,7 +4488,7 @@ algorithm
     BackendDAE.SparsePattern pattern;
     BackendDAE.SparseColoring sparseColoring;
     list<list<Integer>> coloring;
-    list<tuple<DAE.ComponentRef, list<DAE.ComponentRef>>> sparsepatternComRefs, sparsepatternComRefsT;
+    BackendDAE.SparsePatternCrefs sparsepatternComRefs, sparsepatternComRefsT;
     list<tuple<Integer, list<Integer>>> sparseInts, sparseIntsT;
 
     BackendDAE.EqSystem syst;
@@ -4737,7 +4735,7 @@ algorithm
       list<SimCodeVar.SimVar> columnVarsKn;
       list<SimCodeVar.SimVar> seedVars, indexVars, seedIndexVars;
 
-      list<tuple<DAE.ComponentRef, list<DAE.ComponentRef>>> sparsepattern, sparsepatternT;
+      BackendDAE.SparsePatternCrefs sparsepattern, sparsepatternT;
       list<list<DAE.ComponentRef>> colsColors;
       Integer maxColor;
 
@@ -5140,7 +5138,7 @@ end makeTmpRealSimCodeVar;
 
 protected function sortSparsePattern
   input list<SimCodeVar.SimVar> inSimVars;
-  input list<tuple<DAE.ComponentRef, list<DAE.ComponentRef>>> inSparsePattern;
+  input BackendDAE.SparsePatternCrefs inSparsePattern;
   input Boolean useFMIIndex;
   output list<tuple<Integer, list<Integer>>> outSparse = {};
 protected
@@ -5230,7 +5228,7 @@ algorithm
 end dumpSparsePatternInt;
 
 protected function dumpSparsePattern
-  input list<tuple<DAE.ComponentRef, list<DAE.ComponentRef>>> sparsePattern;
+  input BackendDAE.SparsePatternCrefs sparsePattern;
 protected
   DAE.ComponentRef cr;
   list<DAE.ComponentRef> crefs;
@@ -5264,7 +5262,7 @@ algorithm
     BackendDAE.SparsePattern pattern;
     BackendDAE.SparseColoring sparseColoring;
     list<list<Integer>> coloring;
-    list<tuple<DAE.ComponentRef, list<DAE.ComponentRef>>> sparsepatternComRefs, sparsepatternComRefsT;
+    BackendDAE.SparsePatternCrefs sparsepatternComRefs, sparsepatternComRefsT;
     list<tuple<Integer, list<Integer>>> sparseInts, sparseIntsT;
 
     BackendDAE.EqSystem syst;
@@ -8130,8 +8128,6 @@ algorithm
       DAE.ComponentRef cref;
       DAE.Type ty;
       DAE.VarKind kind;
-      Option<DAE.Exp> val;
-      list<DAE.Exp> instDims;
       list<SimCodeFunction.Variable> rest;
     case({},_)
       equation
@@ -12815,13 +12811,13 @@ public function createFMIModelStructure
   output list<SimCode.JacobianMatrix> symJacs = {};
   output Integer uniqueEqIndex = inUniqueEqIndex;
 protected
-   list<tuple<DAE.ComponentRef, list<DAE.ComponentRef>>> spTA, spTB;
+   BackendDAE.SparsePatternCrefs spTA, spTB;
    list<tuple<Integer, list<Integer>>> sparseInts;
    list<SimCode.FmiUnknown> allUnknowns, derivatives, outputs, discreteStates;
    list<SimCodeVar.SimVar> varsA, varsB, clockedStates;
    list<DAE.ComponentRef> diffCrefsA, diffedCrefsA, derdiffCrefsA;
    list<DAE.ComponentRef> diffCrefsB, diffedCrefsB;
-   DoubleEndedList<SimCodeVar.SimVar> delst;
+   DoubleEnded.MutableList<SimCodeVar.SimVar> delst;
    SimCode.VarInfo varInfo;
    Option<BackendDAE.SymbolicJacobian> optcontPartDer;
    BackendDAE.SparsePattern spPattern;
@@ -12988,18 +12984,18 @@ end translateSparsePatterInts2FMIUnknown;
 
 protected function translateSparsePatterCref2DerCref
 "function translates the first cref of sparse pattern to der(cref)"
-  input list<tuple<DAE.ComponentRef, list<DAE.ComponentRef>>> sparsePattern;
+  input BackendDAE.SparsePatternCrefs sparsePattern;
   input SimCode.HashTableCrefToSimVar inSimVarHT;
-  input list<tuple<DAE.ComponentRef, list<DAE.ComponentRef>>> inAccum;
+  input BackendDAE.SparsePatternCrefs inAccum;
   input list<DAE.ComponentRef> inAccum2;
-  output list<tuple<DAE.ComponentRef, list<DAE.ComponentRef>>> outSparsePattern;
+  output BackendDAE.SparsePatternCrefs outSparsePattern;
   output list<DAE.ComponentRef> outDerCrefs;
 algorithm
   (outSparsePattern, outDerCrefs) := match(sparsePattern)
     local
       DAE.ComponentRef cref;
       list<DAE.ComponentRef> crefs;
-      list<tuple<DAE.ComponentRef, list<DAE.ComponentRef>>> rest;
+      BackendDAE.SparsePatternCrefs rest;
       SimCodeVar.SimVar simVar;
 
     case ({}) then (listReverse(inAccum), listReverse(inAccum2));
@@ -13017,14 +13013,14 @@ algorithm
 end translateSparsePatterCref2DerCref;
 
 protected function mergeSparsePatter
-  input list<tuple<DAE.ComponentRef, list<DAE.ComponentRef>>> inA;
-  input list<tuple<DAE.ComponentRef, list<DAE.ComponentRef>>> inB;
-  input list<tuple<DAE.ComponentRef, list<DAE.ComponentRef>>> inAccum;
-  output list<tuple<DAE.ComponentRef, list<DAE.ComponentRef>>> out;
+  input BackendDAE.SparsePatternCrefs inA;
+  input BackendDAE.SparsePatternCrefs inB;
+  input BackendDAE.SparsePatternCrefs inAccum;
+  output BackendDAE.SparsePatternCrefs out;
 algorithm
   out := match(inA, inB, inAccum)
   local
-    list<tuple<DAE.ComponentRef, list<DAE.ComponentRef>>> restA, restB;
+    BackendDAE.SparsePatternCrefs restA, restB;
     DAE.ComponentRef crefA, crefB;
     list<DAE.ComponentRef> listA, listB, listOut;
 
@@ -13583,27 +13579,27 @@ end getInputIndex;
 
 public function resetFunctionIndex
 algorithm
-  setGlobalRoot(Global.codegenFunctionList, DoubleEndedList.fromList({}));
+  setGlobalRoot(Global.codegenFunctionList, DoubleEnded.fromList({}));
 end resetFunctionIndex;
 
 public function addFunctionIndex
   input String prefix, suffix;
   output String newName;
 protected
-  DoubleEndedList<String> delst;
+  DoubleEnded.MutableList<String> delst;
 algorithm
   delst := getGlobalRoot(Global.codegenFunctionList);
-  newName := prefix + String(DoubleEndedList.length(delst)) + suffix;
-  DoubleEndedList.push_back(delst, newName);
+  newName := prefix + String(DoubleEnded.length(delst)) + suffix;
+  DoubleEnded.push_back(delst, newName);
 end addFunctionIndex;
 
 public function getFunctionIndex
   output list<String> files;
 protected
-  DoubleEndedList<String> delst;
+  DoubleEnded.MutableList<String> delst;
 algorithm
   delst := getGlobalRoot(Global.codegenFunctionList);
-  files := DoubleEndedList.toListAndClear(delst);
+  files := DoubleEnded.toListAndClear(delst);
 end getFunctionIndex;
 
 public function nVariablesReal
@@ -13754,13 +13750,10 @@ protected
   SimCode.SimCode simCode;
   Integer index;
 algorithm
-  if match context
-    case SimCodeFunction.FUNCTION_CONTEXT() then true;
-    case SimCodeFunction.PARALLEL_FUNCTION_CONTEXT() then true;
-    else false; end match
-  then
+  if SimCodeFunctionUtil.inFunctionContext(context) then
     return;
   end if;
+
   e := match e
     case DAE.CREF(ty=DAE.T_ARRAY())
       algorithm

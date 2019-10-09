@@ -84,15 +84,15 @@ public:
 
   // ITextMark
   // returns Breakpoint icon
-  virtual QIcon icon() const;
+  virtual QIcon icon() const override;
   // called if the lineNumber changes
-  virtual void updateLineNumber(int lineNumber);
+  virtual void updateLineNumber(int lineNumber) override;
   // called whenever the text of the block for the marker changed
-  virtual void updateBlock(const QTextBlock &block);
+  virtual void updateBlock(const QTextBlock &block) override;
   // called if the block containing this mark has been removed
   // if this also removes your mark call this->deleteLater();
-  virtual void removeFromEditor();
-  virtual void documentClosing();
+  virtual void removeFromEditor() override;
+  virtual void documentClosing() override;
 
   void setFilePath(QString filePath) {mpFileName = filePath;}
   inline QString filePath() const { return mpFileName; }
@@ -121,7 +121,7 @@ class DocumentMarker : public ITextMarkable
 {
   Q_OBJECT
 public:
-  DocumentMarker(QTextDocument *);
+  DocumentMarker(QTextDocument *, int = 0);
 
   // ITextMarkable
   bool addMark(ITextMark *mark, int line);
@@ -135,6 +135,7 @@ public:
 
 private:
   QTextDocument *mpTextDocument;
+  int mLineStartNumber;
 };
 
 #endif // BREAKPOINTMARKER_H

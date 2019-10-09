@@ -132,28 +132,40 @@ void Parameter::updateNameLabel()
  * \param value
  * \param defaultValue
  * \param fromUnit
- * \param valueChanged
+ * \param valueModified
  * \param adjustSize
+ * \param unitComboBoxChanged
  */
-void Parameter::setValueWidget(QString value, bool defaultValue, QString fromUnit, bool valueModified, bool adjustSize)
+void Parameter::setValueWidget(QString value, bool defaultValue, QString fromUnit, bool valueModified, bool adjustSize, bool unitComboBoxChanged)
 {
-  // convert the value to display unit
-  if (!fromUnit.isEmpty() && mpUnitComboBox->currentText().compare(fromUnit) != 0) {
-    bool ok = true;
-    qreal realValue = value.toDouble(&ok);
-    // if the modifier is a literal constant
-    if (ok) {
-      OMCProxy *pOMCProxy = MainWindow::instance()->getOMCProxy();
-      OMCInterface::convertUnits_res convertUnit = pOMCProxy->convertUnits(fromUnit, mpUnitComboBox->currentText());
-      if (convertUnit.unitsCompatible) {
-        realValue = Utilities::convertUnit(realValue, convertUnit.offset, convertUnit.scaleFactor);
-        value = QString::number(realValue);
+  /* ticket:5618 if we don't have a literal constant and array of constants
+   * then we assume its an expression and don't do any conversions.
+   * So just show the unit in the unit drop down list
+   */
+  if (!unitComboBoxChanged) {
+    enableDisableUnitComboBox(value);
+  }
+  if (Utilities::isValueLiteralConstant(value)) {
+    // convert the value to display unit
+    if (!fromUnit.isEmpty() && mpUnitComboBox->currentText().compare(fromUnit) != 0) {
+      bool ok = true;
+      qreal realValue = value.toDouble(&ok);
+      // if the modifier is a literal constant
+      if (ok) {
+        OMCProxy *pOMCProxy = MainWindow::instance()->getOMCProxy();
+        OMCInterface::convertUnits_res convertUnit = pOMCProxy->convertUnits(fromUnit, mpUnitComboBox->currentText());
+        if (convertUnit.unitsCompatible) {
+          realValue = Utilities::convertUnit(realValue, convertUnit.offset, convertUnit.scaleFactor);
+          value = QString::number(realValue);
+        }
+      } else { // if expression
+        value = Utilities::arrayExpressionUnitConversion(MainWindow::instance()->getOMCProxy(), value, fromUnit, mpUnitComboBox->currentText());
       }
-    } else { // if expression
-      value = Utilities::arrayExpressionUnitConversion(MainWindow::instance()->getOMCProxy(), value, fromUnit, mpUnitComboBox->currentText());
     }
   }
-  mDefaultValue = defaultValue;
+  if (defaultValue) {
+    mDefaultValue = value;
+  }
   QFontMetrics fm = QFontMetrics(QFont());
   switch (mValueType) {
     case Parameter::Boolean:
@@ -243,16 +255,6 @@ QString Parameter::getValue()
   }
 }
 
-/*!
- * \brief Parameter::getDefaultValue
- * Returns the default value.
- * \return
- */
-QString Parameter::getDefaultValue()
-{
-  return mDefaultValue;
-}
-
 void Parameter::setFixedState(QString fixed, bool defaultValue)
 {
   mOriginalFixedValue = fixed;
@@ -321,8 +323,30 @@ void Parameter::createValueWidget()
     case Parameter::Normal:
     default:
       mpValueTextBox = new QLineEdit;
+      connect(mpValueTextBox, SIGNAL(textEdited(QString)), SLOT(valueTextBoxEdited(QString)));
       break;
   }
+}
+
+/*!
+ * \brief Parameter::enableDisableUnitComboBox
+ * Enables/disables the unit combobox.
+ * \param value
+ */
+void Parameter::enableDisableUnitComboBox(const QString &value)
+{
+  /* Enable/disable the unit combobox based on the literalConstant
+   * Set the display unit as current when value is literalConstant otherwise use unit
+   */
+  bool literalConstant = Utilities::isValueLiteralConstant(value);
+  mpUnitComboBox->setEnabled(literalConstant);
+  bool state = mpUnitComboBox->blockSignals(true);
+  int index = mpUnitComboBox->findText(literalConstant ? mDisplayUnit : mUnit, Qt::MatchExactly);
+  if (index > -1 && index != mpUnitComboBox->currentIndex()) {
+    mpUnitComboBox->setCurrentIndex(index);
+    mPreviousUnit = mpUnitComboBox->currentText();
+  }
+  mpUnitComboBox->blockSignals(state);
 }
 
 /*!
@@ -372,13 +396,12 @@ void Parameter::fileSelectorButtonClicked()
  */
 void Parameter::unitComboBoxChanged(QString text)
 {
-  QString defaultValue = getDefaultValue();
-  if (!defaultValue.isEmpty()) {
-    setValueWidget(getDefaultValue(), true, mPreviousUnit, false);
+  if (!mDefaultValue.isEmpty()) {
+    setValueWidget(mDefaultValue, true, mPreviousUnit, false, true, true);
   }
   QString value = getValue();
   if (!value.isEmpty()) {
-    setValueWidget(getValue(), false, mPreviousUnit, true);
+    setValueWidget(value, false, mPreviousUnit, true, true, true);
   }
   mPreviousUnit = text;
 }
@@ -403,7 +426,26 @@ void Parameter::valueComboBoxChanged(int index)
  */
 void Parameter::valueCheckBoxChanged(bool toggle)
 {
+  Q_UNUSED(toggle);
   mValueCheckBoxModified = true;
+}
+
+/*!
+ * \brief Parameter::valueTextBoxEdited
+ * This slot is only called when user manually edits the text.\n
+ * \param text
+ */
+void Parameter::valueTextBoxEdited(const QString &text)
+{
+  // if we don't have the text we use the default value otherwise the text
+  QString value;
+  if (text.isEmpty()) {
+    value = mDefaultValue;
+  } else {
+    value = text;
+  }
+
+  enableDisableUnitComboBox(value);
 }
 
 void Parameter::showFixedMenu()
@@ -1161,7 +1203,7 @@ void ComponentParameters::updateComponentParameters()
       }
     }
     // if displayUnit is changed
-    if (pParameter->getDisplayUnit().compare(pParameter->getUnitComboBox()->currentText()) != 0) {
+    if (pParameter->getUnitComboBox()->isEnabled() && pParameter->getDisplayUnit().compare(pParameter->getUnitComboBox()->currentText()) != 0) {
       valueChanged = true;
       /* If the component is inherited then add the modifier value into the extends. */
       if (mpComponent->isInheritedComponent()) {
@@ -1350,7 +1392,7 @@ void ComponentAttributes::initializeDialog()
   mpNameTextBox->setText(mpComponent->getComponentInfo()->getName());
   mpNameTextBox->setCursorPosition(0);
   // get dimensions
-  QString dimensions = StringHandler::removeFirstLastCurlBrackets(mpComponent->getComponentInfo()->getArrayIndex());
+  QString dimensions = mpComponent->getComponentInfo()->getArrayIndex();
   mpDimensionsTextBox->setText(QString("[%1]").arg(dimensions));
   // get Comment
   mpCommentTextBox->setText(mpComponent->getComponentInfo()->getComment());
@@ -1462,8 +1504,7 @@ void ComponentAttributes::updateComponentAttributes()
   /* If user has really changed the Component's attributes then push that change on the stack.
    */
   if (oldComponentInfo != newComponentInfo) {
-    UpdateComponentAttributesCommand *pUpdateComponentAttributesCommand = new UpdateComponentAttributesCommand(mpComponent, oldComponentInfo,
-                                                                                                               newComponentInfo);
+    UpdateComponentAttributesCommand *pUpdateComponentAttributesCommand = new UpdateComponentAttributesCommand(mpComponent, oldComponentInfo, newComponentInfo);
     pModelWidget->getUndoStack()->push(pUpdateComponentAttributesCommand);
     pModelWidget->updateModelText();
   }

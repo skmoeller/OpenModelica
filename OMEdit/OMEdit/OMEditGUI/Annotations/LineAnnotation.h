@@ -78,23 +78,23 @@ public:
   LineAnnotation(Component *pParent);
   // Used for non-existing class
   LineAnnotation(GraphicsView *pGraphicsView);
-  void parseShapeAnnotation(QString annotation);
+  void parseShapeAnnotation(QString annotation) override;
   QPainterPath getShape() const;
-  QRectF boundingRect() const;
-  QPainterPath shape() const;
-  void paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWidget *widget = 0);
+  QRectF boundingRect() const override;
+  QPainterPath shape() const override;
+  void paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWidget *widget = 0) override;
   void drawLineAnnotaion(QPainter *painter);
   void drawArrow(QPainter *painter, QPointF startPos, QPointF endPos, qreal size, int arrowType) const;
   QPolygonF perpendicularLine(QPointF startPos, QPointF endPos, qreal size) const;
-  QString getOMCShapeAnnotation();
-  QString getShapeAnnotation();
+  QString getOMCShapeAnnotation() override;
+  QString getOMCShapeAnnotationWithShapeName() override;
+  QString getShapeAnnotation() override;
   QString getCompositeModelShapeAnnotation();
-  void addPoint(QPointF point);
+  void addPoint(QPointF point) override;
   void removePoint(int index);
-  void clearPoints();
+  void clearPoints() override;
   void updateStartPoint(QPointF point);
   void updateEndPoint(QPointF point);
-  void moveAllPoints(qreal offsetX, qreal offsetY);
   void updateTransitionTextPosition();
   void setLineType(LineType lineType) {mLineType = lineType;}
   LineType getLineType() {return mLineType;}
@@ -131,8 +131,8 @@ public:
   oms_connection_type_enu_t getOMSConnectionType() {return mOMSConnectionType;}
   void setActiveState(bool activeState) {mActiveState = activeState;}
   bool isActiveState() {return mActiveState;}
-  void setShapeFlags(bool enable);
-  void updateShape(ShapeAnnotation *pShapeAnnotation);
+  void setShapeFlags(bool enable) override;
+  void updateShape(ShapeAnnotation *pShapeAnnotation) override;
   void setAligned(bool aligned);
   void updateOMSConnection();
   void updateToolTip();
@@ -142,7 +142,7 @@ public:
 
   static QColor findLineColorForConnection(Component *pComponent);
 protected:
-  QVariant itemChange(GraphicsItemChange change, const QVariant &value);
+  QVariant itemChange(GraphicsItemChange change, const QVariant &value) override;
 
   private:
   LineType mLineType;
@@ -172,7 +172,7 @@ public slots:
   void updateTransitionAnnotation(QString oldCondition, bool oldImmediate, bool oldReset, bool oldSynchronize, int oldPriority);
   void redraw(const QString& annotation, std::function<void()> updateAnnotationFunction);
   void updateInitialStateAnnotation();
-  void duplicate();
+  void duplicate() override;
 };
 
 class ExpandableConnectorTreeItem : public QObject
@@ -228,13 +228,13 @@ class ExpandableConnectorTreeModel : public QAbstractItemModel
 public:
   ExpandableConnectorTreeModel(CreateConnectionDialog *pCreateConnectionDialog);
   ExpandableConnectorTreeItem* getRootExpandableConnectorTreeItem() {return mpRootExpandableConnectorTreeItem;}
-  int columnCount(const QModelIndex &parent = QModelIndex()) const;
-  int rowCount(const QModelIndex &parent = QModelIndex()) const;
-  QVariant headerData(int section, Qt::Orientation orientation, int role = Qt::DisplayRole) const;
-  QModelIndex index(int row, int column, const QModelIndex &parent = QModelIndex()) const;
-  QModelIndex parent(const QModelIndex & index) const;
-  QVariant data(const QModelIndex & index, int role = Qt::DisplayRole) const;
-  Qt::ItemFlags flags(const QModelIndex &index) const;
+  int columnCount(const QModelIndex &parent = QModelIndex()) const override;
+  int rowCount(const QModelIndex &parent = QModelIndex()) const override;
+  QVariant headerData(int section, Qt::Orientation orientation, int role = Qt::DisplayRole) const override;
+  QModelIndex index(int row, int column, const QModelIndex &parent = QModelIndex()) const override;
+  QModelIndex parent(const QModelIndex & index) const override;
+  QVariant data(const QModelIndex & index, int role = Qt::DisplayRole) const override;
+  Qt::ItemFlags flags(const QModelIndex &index) const override;
   QModelIndex findFirstEnabledItem(ExpandableConnectorTreeItem *pExpandableConnectorTreeItem);
   QModelIndex expandableConnectorTreeItemIndex(const ExpandableConnectorTreeItem *pExpandableConnectorTreeItem) const;
   void createExpandableConnectorTreeItem(Component *pComponent, ExpandableConnectorTreeItem *pParentExpandableConnectorTreeItem);
@@ -264,6 +264,10 @@ public:
 private:
   GraphicsView *mpGraphicsView;
   LineAnnotation *mpConnectionLineAnnotation;
+  Component *mpStartComponent;
+  Component *mpStartRootComponent;
+  Component *mpEndComponent;
+  Component *mpEndRootComponent;
   Label *mpHeading;
   QFrame *mpHorizontalLine;
   ExpandableConnectorTreeModel *mpStartExpandableConnectorTreeModel;
@@ -291,7 +295,10 @@ private:
   QHBoxLayout *mpConnectionEndHorizontalLayout;
 
   QSpinBox* createSpinBox(QString arrayIndex);
-  QString createComponentNameFromLayout(QHBoxLayout *pLayout);
+  static QString createComponentNameFromLayout(QHBoxLayout *pLayout);
+  static QString getComponentConnectionName(GraphicsView *pGraphicsView, ExpandableConnectorTreeView *pExpandableConnectorTreeView, QHBoxLayout *pConnectionHorizontalLayout,
+                                            Component *pComponent1, Component *pRootComponent1, QSpinBox *pComponentSpinBox1, QSpinBox *pRootComponentSpinBox1,
+                                            Component *pComponent2, Component *pRootComponent2, QSpinBox *pComponentSpinBox2, QSpinBox *pRootComponentSpinBox2);
 public slots:
   void startConnectorChanged(const QModelIndex &current, const QModelIndex &previous);
   void endConnectorChanged(const QModelIndex &current, const QModelIndex &previous);

@@ -1364,12 +1364,12 @@ algorithm
 
     case ("ModelicaStrings_scanReal",{Values.STRING(str),Values.INTEGER(i),Values.BOOL(b)},_)
       equation
-        (i,r) = ModelicaExternalC.Strings_advanced_scanReal(str,i,b);
+        (i,r) = ModelicaExternalC.Strings_scanReal(str,i,b);
       then Values.TUPLE({Values.INTEGER(i),Values.REAL(r)});
 
     case ("ModelicaStrings_skipWhiteSpace",{Values.STRING(str),Values.INTEGER(i)},_)
       equation
-        i = ModelicaExternalC.Strings_advanced_skipWhiteSpace(str,i);
+        i = ModelicaExternalC.Strings_skipWhiteSpace(str,i);
       then Values.INTEGER(i);
 
     case ("OpenModelica_regex",{Values.STRING(str),Values.STRING(re),Values.INTEGER(i),Values.BOOL(extended),Values.BOOL(insensitive)},_)
@@ -5599,7 +5599,7 @@ protected function makeReductionAllCombinations
   output list<list<Values.Value>> valMatrix;
 algorithm
   valMatrix := match (inValMatrix,rtype)
-    case (_,Absyn.COMBINE()) then listReverse(Util.allCombinations(inValMatrix,SOME(100000),AbsynUtil.dummyInfo));
+    case (_,Absyn.COMBINE()) then listReverse(List.allCombinations(inValMatrix,SOME(100000),AbsynUtil.dummyInfo));
     case (_,Absyn.THREAD()) then listReverse(List.transposeList(inValMatrix));
   end match;
 end makeReductionAllCombinations;

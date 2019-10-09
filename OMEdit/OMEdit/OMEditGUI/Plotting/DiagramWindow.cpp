@@ -34,6 +34,7 @@
 #include "DiagramWindow.h"
 #include "MainWindow.h"
 #include "Modeling/ModelWidgetContainer.h"
+#include "Plotting/PlotWindowContainer.h"
 #include "Plotting/VariablesWidget.h"
 
 /*!
@@ -96,11 +97,11 @@ void DiagramWindow::drawDiagram(ModelWidget *pModelWidget)
     }
 
     foreach (LineAnnotation *pConnectionLineAnnotation, pModelWidget->getDiagramGraphicsView()->getConnectionsList()) {
-      LineAnnotation *pNewConntionLineAnnotation = new LineAnnotation(pConnectionLineAnnotation, mpGraphicsView);
-      pNewConntionLineAnnotation->initializeTransformation();
-      pNewConntionLineAnnotation->drawCornerItems();
-      pNewConntionLineAnnotation->setCornerItemsActiveOrPassive();
-      mpGraphicsView->addConnectionToList(pNewConntionLineAnnotation);
+      LineAnnotation *pNewConnectionLineAnnotation = new LineAnnotation(pConnectionLineAnnotation, mpGraphicsView);
+      pNewConnectionLineAnnotation->initializeTransformation();
+      pNewConnectionLineAnnotation->drawCornerItems();
+      pNewConnectionLineAnnotation->setCornerItemsActiveOrPassive();
+      mpGraphicsView->addConnectionToList(pNewConnectionLineAnnotation);
     }
 
     foreach (LineAnnotation *pTransitionLineAnnotation, pModelWidget->getDiagramGraphicsView()->getTransitionsList()) {
@@ -134,4 +135,15 @@ void DiagramWindow::removeDiagram(ModelWidget *pModelWidget)
     delete mpGraphicsView;
     mpGraphicsView = 0;
   }
+}
+
+/*!
+ * \brief DiagramWindow::closeEvent
+ * Removes DiagramWindow from PlotWindowContainer.
+ * \param event
+ */
+void DiagramWindow::closeEvent(QCloseEvent *event)
+{
+  Q_UNUSED(event);
+  MainWindow::instance()->getPlotWindowContainer()->removeSubWindow(this);
 }

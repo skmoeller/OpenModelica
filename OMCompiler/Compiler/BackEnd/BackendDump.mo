@@ -64,6 +64,7 @@ import ComponentReference;
 import DAEDump;
 import DAEUtil;
 import Debug;
+import DoubleEnded;
 import DumpHTML;
 import ElementSource;
 import Error;
@@ -270,7 +271,7 @@ algorithm
   dumpEquationArray(inShared.removedEqs, "Simple Shared Equations");
   dumpEquationArray(inShared.initialEqs, "Initial Equations");
   dumpZeroCrossingList(ZeroCrossings.toList(inShared.eventInfo.zeroCrossings), "Zero Crossings");
-  dumpZeroCrossingList(DoubleEndedList.toListNoCopyNoClear(inShared.eventInfo.relations), "Relations");
+  dumpZeroCrossingList(DoubleEnded.toListNoCopyNoClear(inShared.eventInfo.relations), "Relations");
   if stringEqual(Config.simCodeTarget(), "Cpp") then
     dumpZeroCrossingList(ZeroCrossings.toList(inShared.eventInfo.samples), "Samples");
   else
@@ -453,6 +454,40 @@ algorithm
   outTpl := (varNo + 1, buffer);
 end var1String;
 
+public function varListStringShort
+  input list<BackendDAE.Var> inVars;
+  input String heading;
+  output String outString;
+algorithm
+  outString := match(inVars, heading)
+    local
+      String buffer;
+
+    case (_, "") equation
+      ((_, buffer)) = List.fold(inVars, varNameString, (1, ""));
+    then buffer;
+
+    else equation
+      ((_, buffer)) = List.fold(inVars, varNameString, (1, ""));
+      buffer = heading + "\n" + UNDERLINE + "\n" + buffer;
+    then buffer;
+  end match;
+end varListStringShort;
+
+protected function varNameString
+  input BackendDAE.Var inVar;
+  input tuple<Integer /*inVarNo*/, String /*buffer*/> inTpl;
+  output tuple<Integer /*outVarNo*/, String /*buffer*/> outTpl;
+protected
+  Integer varNo;
+  String buffer;
+algorithm
+  (varNo, buffer) := inTpl;
+  buffer := buffer + intString(varNo) + ": ";
+  buffer := buffer + ComponentReference.printComponentRefStr(inVar.varName) + "\n";
+  outTpl := (varNo + 1, buffer);
+end varNameString;
+
 public function varListStringIndented
   input list<BackendDAE.Var> inVars;
   input String heading;
@@ -515,30 +550,17 @@ algorithm
   end match;
 end printExternalObjectClasses;
 
-protected function printSparsityPattern "author lochel"
-  input list<tuple< .DAE.ComponentRef, list< .DAE.ComponentRef>>> inPattern;
+public function printSparsityPatternCrefs
+  input BackendDAE.SparsePatternCrefs inPattern;
 algorithm
-  () := matchcontinue(inPattern)
-    local
-      tuple< .DAE.ComponentRef, list< .DAE.ComponentRef>> curr;
-      list<tuple< .DAE.ComponentRef, list< .DAE.ComponentRef>>> rest;
-      .DAE.ComponentRef cr;
-      list< .DAE.ComponentRef> crList;
-      String crStr;
+  for e in inPattern loop
+    print(ComponentReference.printComponentRefStr(Util.tuple21(e)) +
+          " affects the following (" + intString(listLength(Util.tuple22(e))) +
+          ") outputs\n  ");
+    ComponentReference.printComponentRefList(Util.tuple22(e));
+  end for;
+end printSparsityPatternCrefs;
 
-    case (curr::rest) equation
-      (cr, crList) = curr;
-      crStr = ComponentReference.printComponentRefStr(cr);
-      print(crStr + " affects the following (" + intString(listLength(crList)) + ") outputs\n  ");
-      ComponentReference.printComponentRefList(crList);
-
-      printSparsityPattern(rest);
-    then ();
-
-    else
-    then ();
-  end matchcontinue;
-end printSparsityPattern;
 
 // =============================================================================
 // section for all graphviz* functions
@@ -811,11 +833,11 @@ algorithm
   print("\n");
 end dumpHashSet;
 
-public function dumpSparsityPattern "author lochel"
+public function dumpSparsityPattern
   input BackendDAE.SparsePattern inPattern;
   input String heading;
 protected
-  list<tuple< .DAE.ComponentRef, list< .DAE.ComponentRef>>> pattern,patternT;
+  BackendDAE.SparsePatternCrefs pattern,patternT;
   list< .DAE.ComponentRef> diffVars, diffedVars;
   Integer nnz;
 algorithm
@@ -823,15 +845,15 @@ algorithm
 
   print("\n" + heading + "\n" + UNDERLINE + "\n");
   print("Number of non zero elements: " + intString(nnz) + "\n");
-  print("independents [or inputs] (" + intString(listLength(diffVars)) + ")\n");
+  print("Independents [or inputs] (" + intString(listLength(diffVars)) + ")\n");
   ComponentReference.printComponentRefList(diffVars);
 
-  print("dependents [or outputs] (" + intString(listLength(diffedVars)) + ")\n");
+  print("Dependents [or outputs] (" + intString(listLength(diffedVars)) + ")\n");
   ComponentReference.printComponentRefList(diffedVars);
 
-  printSparsityPattern(pattern);
-  print("\n" + "transposed pattern" + "\n");
-  printSparsityPattern(patternT);
+  printSparsityPatternCrefs(pattern);
+  print("\n" + "Transposed pattern" + "\n");
+  printSparsityPatternCrefs(patternT);
 end dumpSparsityPattern;
 
 public function dumpSparseColoring
@@ -2340,12 +2362,12 @@ algorithm
   end match;
 end jacobianTypeStr;
 
-public function jacobianString"dumps a string representation of a jacobian.
+public function dumpJacobianString
+"dumps a string representation of a jacobian.
 author: Waurich TUD 2014-10"
   input BackendDAE.Jacobian jacIn;
-  output String sOut;
 algorithm
-  sOut := match(jacIn)
+  _ := match(jacIn)
     local
       BackendDAE.BackendDAE dae;
       BackendDAE.FullJacobian fJac;
@@ -2355,28 +2377,37 @@ algorithm
       String s;
   case(BackendDAE.FULL_JACOBIAN(jacobian=fJac))
     equation
-      s = "FULL JACOBIAN:\n";
-      s = s + dumpJacobianStr(fJac);
-    then s;
+      s = "###############\n" +
+          " FULL_JACOBIAN \n" +
+          "###############\n\n" +
+          dumpJacobianStr(fJac);
+      print(s);
+    then "";
   case(BackendDAE.GENERIC_JACOBIAN(jacobian=SOME(sJac),sparsePattern=sparsePattern))
     equation
       ((dae,_,_,_,_, _)) = sJac;
-      s = "GENERIC JACOBIAN:\n";
+      print("##################\n" +
+            " GENERIC_JACOBIAN \n" +
+            "##################\n\n");
       dumpBackendDAE(dae,"Directional Derivatives System");
       dumpSparsityPattern(sparsePattern,"Sparse Pattern");
-    then s;
+    then "";
   case(BackendDAE.GENERIC_JACOBIAN(jacobian=NONE(),sparsePattern=sparsePattern))
     equation
-      s = "GENERIC JACOBIAN:\n";
+      print("##################\n" +
+            " GENERIC_JACOBIAN \n" +
+            "##################\n\n");
       dumpSparsityPattern(sparsePattern,"Sparse Pattern");
-    then s;
+    then "";
 
   case(BackendDAE.EMPTY_JACOBIAN())
     equation
-      s = "EMPTY JACOBIAN:\n";
-    then s;
+      print("################\n" +
+            " EMPTY_JACOBIAN \n" +
+            "################\n\n");
+    then "";
   end match;
-end jacobianString;
+end dumpJacobianString;
 
 public function symJacString "dumps a string representation of a jacobian."
   input tuple<Option<BackendDAE.SymbolicJacobian>, BackendDAE.SparsePattern, BackendDAE.SparseColoring> jacIn;
@@ -3755,7 +3786,7 @@ algorithm
       tuple<list<Integer>,list<Integer>,list<Integer>,list<Integer>,list<tuple<Integer,Integer>>,list<tuple<Integer,Integer>>,list<tuple<Integer,Integer>>,list<tuple<Integer,Integer>>,list<tuple<Integer,Integer>>,list<tuple<Integer,Integer>>> meqsys;
       tuple<list<tuple<Integer,Integer,Integer>>,list<tuple<Integer,Integer>>> teqsys,teqsys2;
       BackendDAE.InnerEquations innerEquations,innerEquations2;
-      list<tuple< .DAE.ComponentRef, list< .DAE.ComponentRef>>> patternLst;
+      BackendDAE.SparsePatternCrefs patternLst;
 
     case (BackendDAE.SINGLEEQUATION(),(seq,salg,sarr,sce,swe,sie,eqsys,meqsys,teqsys,teqsys2))
     then ((seq+1,salg,sarr,sce,swe,sie,eqsys,meqsys,teqsys,teqsys2));

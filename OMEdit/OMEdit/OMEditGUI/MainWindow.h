@@ -139,7 +139,9 @@ public:
   void showProgressBar() {mpProgressBar->setVisible(true);}
   void hideProgressBar() {mpProgressBar->setVisible(false);}
   Label* getPositionLabel() {return mpPositionLabel;}
-  QTabBar* getPerspectiveTabBar() {return mpPerspectiveTabbar;}
+  bool isModelingPerspectiveActive();
+  bool isPlottingPerspectiveActive();
+  bool isDebuggingPerspectiveActive();
   QTimer* getAutoSaveTimer() {return mpAutoSaveTimer;}
   QAction* getSaveAction() {return mpSaveAction;}
   QAction* getSaveAsAction() {return mpSaveAsAction;}
@@ -210,7 +212,7 @@ public:
   QToolBar* getOMSimulatorToobar() const {return mpOMSimulatorToobar;}
   void addRecentFile(const QString &fileName, const QString &encoding);
   void updateRecentFileActions();
-  void closeEvent(QCloseEvent *event);
+  void closeEvent(QCloseEvent *event) override;
   int askForExit();
   void beforeClosingMainWindow();
   void openDroppedFile(const QMimeData *pMimeData);
@@ -335,9 +337,6 @@ private:
   QAction *mpUndoAction;
   QAction *mpRedoAction;
   QAction *mpFilterClassesAction;
-  QAction *mpCutAction;
-  QAction *mpCopyAction;
-  QAction *mpPasteAction;
   // View Menu
   QAction *mpShowGridLinesAction;
   QAction *mpResetZoomAction;
@@ -454,6 +453,10 @@ private:
   QHash<QString, TransformationsWidget*> mTransformationsWidgetHash;
 public slots:
   void showMessagesBrowser();
+  void switchToWelcomePerspectiveSlot();
+  void switchToModelingPerspectiveSlot();
+  void switchToPlottingPerspectiveSlot();
+  void switchToAlgorithmicDebuggingPerspectiveSlot();
   void showSearchBrowser();
   void createNewModelicaClass();
   void openModelicaFile();
@@ -540,10 +543,6 @@ private slots:
   void documentationDockWidgetVisibilityChanged(bool visible);
   void threeDViewerDockWidgetVisibilityChanged(bool visible);
   void autoSave();
-  void switchToWelcomePerspectiveSlot();
-  void switchToModelingPerspectiveSlot();
-  void switchToPlottingPerspectiveSlot();
-  void switchToAlgorithmicDebuggingPerspectiveSlot();
   void showDebugConfigurationsDialog();
   void showAttachToProcessDialog();
   void createGitRepository();
@@ -566,9 +565,9 @@ private:
   void tileSubWindows(QMdiArea *pMdiArea, bool horizontally);
   void fetchInterfaceDataHelper(LibraryTreeItem *pLibraryTreeItem, QString singleModel=QString());
 protected:
-  virtual void dragEnterEvent(QDragEnterEvent *event);
-  virtual void dragMoveEvent(QDragMoveEvent *event);
-  virtual void dropEvent(QDropEvent *event);
+  virtual void dragEnterEvent(QDragEnterEvent *event) override;
+  virtual void dragMoveEvent(QDragMoveEvent *event) override;
+  virtual void dropEvent(QDropEvent *event) override;
 };
 
 class AboutOMEditDialog : public QDialog

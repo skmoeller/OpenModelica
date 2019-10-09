@@ -1,3 +1,4 @@
+
 /*
  * This file is part of OpenModelica.
  *
@@ -37,7 +38,6 @@ encapsulated package SCodeUtil
 import SCode;
 
 protected
-
 import Absyn;
 import AbsynUtil;
 import Error;
@@ -45,6 +45,8 @@ import List;
 import Util;
 
 public
+
+replaceable type Argument subtypeof Any;
 
 function stripSubmod
   "Removes all submodifiers from the Mod."
@@ -1846,8 +1848,6 @@ public function traverseEEquationsList
   output list<SCode.EEquation> outEEquations;
   output tuple<TraverseFunc, Argument> outTuple;
 
-  replaceable type Argument subtypeof Any;
-
   partial function TraverseFunc
     input tuple<SCode.EEquation, Argument> inTuple;
     output tuple<SCode.EEquation, Argument> outTuple;
@@ -1864,8 +1864,6 @@ public function traverseEEquations
   input tuple<TraverseFunc, Argument> inTuple;
   output SCode.EEquation outEEquation;
   output tuple<TraverseFunc, Argument> outTuple;
-
-  replaceable type Argument subtypeof Any;
 
   partial function TraverseFunc
     input tuple<SCode.EEquation, Argument> inTuple;
@@ -1888,8 +1886,6 @@ public function traverseEEquations2
   input tuple<TraverseFunc, Argument> inTuple;
   output SCode.EEquation outEEquation;
   output tuple<TraverseFunc, Argument> outTuple;
-
-  replaceable type Argument subtypeof Any;
 
   partial function TraverseFunc
     input tuple<SCode.EEquation, Argument> inTuple;
@@ -1943,8 +1939,6 @@ protected function traverseElseWhenEEquations
   output tuple<Absyn.Exp, list<SCode.EEquation>> outElseWhen;
   output tuple<TraverseFunc, Argument> outTuple;
 
-  replaceable type Argument subtypeof Any;
-
   partial function TraverseFunc
     input tuple<SCode.EEquation, Argument> inTuple;
     output tuple<SCode.EEquation, Argument> outTuple;
@@ -1968,8 +1962,6 @@ public function traverseEEquationListExps
   output list<SCode.EEquation> outEEquations;
   output Argument outArg;
 
-  replaceable type Argument subtypeof Any;
-
   partial function TraverseFunc
     input Absyn.Exp inExp;
     input Argument inArg;
@@ -1988,8 +1980,6 @@ public function traverseEEquationExps
   input Argument inArg;
   output SCode.EEquation outEEquation;
   output Argument outArg;
-
-  replaceable type Argument subtypeof Any;
 
   partial function TraverseFunc
     input Absyn.Exp inExp;
@@ -2093,8 +2083,6 @@ protected function traverseComponentRefExps
   output Absyn.ComponentRef outCref;
   output Argument outArg;
 
-  replaceable type Argument subtypeof Any;
-
   partial function TraverseFunc
     input Absyn.Exp inExp;
     input Argument inArg;
@@ -2140,8 +2128,6 @@ protected function traverseSubscriptExps
   output Absyn.Subscript outSubscript;
   output Argument outArg;
 
-  replaceable type Argument subtypeof Any;
-
   partial function TraverseFunc
     input Absyn.Exp inExp;
     input Argument inArg;
@@ -2174,8 +2160,6 @@ protected function traverseElseWhenExps
   output tuple<Absyn.Exp, list<SCode.EEquation>> outElseWhen;
   output Argument outArg;
 
-  replaceable type Argument subtypeof Any;
-
   partial function TraverseFunc
     input Absyn.Exp inExp;
     input Argument inArg;
@@ -2200,8 +2184,6 @@ protected function traverseNamedArgExps
   input tuple<TraverseFunc, Argument> inTuple;
   output Absyn.NamedArg outArg;
   output tuple<TraverseFunc, Argument> outTuple;
-
-  replaceable type Argument subtypeof Any;
 
   partial function TraverseFunc
     input Absyn.Exp inExp;
@@ -2231,8 +2213,6 @@ protected function traverseForIteratorExps
   input Argument inArg;
   output Absyn.ForIterator outIterator;
   output Argument outArg;
-
-  replaceable type Argument subtypeof Any;
 
   partial function TraverseFunc
     input Absyn.Exp inExp;
@@ -2282,8 +2262,6 @@ public function traverseStatementsList
   output list<SCode.Statement> outStatements;
   output tuple<TraverseFunc, Argument> outTuple;
 
-  replaceable type Argument subtypeof Any;
-
   partial function TraverseFunc
     input tuple<SCode.Statement, Argument> inTuple;
     output tuple<SCode.Statement, Argument> outTuple;
@@ -2301,8 +2279,6 @@ public function traverseStatements
   input tuple<TraverseFunc, Argument> inTuple;
   output SCode.Statement outStatement;
   output tuple<TraverseFunc, Argument> outTuple;
-
-  replaceable type Argument subtypeof Any;
 
   partial function TraverseFunc
     input tuple<SCode.Statement, Argument> inTuple;
@@ -2326,8 +2302,6 @@ public function traverseStatements2
   input tuple<TraverseFunc, Argument> inTuple;
   output SCode.Statement outStatement;
   output tuple<TraverseFunc, Argument> outTuple;
-
-  replaceable type Argument subtypeof Any;
 
   partial function TraverseFunc
     input tuple<SCode.Statement, Argument> inTuple;
@@ -2397,8 +2371,6 @@ protected function traverseBranchStatements
   output tuple<Absyn.Exp, list<SCode.Statement>> outBranch;
   output tuple<TraverseFunc, Argument> outTuple;
 
-  replaceable type Argument subtypeof Any;
-
   partial function TraverseFunc
     input tuple<SCode.Statement, Argument> inTuple;
     output tuple<SCode.Statement, Argument> outTuple;
@@ -2422,9 +2394,6 @@ public function traverseStatementListExps
   output list<SCode.Statement> outStatements;
   output Argument outArg;
 
-
-  replaceable type Argument subtypeof Any;
-
   partial function TraverseFunc
     input Absyn.Exp inExp;
     input Argument inArgument;
@@ -2444,8 +2413,6 @@ public function traverseStatementExps
   input Argument inArg;
   output SCode.Statement outStatement;
   output Argument outArg;
-
-  replaceable type Argument subtypeof Any;
 
   partial function TraverseFunc
     input Absyn.Exp inExp;
@@ -2544,8 +2511,6 @@ protected function traverseBranchExps
   input Argument inArg;
   output tuple<Absyn.Exp, list<SCode.Statement>> outBranch;
   output Argument outArg;
-
-  replaceable type Argument subtypeof Any;
 
   partial function TraverseFunc
     input Absyn.Exp inExp;
@@ -2966,10 +2931,7 @@ public function boolFinal
   input Boolean inBoolFinal;
   output SCode.Final outFinal;
 algorithm
-  outFinal := match(inBoolFinal)
-    case (true) then SCode.FINAL();
-    case (false) then SCode.NOT_FINAL();
-  end match;
+  outFinal := if inBoolFinal then SCode.FINAL() else SCode.NOT_FINAL();
 end boolFinal;
 
 public function connectorTypeEqual
@@ -3364,10 +3326,10 @@ protected
   String id;
 algorithm
   mod := match ann
-    case SCode.Annotation.ANNOTATION(modification = SCode.MOD(subModLst = submods))
+    case SCode.ANNOTATION(modification = SCode.MOD(subModLst = submods))
       algorithm
         for sm in submods loop
-          SCode.SubMod.NAMEMOD(id, mod) := sm;
+          SCode.NAMEMOD(id, mod) := sm;
 
           if id == name then
             return;
@@ -3391,10 +3353,10 @@ protected
   SCode.Mod mod;
 algorithm
   mods := match ann
-    case SCode.Annotation.ANNOTATION(modification = SCode.MOD(subModLst = submods))
+    case SCode.ANNOTATION(modification = SCode.MOD(subModLst = submods))
       algorithm
         for sm in submods loop
-          SCode.SubMod.NAMEMOD(id, mod) := sm;
+          SCode.NAMEMOD(id, mod) := sm;
 
           if id == name then
             mods := mod :: mods;
@@ -4426,6 +4388,7 @@ algorithm
 
     case (SCode.DERIVED(ty, _, attr), _) then SCode.DERIVED(ty, inMod, attr);
     case (SCode.CLASS_EXTENDS(_, cdef), _) then SCode.CLASS_EXTENDS(inMod, cdef);
+    else inClassDef;
 
   end match;
 end setClassDefMod;
@@ -5288,7 +5251,7 @@ algorithm
   mod := match element
     case SCode.CLASS(prefixes = SCode.Prefixes.PREFIXES(replaceablePrefix =
       SCode.Replaceable.REPLACEABLE(cc = SOME(SCode.CONSTRAINCLASS(modifier = mod))))) then mod;
-    case SCode.CLASS(classDef = SCode.ClassDef.DERIVED(modifications = mod)) then mod;
+    case SCode.CLASS(classDef = SCode.DERIVED(modifications = mod)) then mod;
     case SCode.COMPONENT(prefixes = SCode.Prefixes.PREFIXES(replaceablePrefix =
       SCode.Replaceable.REPLACEABLE(cc = SOME(SCode.CONSTRAINCLASS(modifier = mod))))) then mod;
     case SCode.COMPONENT(modifications = mod) then mod;
@@ -5370,7 +5333,7 @@ algorithm
       then
         ();
 
-    case SCode.Mod.REDECL()
+    case SCode.REDECL()
       algorithm
         mod.element := stripCommentsFromElement(mod.element, stripAnn, stripCmt);
       then
@@ -5400,7 +5363,7 @@ algorithm
       list<SCode.AlgorithmSection> alg, ialg;
       Option<SCode.ExternalDecl> ext;
 
-    case SCode.ClassDef.PARTS()
+    case SCode.PARTS()
       algorithm
         el := list(stripCommentsFromElement(e, stripAnn, stripCmt) for e in cdef.elementLst);
         eql := list(stripCommentsFromEquation(eq, stripAnn, stripCmt) for eq in cdef.normalEquationLst);
@@ -5409,22 +5372,22 @@ algorithm
         ialg := list(stripCommentsFromAlgorithm(ia, stripAnn, stripCmt) for ia in cdef.initialAlgorithmLst);
         ext := stripCommentsFromExternalDecl(cdef.externalDecl, stripAnn, stripCmt);
       then
-        SCode.ClassDef.PARTS(el, eql, ieql, alg, ialg, cdef.constraintLst, cdef.clsattrs, ext);
+        SCode.PARTS(el, eql, ieql, alg, ialg, cdef.constraintLst, cdef.clsattrs, ext);
 
-    case SCode.ClassDef.CLASS_EXTENDS()
+    case SCode.CLASS_EXTENDS()
       algorithm
         cdef.modifications := stripCommentsFromMod(cdef.modifications, stripAnn, stripCmt);
         cdef.composition := stripCommentsFromClassDef(cdef.composition, stripAnn, stripCmt);
       then
         cdef;
 
-    case SCode.ClassDef.DERIVED()
+    case SCode.DERIVED()
       algorithm
         cdef.modifications := stripCommentsFromMod(cdef.modifications, stripAnn, stripCmt);
       then
         cdef;
 
-    case SCode.ClassDef.ENUMERATION()
+    case SCode.ENUMERATION()
       algorithm
         cdef.enumLst := list(stripCommentsFromEnum(e, stripAnn, stripCmt) for e in cdef.enumLst);
       then
@@ -5484,7 +5447,7 @@ function stripCommentsFromEEquation
   input Boolean stripCmt;
 algorithm
   () := match eq
-    case SCode.EEquation.EQ_IF()
+    case SCode.EQ_IF()
       algorithm
         eq.thenBranch := list(
             list(stripCommentsFromEEquation(e, stripAnn, stripCmt) for e in branch)
@@ -5494,32 +5457,32 @@ algorithm
       then
         ();
 
-    case SCode.EEquation.EQ_EQUALS()
+    case SCode.EQ_EQUALS()
       algorithm
         eq.comment := stripCommentsFromComment(eq.comment, stripAnn, stripCmt);
       then
         ();
 
-    case SCode.EEquation.EQ_PDE()
+    case SCode.EQ_PDE()
       algorithm
         eq.comment := stripCommentsFromComment(eq.comment, stripAnn, stripCmt);
       then
         ();
 
-    case SCode.EEquation.EQ_CONNECT()
+    case SCode.EQ_CONNECT()
       algorithm
         eq.comment := stripCommentsFromComment(eq.comment, stripAnn, stripCmt);
       then
         ();
 
-    case SCode.EEquation.EQ_FOR()
+    case SCode.EQ_FOR()
       algorithm
         eq.eEquationLst := list(stripCommentsFromEEquation(e, stripAnn, stripCmt) for e in eq.eEquationLst);
         eq.comment := stripCommentsFromComment(eq.comment, stripAnn, stripCmt);
       then
         ();
 
-    case SCode.EEquation.EQ_WHEN()
+    case SCode.EQ_WHEN()
       algorithm
         eq.eEquationLst := list(stripCommentsFromEEquation(e, stripAnn, stripCmt) for e in eq.eEquationLst);
         eq.elseBranches := list(stripCommentsFromWhenEqBranch(b, stripAnn, stripCmt) for b in eq.elseBranches);
@@ -5527,25 +5490,25 @@ algorithm
       then
         ();
 
-    case SCode.EEquation.EQ_ASSERT()
+    case SCode.EQ_ASSERT()
       algorithm
         eq.comment := stripCommentsFromComment(eq.comment, stripAnn, stripCmt);
       then
         ();
 
-    case SCode.EEquation.EQ_TERMINATE()
+    case SCode.EQ_TERMINATE()
       algorithm
         eq.comment := stripCommentsFromComment(eq.comment, stripAnn, stripCmt);
       then
         ();
 
-    case SCode.EEquation.EQ_REINIT()
+    case SCode.EQ_REINIT()
       algorithm
         eq.comment := stripCommentsFromComment(eq.comment, stripAnn, stripCmt);
       then
         ();
 
-    case SCode.EEquation.EQ_NORETCALL()
+    case SCode.EQ_NORETCALL()
       algorithm
         eq.comment := stripCommentsFromComment(eq.comment, stripAnn, stripCmt);
       then
@@ -5581,13 +5544,13 @@ function stripCommentsFromStatement
   input Boolean stripCmt;
 algorithm
   () := match stmt
-    case SCode.Statement.ALG_ASSIGN()
+    case SCode.ALG_ASSIGN()
       algorithm
         stmt.comment := stripCommentsFromComment(stmt.comment, stripAnn, stripCmt);
       then
         ();
 
-    case SCode.Statement.ALG_IF()
+    case SCode.ALG_IF()
       algorithm
         stmt.trueBranch := list(stripCommentsFromStatement(s, stripAnn, stripCmt) for s in stmt.trueBranch);
         stmt.elseIfBranch := list(stripCommentsFromStatementBranch(b, stripAnn, stripCmt) for b in stmt.elseIfBranch);
@@ -5596,28 +5559,28 @@ algorithm
       then
         ();
 
-    case SCode.Statement.ALG_FOR()
+    case SCode.ALG_FOR()
       algorithm
         stmt.forBody := list(stripCommentsFromStatement(s, stripAnn, stripCmt) for s in stmt.forBody);
         stmt.comment := stripCommentsFromComment(stmt.comment, stripAnn, stripCmt);
       then
         ();
 
-    case SCode.Statement.ALG_PARFOR()
+    case SCode.ALG_PARFOR()
       algorithm
         stmt.parforBody := list(stripCommentsFromStatement(s, stripAnn, stripCmt) for s in stmt.parforBody);
         stmt.comment := stripCommentsFromComment(stmt.comment, stripAnn, stripCmt);
       then
         ();
 
-    case SCode.Statement.ALG_WHILE()
+    case SCode.ALG_WHILE()
       algorithm
         stmt.whileBody := list(stripCommentsFromStatement(s, stripAnn, stripCmt) for s in stmt.whileBody);
         stmt.comment := stripCommentsFromComment(stmt.comment, stripAnn, stripCmt);
       then
         ();
 
-    case SCode.Statement.ALG_WHEN_A()
+    case SCode.ALG_WHEN_A()
       algorithm
         stmt.branches := list(stripCommentsFromStatementBranch(b, stripAnn, stripCmt) for b in stmt.branches);
         stmt.comment := stripCommentsFromComment(stmt.comment, stripAnn, stripCmt);
@@ -5630,43 +5593,43 @@ algorithm
       then
         ();
 
-    case SCode.Statement.ALG_TERMINATE()
+    case SCode.ALG_TERMINATE()
       algorithm
         stmt.comment := stripCommentsFromComment(stmt.comment, stripAnn, stripCmt);
       then
         ();
 
-    case SCode.Statement.ALG_REINIT()
+    case SCode.ALG_REINIT()
       algorithm
         stmt.comment := stripCommentsFromComment(stmt.comment, stripAnn, stripCmt);
       then
         ();
 
-    case SCode.Statement.ALG_NORETCALL()
+    case SCode.ALG_NORETCALL()
       algorithm
         stmt.comment := stripCommentsFromComment(stmt.comment, stripAnn, stripCmt);
       then
         ();
 
-    case SCode.Statement.ALG_RETURN()
+    case SCode.ALG_RETURN()
       algorithm
         stmt.comment := stripCommentsFromComment(stmt.comment, stripAnn, stripCmt);
       then
         ();
 
-    case SCode.Statement.ALG_BREAK()
+    case SCode.ALG_BREAK()
       algorithm
         stmt.comment := stripCommentsFromComment(stmt.comment, stripAnn, stripCmt);
       then
         ();
 
-    case SCode.Statement.ALG_FAILURE()
+    case SCode.ALG_FAILURE()
       algorithm
         stmt.comment := stripCommentsFromComment(stmt.comment, stripAnn, stripCmt);
       then
         ();
 
-    case SCode.Statement.ALG_TRY()
+    case SCode.ALG_TRY()
       algorithm
         stmt.body := list(stripCommentsFromStatement(s, stripAnn, stripCmt) for s in stmt.body);
         stmt.elseBody := list(stripCommentsFromStatement(s, stripAnn, stripCmt) for s in stmt.elseBody);
@@ -5674,7 +5637,7 @@ algorithm
       then
         ();
 
-    case SCode.Statement.ALG_CONTINUE()
+    case SCode.ALG_CONTINUE()
       algorithm
         stmt.comment := stripCommentsFromComment(stmt.comment, stripAnn, stripCmt);
       then
@@ -5705,6 +5668,69 @@ algorithm
     fail();
   end if;
 end checkValidEnumLiteral;
+
+public function isRedeclareElement
+"get the redeclare-as-element elements"
+  input SCode.Element element;
+  output Boolean isElement;
+algorithm
+  isElement := match element
+    // redeclare-as-element component
+    case SCode.COMPONENT(prefixes = SCode.PREFIXES(redeclarePrefix = SCode.REDECLARE()))
+      then true;
+    // not redeclare class extends
+    case SCode.CLASS(classDef = SCode.CLASS_EXTENDS())
+      then false;
+    // redeclare-as-element class!, not class extends
+    case SCode.CLASS(prefixes = SCode.PREFIXES(redeclarePrefix = SCode.REDECLARE()))
+      then true;
+    else false;
+  end match;
+end isRedeclareElement;
+
+public function mergeSCodeOptAnn
+  input Option<SCode.Annotation> inModOuter;
+  input Option<SCode.Annotation> inModInner;
+  output Option<SCode.Annotation> outMod;
+algorithm
+  outMod := match (inModOuter, inModInner)
+    local
+      SCode.Mod mod1, mod2, mod;
+
+    case (NONE(),_) then inModInner;
+    case (_,NONE()) then inModOuter;
+    case (SOME(SCode.ANNOTATION(mod1)),SOME(SCode.ANNOTATION(mod2)))
+      equation
+        mod = SCodeUtil.mergeSCodeMods(mod1,mod2);
+      then SOME(SCode.ANNOTATION(mod));
+  end match;
+end mergeSCodeOptAnn;
+
+public function mergeSCodeMods
+  input SCode.Mod inModOuter;
+  input SCode.Mod inModInner;
+  output SCode.Mod outMod;
+algorithm
+  outMod := match (inModOuter, inModInner)
+    local
+      SCode.Final f1, f2;
+      SCode.Each e1, e2;
+      list<SCode.SubMod> subMods1, subMods2;
+      Option<Absyn.Exp> b1, b2;
+      SourceInfo info;
+
+    case (_, SCode.NOMOD()) then inModOuter;
+
+    case (SCode.MOD(f1, e1, subMods1, b1, info),
+          SCode.MOD(_, _, subMods2, b2, _))
+      equation
+        subMods2 = listAppend(subMods1, subMods2);
+        b1 = if isSome(b1) then b1 else b2;
+      then
+        SCode.MOD(f1, e1, subMods2, b1, info);
+
+  end match;
+end mergeSCodeMods;
 
 annotation(__OpenModelica_Interface="frontend");
 end SCodeUtil;

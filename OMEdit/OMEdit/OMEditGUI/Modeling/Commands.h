@@ -97,7 +97,6 @@ public:
   void undo();
 private:
   LibraryTreeItem *mpLibraryTreeItem;
-  StringHandler::ModelicaClasses mType;
   bool mAddObject;
   ComponentInfo *mpComponentInfo;
   Component *mpIconComponent;
@@ -124,15 +123,15 @@ private:
 class UpdateComponentAttributesCommand : public UndoCommand
 {
 public:
-  UpdateComponentAttributesCommand(Component *pComponent, const ComponentInfo &oldComponentInfo, const ComponentInfo &newComponentInfo,
-                                   bool duplicate = false, UndoCommand *pParent = 0);
+  UpdateComponentAttributesCommand(Component *pComponent, const ComponentInfo &oldComponentInfo, const ComponentInfo &newComponentInfo, UndoCommand *pParent = 0);
   void redoInternal();
   void undo();
+  static void updateComponentAttributes(Component *pComponent, const ComponentInfo &componentInfo);
+  static void updateComponentModifiers(Component *pComponent, const ComponentInfo &componentInfo);
 private:
   Component *mpComponent;
   ComponentInfo mOldComponentInfo;
   ComponentInfo mNewComponentInfo;
-  bool mDuplicate;
 };
 
 class UpdateComponentParametersCommand : public UndoCommand
@@ -213,7 +212,6 @@ public:
   void undo();
 private:
   LineAnnotation *mpConnectionLineAnnotation;
-  GraphicsView *mpGraphicsView;
 };
 
 class AddTransitionCommand : public UndoCommand
@@ -262,7 +260,6 @@ public:
   void undo();
 private:
   LineAnnotation *mpTransitionLineAnnotation;
-  GraphicsView *mpGraphicsView;
 };
 
 class AddInitialStateCommand : public UndoCommand
@@ -297,7 +294,6 @@ public:
   void undo();
 private:
   LineAnnotation *mpInitialStateLineAnnotation;
-  GraphicsView *mpGraphicsView;
 };
 
 class UpdateCoOrdinateSystemCommand : public UndoCommand
@@ -317,6 +313,8 @@ private:
   QString mNewVersion;
   QString mOldUsesAnnotationString;
   QString mNewUsesAnnotationString;
+
+  void updateReferencedShapes(GraphicsView *pGraphicsView);
 };
 
 class UpdateClassAnnotationCommand : public UndoCommand
@@ -428,13 +426,14 @@ private:
 class AddSubModelCommand : public UndoCommand
 {
 public:
-  AddSubModelCommand(QString name, QString path, LibraryTreeItem *pLibraryTreeItem, QString annotation, bool openingClass,
+  AddSubModelCommand(QString name, QString path, QString startScript, LibraryTreeItem *pLibraryTreeItem, QString annotation, bool openingClass,
                      GraphicsView *pGraphicsView, UndoCommand *pParent = 0);
   void redoInternal();
   void undo();
 private:
   QString mName;
   QString mPath;
+  QString mStartScript;
   LibraryTreeItem *mpLibraryTreeItem;
   QString mAnnotation;
   bool mOpeningClass;

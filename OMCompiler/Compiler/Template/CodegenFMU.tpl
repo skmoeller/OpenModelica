@@ -69,7 +69,7 @@ case sc as SIMCODE(modelInfo=modelInfo as MODELINFO(__)) then
   let()= textFile(simulationFunctionsHeaderFile(fileNamePrefix, modelInfo.functions, recordDecls), '<%fileNamePrefixTmpDir%>_functions.h')
   let()= textFile(simulationFunctionsFile(fileNamePrefix, modelInfo.functions), '<%fileNamePrefixTmpDir%>_functions.c')
   let()= textFile(externalFunctionIncludes(sc.externalFunctionIncludes), '<%fileNamePrefixTmpDir%>_includes.h')
-  let()= textFile(recordsFile(fileNamePrefix, recordDecls), '<%fileNamePrefixTmpDir%>_records.c')
+  let()= textFile(recordsFile(fileNamePrefix, recordDecls, true /*isSimulation*/), '<%fileNamePrefixTmpDir%>_records.c')
   let()= textFile(simulationHeaderFile(simCode), '<%fileNamePrefixTmpDir%>_model.h')
 
   let _ = generateSimulationFiles(simCode,guid,fileNamePrefixTmpDir,FMUVersion)
@@ -1351,7 +1351,7 @@ template fmuSourceMakefile(SimCode simCode, String FMUVersion)
 
   fmu:
   <%\t%>rm -f <%fileNamePrefix%>.fmutmp/sources/<%fileNamePrefix%>_init.xml<%/*Already translated to .c*/%>
-  <%\t%>cp -a <%makefileParams.omhome%>/share/omc/runtime/c/fmi/buildproject/* <%fileNamePrefix%>.fmutmp/sources
+  <%\t%>cp -a "<%makefileParams.omhome%>/share/omc/runtime/c/fmi/buildproject/"* <%fileNamePrefix%>.fmutmp/sources
   <%\t%>cp -a <%fileNamePrefix%>_FMU.libs <%fileNamePrefix%>.fmutmp/sources/
   <%\n%>
   >>

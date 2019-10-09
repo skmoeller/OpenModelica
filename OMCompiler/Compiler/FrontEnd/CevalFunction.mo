@@ -1134,7 +1134,7 @@ algorithm
       then
         (cache, inEnv, NEXT());
     // Special case for print, and other known calls for now; evaluated even when there is no ST
-    case (DAE.STMT_NORETCALL(exp = rhs as DAE.CALL(path = path, expLst = exps, attr=DAE.CALL_ATTR(ty=returnType, tailCall=tailCall))), _, _)
+    case (DAE.STMT_NORETCALL(exp = rhs as DAE.CALL( expLst = exps, attr=DAE.CALL_ATTR(ty=_, tailCall=tailCall))), _, _)
       algorithm
         (cache, vals) := cevalExpList(exps, inCache, inEnv);
         (cache, v) := cevalExp(rhs, cache, inEnv);
@@ -1720,7 +1720,7 @@ protected function makeFunctionVariable
   output DAE.Var outVar;
   annotation(__OpenModelica_EarlyInline = true);
 algorithm
-  outVar := DAE.TYPES_VAR(inName, DAE.dummyAttrVar, inType, inBinding, NONE());
+  outVar := DAE.TYPES_VAR(inName, DAE.dummyAttrVar, inType, inBinding, false, NONE());
 end makeFunctionVariable;
 
 protected function getBinding
@@ -2284,9 +2284,8 @@ protected
   DAE.Type ty;
   Option<DAE.Const> c;
 algorithm
-  DAE.TYPES_VAR(name, attr, ty, _, c) := inVar;
-  outVar := DAE.TYPES_VAR(name, attr, ty,
-    DAE.VALBOUND(inValue, DAE.BINDING_FROM_DEFAULT_VALUE()), c);
+  outVar := inVar;
+  outVar.binding := DAE.VALBOUND(inValue, DAE.BINDING_FROM_DEFAULT_VALUE());
 end updateRecordBinding;
 
 protected function updateRecordComponentBinding
@@ -2296,18 +2295,12 @@ protected function updateRecordComponentBinding
   input Values.Value inValue;
   output DAE.Var outVar;
 protected
-  DAE.Ident name;
-  DAE.Attributes attr;
-  DAE.Type ty;
-  DAE.Binding binding;
-  Option<DAE.Const> c;
   Values.Value val;
 algorithm
-  DAE.TYPES_VAR(name, attr, ty, binding, c) := inVar;
-  val := getBindingOrDefault(binding, ty);
+  outVar := inVar;
+  val := getBindingOrDefault(outVar.binding, outVar.ty);
   val := updateRecordComponentValue(inComponentId, inValue, val);
-  binding := DAE.VALBOUND(val, DAE.BINDING_FROM_DEFAULT_VALUE());
-  outVar := DAE.TYPES_VAR(name, attr, ty, binding, c);
+  outVar.binding := DAE.VALBOUND(val, DAE.BINDING_FROM_DEFAULT_VALUE());
 end updateRecordComponentBinding;
 
 protected function updateRecordComponentValue

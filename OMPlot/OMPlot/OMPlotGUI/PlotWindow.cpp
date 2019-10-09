@@ -39,6 +39,8 @@
 #include "qwt_plot_renderer.h"
 #endif
 #include "qwt_scale_draw.h"
+#include "qwt_scale_widget.h"
+#include "qwt_text_label.h"
 
 using namespace OMPlot;
 
@@ -108,6 +110,7 @@ void PlotWindow::initializePlot(QStringList arguments)
   setYRange(QString(arguments[11]).toDouble(), QString(arguments[12]).toDouble());
   setCurveWidth(QString(arguments[13]).toDouble());
   setCurveStyle(QString(arguments[14]).toInt());
+  setLegendFont(QApplication::font());
   setLegendPosition(QString(arguments[15]));
   setFooter(QString(arguments[16]));
   if (QString(arguments[17]) == "true") {
@@ -906,11 +909,11 @@ void PlotWindow::updateTimeText(QString unit)
   mpPlot->replot();
 }
 
-void PlotWindow::plotArray(double timePercent, PlotCurve *pPlotCurve)
+void PlotWindow::plotArray(double time, PlotCurve *pPlotCurve)
 {
   double *res;
   QString currentLine;
-  double time;
+  setTime(time);
   double timeUnitFactor = getTimeUnitFactor(getTimeUnit());
   if (mVariablesList.isEmpty() and getPlotType() == PlotWindow::PLOTARRAY)
     throw NoVariableException(QString("No variables specified!").toStdString().c_str());
@@ -942,11 +945,6 @@ void PlotWindow::plotArray(double timePercent, PlotCurve *pPlotCurve)
     //Read in timevector
     double timeVals[intervalSize];
     readPLTDataset(mpTextStream, "time", intervalSize, timeVals);
-    //calculate time
-    double startTime = timeVals[0];
-    double stopTime = timeVals[intervalSize-1];
-    time = startTime + (stopTime - startTime)*timePercent/100.0;
-    setTime(time);
     //Find indexes and alpha to interpolate data in particular time
     double alpha;
     int it = setupInterp(timeVals, time, intervalSize, alpha);
@@ -996,11 +994,6 @@ void PlotWindow::plotArray(double timePercent, PlotCurve *pPlotCurve)
       omc_free_csv_reader(csvReader);
       throw NoVariableException(tr("Variable doesnt exist: %1").arg("time").toStdString().c_str());
     }
-    //calculate time
-    double startTime = timeVals[0];
-    double stopTime = timeVals[csvReader->numsteps-1];
-    time = startTime + (stopTime - startTime)*timePercent/100.0;
-    setTime(time);
     double alpha;
     int it = setupInterp(timeVals, time, csvReader->numsteps, alpha);
     if (it < 0) {
@@ -1062,8 +1055,6 @@ void PlotWindow::plotArray(double timePercent, PlotCurve *pPlotCurve)
       //calculate time
       double startTime = omc_matlab4_startTime(&reader);
       double stopTime =  omc_matlab4_stopTime(&reader);
-      time = startTime + (stopTime - startTime)*timePercent/100.0;
-      setTime(time);
       if (reader.nvar < 1) {
         omc_free_matlab4_reader(&reader);
         throw NoVariableException("Variable doesnt exist: time");
@@ -1114,11 +1105,11 @@ void PlotWindow::plotArray(double timePercent, PlotCurve *pPlotCurve)
     }
 }
 
-void PlotWindow::plotArrayParametric(double timePercent, PlotCurve *pPlotCurve)
+void PlotWindow::plotArrayParametric(double time, PlotCurve *pPlotCurve)
 {
   QString xVariable, yVariable, xTitle, yTitle;
   int pair = 0;
-  double time;
+  setTime(time);
   double timeUnitFactor = getTimeUnitFactor(getTimeUnit());
   if (mVariablesList.isEmpty())
     throw NoVariableException(QString("No variables specified!").toStdString().c_str());
@@ -1129,7 +1120,6 @@ void PlotWindow::plotArrayParametric(double timePercent, PlotCurve *pPlotCurve)
 
   for (pair = 0; pair < mVariablesList.size(); pair += 2)
   {
-    QStringList varPair;
     xVariable = mVariablesList.at(pair);
     yVariable = mVariablesList.at(pair+1);
     //    if (!editCase)
@@ -1175,11 +1165,6 @@ void PlotWindow::plotArrayParametric(double timePercent, PlotCurve *pPlotCurve)
       //Read in timevector
       double timeVals[intervalSize];
       readPLTDataset(mpTextStream, "time", intervalSize, timeVals);
-      //calculate time
-      double startTime = timeVals[0];
-      double stopTime = timeVals[intervalSize-1];
-      time = startTime + (stopTime - startTime)*timePercent/100.0;
-      setTime(time);
       //Find indexes and alpha to interpolate data in particular time
       double alpha;
       int it = setupInterp(timeVals, time, intervalSize, alpha);
@@ -1230,11 +1215,6 @@ void PlotWindow::plotArrayParametric(double timePercent, PlotCurve *pPlotCurve)
         omc_free_csv_reader(csvReader);
         throw NoVariableException(tr("Variable doesnt exist: %1").arg("time").toStdString().c_str());
       }
-      //calculate time
-      double startTime = timeVals[0];
-      double stopTime = timeVals[csvReader->numsteps-1];
-      time = startTime + (stopTime - startTime)*timePercent/100.0;
-      setTime(time);
       double alpha;
       int it = setupInterp(timeVals, time, csvReader->numsteps, alpha);
       if (it < 0) {
@@ -1311,8 +1291,6 @@ void PlotWindow::plotArrayParametric(double timePercent, PlotCurve *pPlotCurve)
       //calculate time
       double startTime = omc_matlab4_startTime(&reader);
       double stopTime =  omc_matlab4_stopTime(&reader);
-      time = startTime + (stopTime - startTime)*timePercent/100.0;
-      setTime(time);
       if (reader.nvar < 1) {
         omc_free_matlab4_reader(&reader);
         throw NoVariableException("Variable doesnt exist: time");
@@ -1528,6 +1506,16 @@ int PlotWindow::getCurveStyle()
   return mCurveStyle;
 }
 
+void PlotWindow::setLegendFont(QFont font)
+{
+  mLegendFont = font;
+}
+
+QFont PlotWindow::getLegendFont()
+{
+  return mLegendFont;
+}
+
 void PlotWindow::setLegendPosition(QString position)
 {
   if (position.toLower().compare("left") == 0)
@@ -1548,7 +1536,7 @@ void PlotWindow::setLegendPosition(QString position)
     mpPlot->setLegend(new Legend(mpPlot));
     mpPlot->insertLegend(mpPlot->getLegend(), QwtPlot::TopLegend);
 #if QWT_VERSION > 0x060000
-    /* we also want to align the legend to left. Stupid Qwt align it HCenter by default. */
+    /* we also want to align the legend to left. Qwt align it HCenter by default. */
     QwtLegend *pQwtLegend = qobject_cast<QwtLegend*>(mpPlot->legend());
     pQwtLegend->contentsWidget()->layout()->setAlignment(Qt::AlignTop | Qt::AlignLeft);
     mpPlot->updateLegend();
@@ -1560,7 +1548,7 @@ void PlotWindow::setLegendPosition(QString position)
     mpPlot->setLegend(new Legend(mpPlot));
     mpPlot->insertLegend(mpPlot->getLegend(), QwtPlot::BottomLegend);
 #if QWT_VERSION > 0x060000
-    /* we also want to align the legend to left. Stupid Qwt align it HCenter by default. */
+    /* we also want to align the legend to left. Qwt align it HCenter by default. */
     QwtLegend *pQwtLegend = qobject_cast<QwtLegend*>(mpPlot->legend());
     pQwtLegend->contentsWidget()->layout()->setAlignment(Qt::AlignBottom | Qt::AlignLeft);
     mpPlot->updateLegend();
@@ -1671,12 +1659,12 @@ void PlotWindow::exportDocument()
     lastOpenDir = QFileInfo(fileName).absoluteDir().absolutePath();
     // export svg
     if (fileName.endsWith(".svg")) {
+#if QWT_VERSION < 0x060000
       QSvgGenerator generator;
       generator.setTitle(tr("OMPlot - OpenModelica Plot"));
       generator.setDescription(tr("Generated by OpenModelica Plot Tool"));
       generator.setFileName(fileName);
       generator.setSize(mpPlot->rect().size());
-#if QWT_VERSION < 0x060000
       mpPlot->print(generator);
 #else
       QwtPlotRenderer plotRenderer;
@@ -1692,14 +1680,19 @@ void PlotWindow::exportDocument()
       /* removes the gray widget background when OMPlot is used as library. */
       pixmap.fill(Qt::white);
       mpPlot->render(&pixmap, QPoint(), QRegion(), DrawChildren);
-      if (!pixmap.save(fileName)) {
-        QMessageBox::critical(this, "Error", "Failed to save image " + fileName);
-      }
 #else
       QwtPlotRenderer plotRenderer;
       plotRenderer.setDiscardFlag(QwtPlotRenderer::DiscardBackground);  /* removes the gray widget background when OMPlot is used as library. */
-      plotRenderer.renderDocument(mpPlot, fileName, QSizeF(mpPlot->widthMM(), mpPlot->heightMM()));
+      QPixmap pixmap(mpPlot->size());
+      pixmap.fill(Qt::white);
+      QPainter painter(&pixmap);
+      QRect rect = mpPlot->geometry();
+      painter.setWindow(rect);
+      plotRenderer.render(mpPlot, &painter, rect);
 #endif
+      if (!pixmap.save(fileName)) {
+        QMessageBox::critical(this, "Error", "Failed to save image " + fileName);
+      }
     }
   }
 }
@@ -1987,24 +1980,66 @@ SetupDialog::SetupDialog(PlotWindow *pPlotWindow)
   mpTitlesTab = new QWidget;
   mpPlotTitleLabel = new QLabel(tr("Plot Title"));
   mpPlotTitleTextBox = new QLineEdit(mpPlotWindow->getPlot()->title().text());
+  mpTitleFontSizeLabel = new QLabel("Title Font Size");
+  mpTitleFontSizeSpinBox = new QDoubleSpinBox;
+  mpTitleFontSizeSpinBox->setRange(6, std::numeric_limits<double>::max());
+  mpTitleFontSizeSpinBox->setValue(mpPlotWindow->getPlot()->titleLabel()->font().pointSizeF());
+  mpTitleFontSizeSpinBox->setSingleStep(1);
   mpVerticalAxisLabel = new QLabel(tr("Vertical Axis Title"));
   mpVerticalAxisTextBox = new QLineEdit(mpPlotWindow->getPlot()->axisTitle(QwtPlot::yLeft).text());
+  mpVerticalAxisTitleFontSizeLabel = new QLabel("Vertical Axis Title Font Size");
+  mpVerticalAxisTitleFontSizeSpinBox = new QDoubleSpinBox;
+  mpVerticalAxisTitleFontSizeSpinBox->setRange(6, std::numeric_limits<double>::max());
+  mpVerticalAxisTitleFontSizeSpinBox->setValue(mpPlotWindow->getPlot()->axisWidget(QwtPlot::yLeft)->title().font().pointSizeF());
+  mpVerticalAxisTitleFontSizeSpinBox->setSingleStep(1);
+  mpVerticalAxisNumbersFontSizeLabel = new QLabel("Vertical Axis Numbers Font Size");
+  mpVerticalAxisNumbersFontSizeSpinBox = new QDoubleSpinBox;
+  mpVerticalAxisNumbersFontSizeSpinBox->setRange(6, std::numeric_limits<double>::max());
+  mpVerticalAxisNumbersFontSizeSpinBox->setValue(mpPlotWindow->getPlot()->axisWidget(QwtPlot::yLeft)->font().pointSizeF());
+  mpVerticalAxisNumbersFontSizeSpinBox->setSingleStep(1);
   mpHorizontalAxisLabel = new QLabel(tr("Horizontal Axis Title"));
   mpHorizontalAxisTextBox = new QLineEdit(mpPlotWindow->getPlot()->axisTitle(QwtPlot::xBottom).text());
+  mpHorizontalAxisTitleFontSizeLabel = new QLabel("Horizontal Axis Title Font Size");
+  mpHorizontalAxisTitleFontSizeSpinBox = new QDoubleSpinBox;
+  mpHorizontalAxisTitleFontSizeSpinBox->setRange(6, std::numeric_limits<double>::max());
+  mpHorizontalAxisTitleFontSizeSpinBox->setValue(mpPlotWindow->getPlot()->axisWidget(QwtPlot::xBottom)->title().font().pointSizeF());
+  mpHorizontalAxisTitleFontSizeSpinBox->setSingleStep(1);
+  mpHorizontalAxisNumbersFontSizeLabel = new QLabel("Horizontal Axis Numbers Font Size");
+  mpHorizontalAxisNumbersFontSizeSpinBox = new QDoubleSpinBox;
+  mpHorizontalAxisNumbersFontSizeSpinBox->setRange(6, std::numeric_limits<double>::max());
+  mpHorizontalAxisNumbersFontSizeSpinBox->setValue(mpPlotWindow->getPlot()->axisWidget(QwtPlot::xBottom)->font().pointSizeF());
+  mpHorizontalAxisNumbersFontSizeSpinBox->setSingleStep(1);
   mpPlotFooterLabel = new QLabel(tr("Plot Footer"));
   mpPlotFooterTextBox = new QLineEdit(mpPlotWindow->getFooter());
+  mpFooterFontSizeLabel = new QLabel("Footer Font Size");
+  mpFooterFontSizeSpinBox = new QDoubleSpinBox;
+  mpFooterFontSizeSpinBox->setRange(6, std::numeric_limits<double>::max());
+  mpFooterFontSizeSpinBox->setValue(mpPlotWindow->getPlot()->footerLabel()->font().pointSizeF());
+  mpFooterFontSizeSpinBox->setSingleStep(1);
   // title tab layout
   QGridLayout *pTitlesTabGridLayout = new QGridLayout;
   pTitlesTabGridLayout->setAlignment(Qt::AlignTop | Qt::AlignLeft);
   pTitlesTabGridLayout->addWidget(mpPlotTitleLabel, 0, 0);
   pTitlesTabGridLayout->addWidget(mpPlotTitleTextBox, 0, 1);
-  pTitlesTabGridLayout->addWidget(mpVerticalAxisLabel, 1, 0);
-  pTitlesTabGridLayout->addWidget(mpVerticalAxisTextBox, 1, 1);
-  pTitlesTabGridLayout->addWidget(mpHorizontalAxisLabel, 2, 0);
-  pTitlesTabGridLayout->addWidget(mpHorizontalAxisTextBox, 2, 1);
+  pTitlesTabGridLayout->addWidget(mpTitleFontSizeLabel, 1, 0);
+  pTitlesTabGridLayout->addWidget(mpTitleFontSizeSpinBox, 1, 1);
+  pTitlesTabGridLayout->addWidget(mpVerticalAxisLabel, 2, 0);
+  pTitlesTabGridLayout->addWidget(mpVerticalAxisTextBox, 2, 1);
+  pTitlesTabGridLayout->addWidget(mpVerticalAxisTitleFontSizeLabel, 3, 0);
+  pTitlesTabGridLayout->addWidget(mpVerticalAxisTitleFontSizeSpinBox, 3, 1);
+  pTitlesTabGridLayout->addWidget(mpVerticalAxisNumbersFontSizeLabel, 4, 0);
+  pTitlesTabGridLayout->addWidget(mpVerticalAxisNumbersFontSizeSpinBox, 4, 1);
+  pTitlesTabGridLayout->addWidget(mpHorizontalAxisLabel, 5, 0);
+  pTitlesTabGridLayout->addWidget(mpHorizontalAxisTextBox, 5, 1);
+  pTitlesTabGridLayout->addWidget(mpHorizontalAxisTitleFontSizeLabel, 6, 0);
+  pTitlesTabGridLayout->addWidget(mpHorizontalAxisTitleFontSizeSpinBox, 6, 1);
+  pTitlesTabGridLayout->addWidget(mpHorizontalAxisNumbersFontSizeLabel, 7, 0);
+  pTitlesTabGridLayout->addWidget(mpHorizontalAxisNumbersFontSizeSpinBox, 7, 1);
 #if QWT_VERSION > 0x060000
-  pTitlesTabGridLayout->addWidget(mpPlotFooterLabel, 3, 0);
-  pTitlesTabGridLayout->addWidget(mpPlotFooterTextBox, 3, 1);
+  pTitlesTabGridLayout->addWidget(mpPlotFooterLabel, 8, 0);
+  pTitlesTabGridLayout->addWidget(mpPlotFooterTextBox, 8, 1);
+  pTitlesTabGridLayout->addWidget(mpFooterFontSizeLabel, 9, 0);
+  pTitlesTabGridLayout->addWidget(mpFooterFontSizeSpinBox, 9, 1);
 #endif
   mpTitlesTab->setLayout(pTitlesTabGridLayout);
   // legend tab
@@ -2015,11 +2050,18 @@ SetupDialog::SetupDialog(PlotWindow *pPlotWindow)
   mpLegendPositionComboBox->addItem(tr("Right"), "right");
   mpLegendPositionComboBox->addItem(tr("Bottom"), "bottom");
   mpLegendPositionComboBox->addItem(tr("Left"), "left");
+  mpLegendFontSizeLabel = new QLabel(tr("Legend Font Size"));
+  mpLegendFontSizeSpinBox = new QDoubleSpinBox;
+  mpLegendFontSizeSpinBox->setRange(6, std::numeric_limits<double>::max());
+  mpLegendFontSizeSpinBox->setValue(mpPlotWindow->getLegendFont().pointSizeF());
+  mpLegendFontSizeSpinBox->setSingleStep(1);
   // legend tab layout
   QGridLayout *pLegendTabGridLayout = new QGridLayout;
   pLegendTabGridLayout->setAlignment(Qt::AlignTop);
   pLegendTabGridLayout->addWidget(mpLegendPositionLabel, 0, 0);
   pLegendTabGridLayout->addWidget(mpLegendPositionComboBox, 0, 1);
+  pLegendTabGridLayout->addWidget(mpLegendFontSizeLabel, 1, 0);
+  pLegendTabGridLayout->addWidget(mpLegendFontSizeSpinBox, 1, 1);
   mpLegendTab->setLayout(pLegendTabGridLayout);
   // range tab
   mpRangeTab = new QWidget;
@@ -2177,6 +2219,9 @@ void SetupDialog::applySetup()
   for (int i = 0 ; i < mpVariablePagesStackedWidget->count() ; i++) {
     setupPlotCurve(qobject_cast<VariablePageWidget*>(mpVariablePagesStackedWidget->widget(i)));
   }
+  // set the font sizes. Don't move this line. We should set the font sizes before calling setLegendPosition
+  mpPlotWindow->getPlot()->setFontSizes(mpTitleFontSizeSpinBox->value(), mpVerticalAxisTitleFontSizeSpinBox->value(), mpVerticalAxisNumbersFontSizeSpinBox->value(),
+                                        mpHorizontalAxisTitleFontSizeSpinBox->value(), mpHorizontalAxisNumbersFontSizeSpinBox->value(), mpFooterFontSizeSpinBox->value(), mpLegendFontSizeSpinBox->value());
   // set the titles
   mpPlotWindow->getPlot()->setTitle(mpPlotTitleTextBox->text());
   mpPlotWindow->getPlot()->setAxisTitle(QwtPlot::yLeft, mpVerticalAxisTextBox->text());

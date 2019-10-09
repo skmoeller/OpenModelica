@@ -51,18 +51,19 @@ public:
   BitmapAnnotation(ShapeAnnotation *pShapeAnnotation, GraphicsView *pGraphicsView);
   // Used for OMSimulator FMU
   BitmapAnnotation(QString classFileName, GraphicsView *pGraphicsView);
-  void parseShapeAnnotation(QString annotation);
-  QRectF boundingRect() const;
-  QPainterPath shape() const;
-  void paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWidget *widget = 0);
+  void parseShapeAnnotation(QString annotation) override;
+  QRectF boundingRect() const override;
+  QPainterPath shape() const override;
+  void paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWidget *widget = 0) override;
   void drawBitmapAnnotaion(QPainter *painter);
-  QString getOMCShapeAnnotation();
-  QString getShapeAnnotation();
-  void updateShape(ShapeAnnotation *pShapeAnnotation);
+  QString getOMCShapeAnnotation() override;
+  QString getOMCShapeAnnotationWithShapeName() override;
+  QString getShapeAnnotation() override;
+  void updateShape(ShapeAnnotation *pShapeAnnotation) override;
 private:
   Component *mpComponent;
 public slots:
-  void duplicate();
+  void duplicate() override;
 };
 
 #endif // BITMAPANNOTATION_H

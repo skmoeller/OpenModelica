@@ -37,11 +37,12 @@
 #include "Modeling/ItemDelegate.h"
 #include "Modeling/Commands.h"
 #include "OMS/BusDialog.h"
+#include "Util/ResourceCache.h"
 
 #include <QMessageBox>
 
 LineAnnotation::LineAnnotation(QString annotation, GraphicsView *pGraphicsView)
-  : ShapeAnnotation(false, pGraphicsView, 0)
+  : ShapeAnnotation(false, pGraphicsView, 0, 0)
 {
   setLineType(LineAnnotation::ShapeType);
   setStartComponent(0);
@@ -69,7 +70,7 @@ LineAnnotation::LineAnnotation(QString annotation, GraphicsView *pGraphicsView)
 }
 
 LineAnnotation::LineAnnotation(ShapeAnnotation *pShapeAnnotation, Component *pParent)
-  : ShapeAnnotation(pParent)
+  : ShapeAnnotation(pShapeAnnotation, pParent)
 {
   updateShape(pShapeAnnotation);
   setLineType(LineAnnotation::ComponentType);
@@ -90,26 +91,18 @@ LineAnnotation::LineAnnotation(ShapeAnnotation *pShapeAnnotation, Component *pPa
   setActiveState(false);
   setPos(mOrigin);
   setRotation(mRotation);
-  connect(pShapeAnnotation, SIGNAL(updateReferenceShapes()), pShapeAnnotation, SIGNAL(changed()));
-  connect(pShapeAnnotation, SIGNAL(added()), this, SLOT(referenceShapeAdded()));
-  connect(pShapeAnnotation, SIGNAL(changed()), this, SLOT(referenceShapeChanged()));
-  connect(pShapeAnnotation, SIGNAL(deleted()), this, SLOT(referenceShapeDeleted()));
 }
 
 LineAnnotation::LineAnnotation(ShapeAnnotation *pShapeAnnotation, GraphicsView *pGraphicsView)
-  : ShapeAnnotation(true, pGraphicsView, 0)
+  : ShapeAnnotation(true, pGraphicsView, pShapeAnnotation, 0)
 {
   updateShape(pShapeAnnotation);
   setShapeFlags(true);
   mpGraphicsView->addItem(this);
-  connect(pShapeAnnotation, SIGNAL(updateReferenceShapes()), pShapeAnnotation, SIGNAL(changed()));
-  connect(pShapeAnnotation, SIGNAL(added()), this, SLOT(referenceShapeAdded()));
-  connect(pShapeAnnotation, SIGNAL(changed()), this, SLOT(referenceShapeChanged()));
-  connect(pShapeAnnotation, SIGNAL(deleted()), this, SLOT(referenceShapeDeleted()));
 }
 
 LineAnnotation::LineAnnotation(LineAnnotation::LineType lineType, Component *pStartComponent, GraphicsView *pGraphicsView)
-  : ShapeAnnotation(false, pGraphicsView, 0)
+  : ShapeAnnotation(false, pGraphicsView, 0, 0)
 {
   setFlag(QGraphicsItem::ItemIsSelectable);
   mLineType = lineType;
@@ -177,7 +170,7 @@ LineAnnotation::LineAnnotation(LineAnnotation::LineType lineType, Component *pSt
 }
 
 LineAnnotation::LineAnnotation(QString annotation, Component *pStartComponent, Component *pEndComponent, GraphicsView *pGraphicsView)
-  : ShapeAnnotation(false, pGraphicsView, 0)
+  : ShapeAnnotation(false, pGraphicsView, 0, 0)
 {
   setFlag(QGraphicsItem::ItemIsSelectable);
   mLineType = LineAnnotation::ConnectionType;
@@ -217,7 +210,7 @@ LineAnnotation::LineAnnotation(QString annotation, Component *pStartComponent, C
 
 LineAnnotation::LineAnnotation(QString annotation, QString text, Component *pStartComponent, Component *pEndComponent, QString condition,
                                QString immediate, QString reset, QString synchronize, QString priority, GraphicsView *pGraphicsView)
-  : ShapeAnnotation(false, pGraphicsView, 0)
+  : ShapeAnnotation(false, pGraphicsView, 0, 0)
 {
   setFlag(QGraphicsItem::ItemIsSelectable);
   mLineType = LineAnnotation::TransitionType;
@@ -256,7 +249,7 @@ LineAnnotation::LineAnnotation(QString annotation, QString text, Component *pSta
 }
 
 LineAnnotation::LineAnnotation(QString annotation, Component *pComponent, GraphicsView *pGraphicsView)
-  : ShapeAnnotation(false, pGraphicsView, 0)
+  : ShapeAnnotation(false, pGraphicsView, 0, 0)
 {
   setFlag(QGraphicsItem::ItemIsSelectable);
   mLineType = LineAnnotation::InitialStateType;
@@ -295,7 +288,7 @@ LineAnnotation::LineAnnotation(QString annotation, Component *pComponent, Graphi
 }
 
 LineAnnotation::LineAnnotation(Component *pParent)
-  : ShapeAnnotation(pParent)
+  : ShapeAnnotation(0, pParent)
 {
   setLineType(LineAnnotation::ComponentType);
   setStartComponent(0);
@@ -332,7 +325,7 @@ LineAnnotation::LineAnnotation(Component *pParent)
 }
 
 LineAnnotation::LineAnnotation(GraphicsView *pGraphicsView)
-  : ShapeAnnotation(true, pGraphicsView, 0)
+  : ShapeAnnotation(true, pGraphicsView, 0, 0)
 {
   setLineType(LineAnnotation::ShapeType);
   setStartComponent(0);
@@ -725,6 +718,16 @@ QString LineAnnotation::getOMCShapeAnnotation()
 }
 
 /*!
+ * \brief LineAnnotation::getOMCShapeAnnotationWithShapeName
+ * Returns Line annotation in format as returned by OMC wrapped in Line keyword.
+ * \return
+ */
+QString LineAnnotation::getOMCShapeAnnotationWithShapeName()
+{
+  return QString("Line(%1)").arg(getOMCShapeAnnotation());
+}
+
+/*!
  * \brief LineAnnotation::getShapeAnnotation
  * Returns Line annotation.
  * \return
@@ -954,22 +957,6 @@ void LineAnnotation::updateEndPoint(QPointF point)
 }
 
 /*!
- * \brief LineAnnotation::moveAllPoints
- * Moves all the whole connection.
- * \param offsetX
- * \param offsetY
- */
-void LineAnnotation::moveAllPoints(qreal offsetX, qreal offsetY)
-{
-  prepareGeometryChange();
-  for(int i = 0 ; i < mPoints.size() ; i++) {
-    mPoints[i] = QPointF(mPoints[i].x() + offsetX, mPoints[i].y() + offsetY);
-    /* updated the corresponding CornerItem */
-    updateCornerItem(i);
-  }
-}
-
-/*!
  * \brief LineAnnotation::updateTransitionTextPosition
  * Updates the position of the transition text.
  */
@@ -1158,8 +1145,7 @@ QVariant LineAnnotation::itemChange(GraphicsItemChange change, const QVariant &v
 
 /*!
  * \brief LineAnnotation::handleComponentMoved
- * If the component associated with the connection is moved then update the connection accordingly.\n
- * If the both start and end components associated with the connection are moved then move whole connection.
+ * If the component associated with the connection is moved then update the connection accordingly.
  */
 void LineAnnotation::handleComponentMoved()
 {
@@ -1167,58 +1153,40 @@ void LineAnnotation::handleComponentMoved()
     return;
   }
   prepareGeometryChange();
-  if (mpStartComponent && mpStartComponent->getRootParentComponent()->isSelected() &&
-      mpEndComponent && mpEndComponent->getRootParentComponent()->isSelected()) {
-    if (mLineType == LineAnnotation::TransitionType) {
-      QPointF centerPos = mpGraphicsView->roundPoint(mpStartComponent->mapToScene(mpStartComponent->boundingRect().center()));
-      QRectF sceneRectF = mpStartComponent->sceneBoundingRect();
-      QList<QPointF> newPos = Utilities::liangBarskyClipper(sceneRectF.topLeft().x(), sceneRectF.topLeft().y(),
-                                                            sceneRectF.bottomRight().x(), sceneRectF.bottomRight().y(),
-                                                            centerPos.x(), centerPos.y(),
-                                                            mPoints.at(1).x(), mPoints.at(1).y());
-      moveAllPoints(mpGraphicsView->roundPoint(newPos.at(1)).x() - mPoints[0].x(),
-          mpGraphicsView->roundPoint(newPos.at(1)).y() - mPoints[0].y());
-      updateTransitionTextPosition();
-    } else {
-      moveAllPoints(mpStartComponent->mapToScene(mpStartComponent->boundingRect().center()).x() - mPoints[0].x(),
-          mpStartComponent->mapToScene(mpStartComponent->boundingRect().center()).y() - mPoints[0].y());
-    }
-  } else {
-    if (mpStartComponent) {
-      Component *pComponent = qobject_cast<Component*>(sender());
-      if (pComponent == mpStartComponent->getRootParentComponent()) {
-        updateStartPoint(mpGraphicsView->roundPoint(mpStartComponent->mapToScene(mpStartComponent->boundingRect().center())));
-        if (mLineType == LineAnnotation::TransitionType) {
-          QRectF sceneRectF = mpStartComponent->sceneBoundingRect();
-          QList<QPointF> newPos = Utilities::liangBarskyClipper(sceneRectF.topLeft().x(), sceneRectF.topLeft().y(),
-                                                                sceneRectF.bottomRight().x(), sceneRectF.bottomRight().y(),
-                                                                mPoints.at(0).x(), mPoints.at(0).y(),
-                                                                mPoints.at(1).x(), mPoints.at(1).y());
-          updateStartPoint(mpGraphicsView->roundPoint(newPos.at(1)));
-          updateTransitionTextPosition();
-        } else if (mLineType == LineAnnotation::InitialStateType) {
-          QRectF sceneRectF = mpStartComponent->sceneBoundingRect();
-          QList<QPointF> newPos = Utilities::liangBarskyClipper(sceneRectF.topLeft().x(), sceneRectF.topLeft().y(),
-                                                                sceneRectF.bottomRight().x(), sceneRectF.bottomRight().y(),
-                                                                mPoints.at(0).x(), mPoints.at(0).y(),
-                                                                mPoints.at(1).x(), mPoints.at(1).y());
-          updateStartPoint(mpGraphicsView->roundPoint(newPos.at(1)));
-        }
+  if (mpStartComponent) {
+    Component *pComponent = qobject_cast<Component*>(sender());
+    if (pComponent == mpStartComponent->getRootParentComponent()) {
+      updateStartPoint(mpGraphicsView->roundPoint(mpStartComponent->mapToScene(mpStartComponent->boundingRect().center())));
+      if (mLineType == LineAnnotation::TransitionType) {
+        QRectF sceneRectF = mpStartComponent->sceneBoundingRect();
+        QList<QPointF> newPos = Utilities::liangBarskyClipper(sceneRectF.topLeft().x(), sceneRectF.topLeft().y(),
+                                                              sceneRectF.bottomRight().x(), sceneRectF.bottomRight().y(),
+                                                              mPoints.at(0).x(), mPoints.at(0).y(),
+                                                              mPoints.at(1).x(), mPoints.at(1).y());
+        updateStartPoint(mpGraphicsView->roundPoint(newPos.at(1)));
+        updateTransitionTextPosition();
+      } else if (mLineType == LineAnnotation::InitialStateType) {
+        QRectF sceneRectF = mpStartComponent->sceneBoundingRect();
+        QList<QPointF> newPos = Utilities::liangBarskyClipper(sceneRectF.topLeft().x(), sceneRectF.topLeft().y(),
+                                                              sceneRectF.bottomRight().x(), sceneRectF.bottomRight().y(),
+                                                              mPoints.at(0).x(), mPoints.at(0).y(),
+                                                              mPoints.at(1).x(), mPoints.at(1).y());
+        updateStartPoint(mpGraphicsView->roundPoint(newPos.at(1)));
       }
     }
-    if (mpEndComponent) {
-      Component *pComponent = qobject_cast<Component*>(sender());
-      if (pComponent == mpEndComponent->getRootParentComponent()) {
-        updateEndPoint(mpGraphicsView->roundPoint(mpEndComponent->mapToScene(mpEndComponent->boundingRect().center())));
-        if (mLineType == LineAnnotation::TransitionType) {
-          QRectF sceneRectF = mpEndComponent->sceneBoundingRect();
-          QList<QPointF> newPos = Utilities::liangBarskyClipper(sceneRectF.topLeft().x(), sceneRectF.topLeft().y(),
-                                                                sceneRectF.bottomRight().x(), sceneRectF.bottomRight().y(),
-                                                                mPoints.at(mPoints.size() - 2).x(), mPoints.at(mPoints.size() - 2).y(),
-                                                                mPoints.at(mPoints.size() - 1).x(), mPoints.at(mPoints.size() - 1).y());
-          updateEndPoint(mpGraphicsView->roundPoint(newPos.at(0)));
-          updateTransitionTextPosition();
-        }
+  }
+  if (mpEndComponent) {
+    Component *pComponent = qobject_cast<Component*>(sender());
+    if (pComponent == mpEndComponent->getRootParentComponent()) {
+      updateEndPoint(mpGraphicsView->roundPoint(mpEndComponent->mapToScene(mpEndComponent->boundingRect().center())));
+      if (mLineType == LineAnnotation::TransitionType) {
+        QRectF sceneRectF = mpEndComponent->sceneBoundingRect();
+        QList<QPointF> newPos = Utilities::liangBarskyClipper(sceneRectF.topLeft().x(), sceneRectF.topLeft().y(),
+                                                              sceneRectF.bottomRight().x(), sceneRectF.bottomRight().y(),
+                                                              mPoints.at(mPoints.size() - 2).x(), mPoints.at(mPoints.size() - 2).y(),
+                                                              mPoints.at(mPoints.size() - 1).x(), mPoints.at(mPoints.size() - 1).y());
+        updateEndPoint(mpGraphicsView->roundPoint(newPos.at(0)));
+        updateTransitionTextPosition();
       }
     }
   }
@@ -1397,10 +1365,10 @@ QVariant ExpandableConnectorTreeItem::data(int column, int role) const
         case Qt::DecorationRole:
           switch (mRestriction) {
             case StringHandler::ExpandableConnector:
-              return QIcon(":/Resources/icons/connect-mode.svg");
+              return ResourceCache::getIcon(":/Resources/icons/connect-mode.svg");
               break;
             case StringHandler::Connector:
-              return QIcon(":/Resources/icons/connector-icon.svg");
+              return ResourceCache::getIcon(":/Resources/icons/connector-icon.svg");
               break;
             default:
               return QVariant();
@@ -1724,39 +1692,37 @@ CreateConnectionDialog::CreateConnectionDialog(GraphicsView *pGraphicsView, Line
   mpHorizontalLine = Utilities::getHeadingLine();
   // Start expandable connector treeview
   mpStartExpandableConnectorTreeView = 0;
-  if ((!mpConnectionLineAnnotation->getStartComponent()->getParentComponent() && mpConnectionLineAnnotation->getStartComponent()->getRootParentComponent()->getLibraryTreeItem()->getRestriction() == StringHandler::ExpandableConnector) ||
-      (mpConnectionLineAnnotation->getStartComponent()->getParentComponent() && mpConnectionLineAnnotation->getStartComponent()->getLibraryTreeItem()->getRestriction() == StringHandler::ExpandableConnector)) {
+  mpStartComponent = mpConnectionLineAnnotation->getStartComponent();
+  mpStartRootComponent = mpStartComponent->getParentComponent() ? mpStartComponent->getRootParentComponent() : 0;
+  if (mpStartComponent->isExpandableConnector() || (mpStartRootComponent && mpStartRootComponent->isExpandableConnector())) {
     mpStartExpandableConnectorTreeModel = new ExpandableConnectorTreeModel(this);
     mpStartExpandableConnectorTreeProxyModel = new ExpandableConnectorTreeProxyModel(this);
     mpStartExpandableConnectorTreeProxyModel->setDynamicSortFilter(true);
     mpStartExpandableConnectorTreeProxyModel->setSourceModel(mpStartExpandableConnectorTreeModel);
     mpStartExpandableConnectorTreeView = new ExpandableConnectorTreeView(this);
     mpStartExpandableConnectorTreeView->setModel(mpStartExpandableConnectorTreeProxyModel);
-    mpStartExpandableConnectorTreeModel->createExpandableConnectorTreeItem(mpConnectionLineAnnotation->getStartComponent()->getRootParentComponent(),
-                                                                           mpStartExpandableConnectorTreeModel->getRootExpandableConnectorTreeItem());
+    mpStartExpandableConnectorTreeModel->createExpandableConnectorTreeItem(mpStartComponent->getRootParentComponent(), mpStartExpandableConnectorTreeModel->getRootExpandableConnectorTreeItem());
     mpStartExpandableConnectorTreeView->expandAll();
     mpStartExpandableConnectorTreeView->setSortingEnabled(true);
     mpStartExpandableConnectorTreeView->sortByColumn(0, Qt::AscendingOrder);
-    connect(mpStartExpandableConnectorTreeView->selectionModel(), SIGNAL(currentChanged(QModelIndex,QModelIndex)),
-            SLOT(startConnectorChanged(QModelIndex,QModelIndex)));
+    connect(mpStartExpandableConnectorTreeView->selectionModel(), SIGNAL(currentChanged(QModelIndex,QModelIndex)), SLOT(startConnectorChanged(QModelIndex,QModelIndex)));
   }
   // End expandable connector treeview
+  mpEndComponent = mpConnectionLineAnnotation->getEndComponent();
+  mpEndRootComponent = mpEndComponent->getParentComponent() ? mpEndComponent->getRootParentComponent() : 0;
   mpEndExpandableConnectorTreeView = 0;
-  if ((!mpConnectionLineAnnotation->getEndComponent()->getParentComponent() && mpConnectionLineAnnotation->getEndComponent()->getRootParentComponent()->getLibraryTreeItem()->getRestriction() == StringHandler::ExpandableConnector) ||
-      (mpConnectionLineAnnotation->getEndComponent()->getParentComponent() && mpConnectionLineAnnotation->getEndComponent()->getLibraryTreeItem()->getRestriction() == StringHandler::ExpandableConnector)) {
+  if (mpEndComponent->isExpandableConnector() || (mpEndRootComponent && mpEndRootComponent->isExpandableConnector())) {
     mpEndExpandableConnectorTreeModel = new ExpandableConnectorTreeModel(this);
     mpEndExpandableConnectorTreeProxyModel = new ExpandableConnectorTreeProxyModel(this);
     mpEndExpandableConnectorTreeProxyModel->setDynamicSortFilter(true);
     mpEndExpandableConnectorTreeProxyModel->setSourceModel(mpEndExpandableConnectorTreeModel);
     mpEndExpandableConnectorTreeView = new ExpandableConnectorTreeView(this);
     mpEndExpandableConnectorTreeView->setModel(mpEndExpandableConnectorTreeProxyModel);
-    mpEndExpandableConnectorTreeModel->createExpandableConnectorTreeItem(mpConnectionLineAnnotation->getEndComponent()->getRootParentComponent(),
-                                                                         mpEndExpandableConnectorTreeModel->getRootExpandableConnectorTreeItem());
+    mpEndExpandableConnectorTreeModel->createExpandableConnectorTreeItem(mpEndComponent->getRootParentComponent(), mpEndExpandableConnectorTreeModel->getRootExpandableConnectorTreeItem());
     mpEndExpandableConnectorTreeView->expandAll();
     mpEndExpandableConnectorTreeView->setSortingEnabled(true);
     mpEndExpandableConnectorTreeView->sortByColumn(0, Qt::AscendingOrder);
-    connect(mpEndExpandableConnectorTreeView->selectionModel(), SIGNAL(currentChanged(QModelIndex,QModelIndex)),
-            SLOT(endConnectorChanged(QModelIndex,QModelIndex)));
+    connect(mpEndExpandableConnectorTreeView->selectionModel(), SIGNAL(currentChanged(QModelIndex,QModelIndex)), SLOT(endConnectorChanged(QModelIndex,QModelIndex)));
   }
   // Indexes Description text
   mpIndexesDescriptionLabel = new Label(tr("Specify the indexes below to connect to the parts of the connectors."));
@@ -1766,28 +1732,28 @@ CreateConnectionDialog::CreateConnectionDialog(GraphicsView *pGraphicsView, Line
   mpEndComponentSpinBox = 0;
   // only create normal start connector controls if start connector is not expandable
   if (!mpStartExpandableConnectorTreeView) {
-    if (mpConnectionLineAnnotation->getStartComponent()->getParentComponent()) {
-      mpStartRootComponentLabel = new Label(mpConnectionLineAnnotation->getStartComponent()->getRootParentComponent()->getName());
-      if (mpConnectionLineAnnotation->getStartComponent()->getRootParentComponent()->getComponentInfo()->isArray()) {
-        mpStartRootComponentSpinBox = createSpinBox(mpConnectionLineAnnotation->getStartComponent()->getRootParentComponent()->getComponentInfo()->getArrayIndex());
+    if (mpStartComponent->getParentComponent()) {
+      mpStartRootComponentLabel = new Label(mpStartRootComponent->getName());
+      if (mpStartRootComponent->isArray() && !mpStartRootComponent->isConnectorSizing()) {
+        mpStartRootComponentSpinBox = createSpinBox(mpStartRootComponent->getComponentInfo()->getArrayIndex());
       }
     }
-    mpStartComponentLabel = new Label(mpConnectionLineAnnotation->getStartComponent()->getName());
-    if (mpConnectionLineAnnotation->getStartComponent()->getComponentInfo()->isArray()) {
-      mpStartComponentSpinBox = createSpinBox(mpConnectionLineAnnotation->getStartComponent()->getComponentInfo()->getArrayIndex());
+    mpStartComponentLabel = new Label(mpStartComponent->getName());
+    if (mpStartComponent->isArray() && !mpStartComponent->isConnectorSizing()) {
+      mpStartComponentSpinBox = createSpinBox(mpStartComponent->getComponentInfo()->getArrayIndex());
     }
   }
   // only create normal end connector controls if end connector is not expandable
   if (!mpEndExpandableConnectorTreeView) {
-    if (mpConnectionLineAnnotation->getEndComponent()->getParentComponent()) {
-      mpEndRootComponentLabel = new Label(mpConnectionLineAnnotation->getEndComponent()->getRootParentComponent()->getName());
-      if (mpConnectionLineAnnotation->getEndComponent()->getRootParentComponent()->getComponentInfo()->isArray()) {
-        mpEndRootComponentSpinBox = createSpinBox(mpConnectionLineAnnotation->getEndComponent()->getRootParentComponent()->getComponentInfo()->getArrayIndex());
+    if (mpEndComponent->getParentComponent()) {
+      mpEndRootComponentLabel = new Label(mpEndRootComponent->getName());
+      if (mpEndRootComponent->isArray() && !mpEndRootComponent->isConnectorSizing()) {
+        mpEndRootComponentSpinBox = createSpinBox(mpEndRootComponent->getComponentInfo()->getArrayIndex());
       }
     }
-    mpEndComponentLabel = new Label(mpConnectionLineAnnotation->getEndComponent()->getName());
-    if (mpConnectionLineAnnotation->getEndComponent()->getComponentInfo()->isArray()) {
-      mpEndComponentSpinBox = createSpinBox(mpConnectionLineAnnotation->getEndComponent()->getComponentInfo()->getArrayIndex());
+    mpEndComponentLabel = new Label(mpEndComponent->getName());
+    if (mpEndComponent->isArray() && !mpEndComponent->isConnectorSizing()) {
+      mpEndComponentSpinBox = createSpinBox(mpEndComponent->getComponentInfo()->getArrayIndex());
     }
   }
   // Create the buttons
@@ -1833,15 +1799,15 @@ CreateConnectionDialog::CreateConnectionDialog(GraphicsView *pGraphicsView, Line
     QModelIndex proxyIndex = mpStartExpandableConnectorTreeProxyModel->mapFromSource(modelIndex);
     startConnectorChanged(proxyIndex, QModelIndex());
   } else {
-    if (mpConnectionLineAnnotation->getStartComponent()->getParentComponent()) {
+    if (mpStartComponent->getParentComponent()) {
       mpConnectionStartHorizontalLayout->addWidget(mpStartRootComponentLabel);
-      if (mpConnectionLineAnnotation->getStartComponent()->getRootParentComponent()->getComponentInfo()->isArray()) {
+      if (mpStartRootComponent->isArray() && !mpStartRootComponent->isConnectorSizing()) {
         mpConnectionStartHorizontalLayout->addWidget(mpStartRootComponentSpinBox);
       }
       mpConnectionStartHorizontalLayout->addWidget(new Label("."));
     }
     mpConnectionStartHorizontalLayout->addWidget(mpStartComponentLabel);
-    if (mpConnectionLineAnnotation->getStartComponent()->getComponentInfo()->isArray()) {
+    if (mpStartComponent->isArray() && !mpStartComponent->isConnectorSizing()) {
       mpConnectionStartHorizontalLayout->addWidget(mpStartComponentSpinBox);
     }
     mpConnectionStartHorizontalLayout->addWidget(new Label(","));
@@ -1857,15 +1823,15 @@ CreateConnectionDialog::CreateConnectionDialog(GraphicsView *pGraphicsView, Line
     QModelIndex proxyIndex = mpEndExpandableConnectorTreeProxyModel->mapFromSource(modelIndex);
     endConnectorChanged(proxyIndex, QModelIndex());
   } else {
-    if (mpConnectionLineAnnotation->getEndComponent()->getParentComponent()) {
+    if (mpEndComponent->getParentComponent()) {
       mpConnectionEndHorizontalLayout->addWidget(mpEndRootComponentLabel);
-      if (mpConnectionLineAnnotation->getEndComponent()->getRootParentComponent()->getComponentInfo()->isArray()) {
+      if (mpEndRootComponent->isArray() && !mpEndRootComponent->isConnectorSizing()) {
         mpConnectionEndHorizontalLayout->addWidget(mpEndRootComponentSpinBox);
       }
       mpConnectionEndHorizontalLayout->addWidget(new Label("."));
     }
     mpConnectionEndHorizontalLayout->addWidget(mpEndComponentLabel);
-    if (mpConnectionLineAnnotation->getEndComponent()->getComponentInfo()->isArray()) {
+    if (mpEndComponent->isArray() && !mpEndComponent->isConnectorSizing()) {
       mpConnectionEndHorizontalLayout->addWidget(mpEndComponentSpinBox);
     }
     mpConnectionEndHorizontalLayout->addWidget(new Label(");"));
@@ -1888,7 +1854,6 @@ QSpinBox* CreateConnectionDialog::createSpinBox(QString arrayIndex)
   pSpinBox->setPrefix("[");
   pSpinBox->setSuffix("]");
   pSpinBox->setSpecialValueText("[:]");
-  arrayIndex = StringHandler::removeFirstLastCurlBrackets(arrayIndex);
   int intArrayIndex = arrayIndex.toInt();
   if (intArrayIndex > 0) {
     pSpinBox->setMaximum(intArrayIndex);
@@ -1926,6 +1891,74 @@ QString CreateConnectionDialog::createComponentNameFromLayout(QHBoxLayout *pLayo
       }
     }
     i++;
+  }
+  return componentName;
+}
+
+/*!
+ * \brief CreateConnectionDialog::getComponentConnectionName
+ * Checks if component1 is array then make an array connection.
+ * If component1 is an array with connectorSizing then connect to component2.
+ * If component2 is also an array use it size to define the connectorSizing on component1.
+ * \param pGraphicsView
+ * \param pExpandableConnectorTreeView
+ * \param pConnectionHorizontalLayout
+ * \param pComponent1
+ * \param pRootComponent1
+ * \param pComponentSpinBox1
+ * \param pRootComponentSpinBox1
+ * \param pComponent2
+ * \param pRootComponent2
+ * \param pComponentSpinBox2
+ * \param pRootComponentSpinBox2
+ * \return
+ */
+QString CreateConnectionDialog::getComponentConnectionName(GraphicsView *pGraphicsView, ExpandableConnectorTreeView *pExpandableConnectorTreeView, QHBoxLayout *pConnectionHorizontalLayout,
+                                                           Component *pComponent1, Component *pRootComponent1, QSpinBox *pComponentSpinBox1, QSpinBox *pRootComponentSpinBox1,
+                                                           Component *pComponent2, Component *pRootComponent2, QSpinBox *pComponentSpinBox2, QSpinBox *pRootComponentSpinBox2)
+{
+  QString componentName;
+  if (pExpandableConnectorTreeView) {
+    componentName = CreateConnectionDialog::createComponentNameFromLayout(pConnectionHorizontalLayout);
+  } else {
+    /* if component1 is an array try to make an array connection.
+     * Parent component can't be connectorSizing.
+     */
+    if (pComponent1->getParentComponent()) {
+      componentName = pComponent1->getParentComponent()->getName();
+      if (pRootComponent1->isArray()) {
+        if (pRootComponentSpinBox1->value() > 0) {
+          componentName += QString("[%1]").arg(pRootComponentSpinBox1->value());
+        }
+      }
+      componentName += ".";
+    }
+    componentName += pComponent1->getName();
+    // If the component1 is an array and not connectorSizing then try to make array connection.
+    if (pComponent1->isArray() && !pComponent1->isConnectorSizing()) {
+      if (pComponentSpinBox1->value() > 0) {
+        componentName += QString("[%1]").arg(pComponentSpinBox1->value());
+      }
+    } else if (pComponent1->isConnectorSizing()) {  // If the component1 is a connectorSizing then use the component2 to find the connectorSizing value.
+      int numberOfComponentConnections = pGraphicsView->numberOfComponentConnections(pComponent1);
+      if (pComponent2->isExpandableConnector()) {
+        componentName += QString("[%1]").arg(++numberOfComponentConnections);
+      } else if (pComponent2->getParentComponent() && pRootComponent2->isArray() && !pRootComponent2->isConnectorSizing()) {
+        if (pRootComponentSpinBox2->value() > 0 || pRootComponent2->getArrayIndexAsNumber() == 0) {
+          componentName += QString("[%1]").arg(++numberOfComponentConnections);
+        } else {
+          int endConnectionIndex = numberOfComponentConnections + pRootComponent2->getArrayIndexAsNumber();
+          componentName += QString("[%1:%2]").arg(++numberOfComponentConnections).arg(endConnectionIndex);
+        }
+      } else if (pComponent2->isArray() && !pComponent2->isConnectorSizing()) {
+        if (pComponentSpinBox2->value() > 0 || pComponent2->getArrayIndexAsNumber() == 0) {
+          componentName += QString("[%1]").arg(++numberOfComponentConnections);
+        } else {
+          int endConnectionIndex = numberOfComponentConnections + pComponent2->getArrayIndexAsNumber();
+          componentName += QString("[%1:%2]").arg(++numberOfComponentConnections).arg(endConnectionIndex);
+        }
+      }
+    }
   }
   return componentName;
 }
@@ -2030,47 +2063,14 @@ void CreateConnectionDialog::endConnectorChanged(const QModelIndex &current, con
  */
 void CreateConnectionDialog::createConnection()
 {
-  QString startComponentName, endComponentName;
   // set start component name
-  if (mpStartExpandableConnectorTreeView) {
-    startComponentName = createComponentNameFromLayout(mpConnectionStartHorizontalLayout);
-  } else {
-    if (mpConnectionLineAnnotation->getStartComponent()->getParentComponent()) {
-      startComponentName = mpConnectionLineAnnotation->getStartComponent()->getParentComponent()->getName();
-      if (mpConnectionLineAnnotation->getStartComponent()->getRootParentComponent()->getComponentInfo()->isArray()) {
-        if (mpStartRootComponentSpinBox->value() > 0) {
-          startComponentName += QString("[%1]").arg(mpStartRootComponentSpinBox->value());
-        }
-      }
-      startComponentName += ".";
-    }
-    startComponentName += mpConnectionLineAnnotation->getStartComponent()->getName();
-    if (mpConnectionLineAnnotation->getStartComponent()->getComponentInfo()->isArray()) {
-      if (mpStartComponentSpinBox->value() > 0) {
-        startComponentName += QString("[%1]").arg(mpStartComponentSpinBox->value());
-      }
-    }
-  }
+  QString startComponentName = CreateConnectionDialog::getComponentConnectionName(mpGraphicsView, mpStartExpandableConnectorTreeView, mpConnectionStartHorizontalLayout,
+                                                                                  mpStartComponent, mpStartRootComponent, mpStartComponentSpinBox, mpStartRootComponentSpinBox,
+                                                                                  mpEndComponent, mpEndRootComponent, mpEndComponentSpinBox, mpEndRootComponentSpinBox);
   // set end component name
-  if (mpEndExpandableConnectorTreeView) {
-    endComponentName = createComponentNameFromLayout(mpConnectionEndHorizontalLayout);
-  } else {
-    if (mpConnectionLineAnnotation->getEndComponent()->getParentComponent()) {
-      endComponentName = mpConnectionLineAnnotation->getEndComponent()->getParentComponent()->getName();
-      if (mpConnectionLineAnnotation->getEndComponent()->getRootParentComponent()->getComponentInfo()->isArray()) {
-        if (mpEndRootComponentSpinBox->value() > 0) {
-          endComponentName += QString("[%1]").arg(mpEndRootComponentSpinBox->value());
-        }
-      }
-      endComponentName += ".";
-    }
-    endComponentName += mpConnectionLineAnnotation->getEndComponent()->getName();
-    if (mpConnectionLineAnnotation->getEndComponent()->getComponentInfo()->isArray()) {
-      if (mpEndComponentSpinBox->value() > 0) {
-        endComponentName += QString("[%1]").arg(mpEndComponentSpinBox->value());
-      }
-    }
-  }
+  QString endComponentName = CreateConnectionDialog::getComponentConnectionName(mpGraphicsView, mpEndExpandableConnectorTreeView, mpConnectionEndHorizontalLayout,
+                                                                                mpEndComponent, mpEndRootComponent, mpEndComponentSpinBox, mpEndRootComponentSpinBox,
+                                                                                mpStartComponent, mpStartRootComponent, mpStartComponentSpinBox, mpStartRootComponentSpinBox);
   mpConnectionLineAnnotation->setStartComponentName(startComponentName);
   mpConnectionLineAnnotation->setEndComponentName(endComponentName);
   mpGraphicsView->getModelWidget()->getUndoStack()->push(new AddConnectionCommand(mpConnectionLineAnnotation, true));

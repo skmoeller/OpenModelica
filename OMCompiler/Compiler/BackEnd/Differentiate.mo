@@ -258,7 +258,25 @@ public function differentiateEquation
   output BackendDAE.Equation outEquation;
   output DAE.FunctionTree outFunctionTree;
 algorithm
-try
+  try
+    (outEquation, outFunctionTree) := differentiateEquationFragile(inEquation, inDiffwrtCref, inInputData, inDiffType, inFunctionTree);
+  else
+    Error.addSourceMessage(Error.NON_EXISTING_DERIVATIVE, {BackendDump.equationString(inEquation), ComponentReference.crefStr(inDiffwrtCref)}, sourceInfo());
+    fail();
+  end try;
+end differentiateEquation;
+
+public function differentiateEquationFragile
+  "author: kabdelhak 2019-09
+  Differentiates an equation with respect to a cref, fails if it can't be differentiated."
+  input BackendDAE.Equation inEquation;
+  input DAE.ComponentRef inDiffwrtCref;
+  input BackendDAE.DifferentiateInputData inInputData;
+  input BackendDAE.DifferentiationType inDiffType;
+  input DAE.FunctionTree inFunctionTree;
+  output BackendDAE.Equation outEquation;
+  output DAE.FunctionTree outFunctionTree;
+algorithm
   // Debug dump
   if Flags.isSet(Flags.DEBUG_DIFFERENTIATION) then
     BackendDump.debugStrEqnStr("### differentiateEquation\n ", inEquation, " w.r.t. " + ComponentReference.crefStr(inDiffwrtCref) + "\n");
@@ -400,11 +418,8 @@ try
   if Flags.isSet(Flags.DEBUG_DIFFERENTIATION) then
     BackendDump.debugStrEqnStr("### Result of differentiateEquation\n --> ", outEquation,"\n");
   end if;
-else
-  Error.addSourceMessage(Error.NON_EXISTING_DERIVATIVE, {BackendDump.equationString(inEquation), ComponentReference.crefStr(inDiffwrtCref)}, sourceInfo());
-  fail();
-end try;
-end differentiateEquation;
+end differentiateEquationFragile;
+
 
 protected function differentiateEquations
   "Differentiates an equation with respect to a cref."
@@ -607,9 +622,7 @@ algorithm
     // differentiate homotopy
     case DAE.CALL(path=p as Absyn.IDENT(name="homotopy"), expLst={actual, simplified}, attr=attr) equation
       (e1, functionTree) = differentiateExp(actual, inDiffwrtCref, inInputData, inDiffType, inFunctionTree, maxIter);
-      (e2, functionTree) = differentiateExp(simplified, inDiffwrtCref, inInputData, inDiffType, functionTree, maxIter);
-      res = DAE.CALL(p, {e1, e2}, attr);
-    then (res, functionTree);
+    then (e1, functionTree);
 
     // differentiate call
     case DAE.CALL() equation
@@ -1323,7 +1336,7 @@ algorithm
       DAE.CallAttributes attr;
       DAE.ComponentRef cr;
       DAE.Exp e, e1, e2, zero;
-      DAE.Exp res, res1;
+      DAE.Exp res, res1, actual, simplified;
       DAE.Type tp;
       DAE.FunctionTree funcs;
 
@@ -1338,6 +1351,13 @@ algorithm
       Option<BackendDAE.Shared> optShared;
 
       String s1, s2, serr, matrixName, name;
+
+    // differentiate homotopy
+    case (DAE.CALL(path=path as Absyn.IDENT(name="homotopy"), expLst={actual, simplified}, attr=attr), _, _, _, _) equation
+      (e1, funcs) = differentiateExp(actual, inDiffwrtCref, inInputData, inDiffType, inFunctionTree, maxIter);
+      (e2, funcs) = differentiateExp(simplified, inDiffwrtCref, inInputData, inDiffType, funcs, maxIter);
+      res = DAE.CALL(path, {e1, e2}, attr);
+    then (e1, funcs);
 
     /* with previous are the actaully states marked in synchronous */
     case (e as DAE.CALL(path=Absyn.IDENT(name = "previous"), expLst = {DAE.CREF(componentRef=cr, ty=tp)}),
@@ -2087,6 +2107,17 @@ algorithm
       list<DAE.Function> fns;
       String funcname, s1;
       list<DAE.FuncArg> falst;
+
+    /* ticket5459
+    if the function call does not contain the cref, the derivative is zero
+    prevents failing of this function
+    - Maybe not only for SIMPLE_DIFFERENTIATION ?
+    */
+    case (_, _, _, BackendDAE.SIMPLE_DIFFERENTIATION(), _)
+      guard(not Expression.expHasCref(inExp, inDiffwrtCref))
+      algorithm
+        (e, _) := Expression.makeZeroExpression(Expression.arrayDimension(ComponentReference.crefTypeFull(inDiffwrtCref)));
+    then (e, inFunctionTree);
 
     case (DAE.CALL(path=path,expLst=expl,attr=DAE.CALL_ATTR(tuple_=b,builtin=c,isImpure=isImpure,ty=ty,tailCall=tc)), _, _, BackendDAE.DIFFERENTIATION_TIME(), _)
       equation

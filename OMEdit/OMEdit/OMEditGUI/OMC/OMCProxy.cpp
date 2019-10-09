@@ -968,7 +968,7 @@ StringHandler::ModelicaClasses OMCProxy::getClassRestriction(QString className)
   \param className - is the name of the class whose parameter value is retrieved.
   \return the parameter value.
   */
-QString OMCProxy::getParameterValue(QString className, QString parameter)
+QString OMCProxy::getParameterValue(const QString &className, const QString &parameter)
 {
   return mpOMCInterface->getParameterValue(className, parameter);
 }
@@ -1261,6 +1261,34 @@ QList<QString> OMCProxy::getInheritedClasses(QString className)
   QList<QString> result = mpOMCInterface->getInheritedClasses(className);
   printMessagesStringInternal();
   return result;
+}
+
+/*!
+ * \brief OMCProxy::getNthInheritedClassIconMapAnnotation
+ * Returns the icon map of an inherited class at a specific index from a model.
+ * \param className
+ * \param num
+ * \return
+ */
+QString OMCProxy::getNthInheritedClassIconMapAnnotation(QString className, int num)
+{
+  QString expression = "getNthInheritedClassIconMapAnnotation(" + className + ", " + QString::number(num) + ")";
+  sendCommand(expression);
+  return getResult();
+}
+
+/*!
+ * \brief OMCProxy::getNthInheritedClassDiagramMapAnnotation
+ * Returns the diagram map of an inherited class at a specific index from a model.
+ * \param className
+ * \param num
+ * \return
+ */
+QString OMCProxy::getNthInheritedClassDiagramMapAnnotation(QString className, int num)
+{
+  QString expression = "getNthInheritedClassDiagramMapAnnotation(" + className + ", " + QString::number(num) + ")";
+  sendCommand(expression);
+  return getResult();
 }
 
 /*!

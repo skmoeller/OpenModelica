@@ -122,7 +122,7 @@ public:
   bool isPartial(QString className);
   bool isReplaceable(QString parentClassName, QString className);
   StringHandler::ModelicaClasses getClassRestriction(QString className);
-  QString getParameterValue(QString className, QString parameter);
+  QString getParameterValue(const QString &className, const QString &parameter);
   QStringList getComponentModifierNames(QString className, QString name);
   QString getComponentModifierValue(QString className, QString name);
   bool setComponentModifierValue(QString className, QString name, QString modifierValue);
@@ -143,6 +143,8 @@ public:
   int getInheritanceCount(QString className);
   QString getNthInheritedClass(QString className, int num);
   QList<QString> getInheritedClasses(QString className);
+  QString getNthInheritedClassIconMapAnnotation(QString className, int num);
+  QString getNthInheritedClassDiagramMapAnnotation(QString className, int num);
   QList<ComponentInfo*> getComponents(QString className);
   QStringList getComponentAnnotations(QString className);
   QString getDocumentationAnnotationInfoHeader(LibraryTreeItem *pLibraryTreeItem, QString infoHeader);
@@ -282,7 +284,7 @@ public:
   CustomExpressionBox(OMCProxy *pOMCProxy);
   OMCProxy *mpOMCProxy;
 protected:
-  virtual void keyPressEvent(QKeyEvent *event);
+  virtual void keyPressEvent(QKeyEvent *event) override;
 };
 
 #endif // OMCPROXY_H

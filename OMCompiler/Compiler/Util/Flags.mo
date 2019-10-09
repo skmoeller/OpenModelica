@@ -138,7 +138,7 @@ public uniontype FlagVisibility
   record EXTERNAL "An external flag that is visible to the user." end EXTERNAL;
 end FlagVisibility;
 
-public uniontype Flags
+public uniontype Flag
   "The structure which stores the flags."
   record FLAGS
     array<Boolean> debugFlags;
@@ -146,7 +146,7 @@ public uniontype Flags
   end FLAGS;
 
   record NO_FLAGS end NO_FLAGS;
-end Flags;
+end Flag;
 
 public uniontype ValidOptions
   "Specifies valid options for a flag."
@@ -168,6 +168,7 @@ public constant Integer METAMODELICA = 2;
 public constant Integer PARMODELICA = 3;
 public constant Integer OPTIMICA = 4;
 public constant Integer PDEMODELICA = 5;
+constant Util.TranslatableContent collapseArrayExpressionsText = Util.gettext("Simplifies {x[1],x[2],x[3]} → x for arrays of whole variable references (simplifies code generation).");
 
 // DEBUG FLAGS
 public
@@ -548,7 +549,9 @@ constant DebugFlag WARNING_MINMAX_ATTRIBUTES = DEBUG_FLAG(186, "warnMinMax", tru
   Util.gettext("Makes a warning assert from min/max variable attributes instead of error."));
 constant DebugFlag NF_EXPAND_FUNC_ARGS = DEBUG_FLAG(187, "nfExpandFuncArgs", false,
   Util.gettext("Expand all function arguments in the new frontend."));
-constant DebugFlag DUMP_OPTIMIZATION = DEBUG_FLAG(188, "dumpOptimization", false,
+constant DebugFlag DUMP_JL = DEBUG_FLAG(188, "dumpJL", false,
+  Util.gettext("Dumps the absyn representation of a program as a Julia representation"));
+constant DebugFlag DUMP_OPTIMIZATION = DEBUG_FLAG(189, "dumpOptimization", false,
   Util.gettext("Dumps the Equations of an dynamic optimization problem."));
 
 // This is a list of all debug flags, to keep track of which flags are used. A
@@ -744,6 +747,7 @@ constant list<DebugFlag> allDebugFlags = {
   FMI20_DEPENDENCIES,
   WARNING_MINMAX_ATTRIBUTES,
   NF_EXPAND_FUNC_ARGS,
+  DUMP_JL,
   DUMP_OPTIMIZATION
 };
 
@@ -1256,8 +1260,6 @@ constant ConfigFlag PARTLINTORN = CONFIG_FLAG(76, "partlintorn",
   NONE(), EXTERNAL(), INT_FLAG(0), NONE(),
   Util.gettext("Sets the limit for partitionin of linear torn systems."));
 
-constant Util.TranslatableContent collapseArrayExpressionsText = Util.gettext("Simplifies {x[1],x[2],x[3]} → x for arrays of whole variable references (simplifies code generation).");
-
 constant ConfigFlag INIT_OPT_MODULES = CONFIG_FLAG(77, "initOptModules",
   NONE(), EXTERNAL(), STRING_LIST_FLAG({
     "simplifyComplexFunction",
@@ -1498,7 +1500,12 @@ constant ConfigFlag STRICT = CONFIG_FLAG(130, "strict",
   NONE(), EXTERNAL(), BOOL_FLAG(false), NONE(),
   Util.gettext("Enables stricter enforcement of Modelica language rules."));
 
-constant ConfigFlag GENERATE_SYMBOLIC_HESSIAN = CONFIG_FLAG(131, "generateSymbolicHessian",
+constant ConfigFlag LINEARIZATION_DUMP_LANGUAGE = CONFIG_FLAG(131, "linearizationDumpLanguage",
+  NONE(), EXTERNAL(), STRING_FLAG("modelica"),
+  SOME(STRING_OPTION({"modelica","matlab","julia","python"})),
+    Util.gettext("Sets the target language for the produced code of linearization. Only works with '--generateSymbolicLinearization' and 'linearize(modelName)'."));
+
+constant ConfigFlag GENERATE_SYMBOLIC_HESSIAN = CONFIG_FLAG(132, "generateSymbolicHessian",
   NONE(), EXTERNAL(), BOOL_FLAG(false), NONE(),
   Util.gettext("Generates symbolic Hessian matrix, where der(x) is differentiated w.r.t. x."));
 
@@ -1637,6 +1644,7 @@ constant list<ConfigFlag> allConfigFlags = {
   SHOW_STRUCTURAL_ANNOTATIONS,
   INITIAL_STATE_SELECTION,
   STRICT,
+  LINEARIZATION_DUMP_LANGUAGE,
   GENERATE_SYMBOLIC_HESSIAN
 };
 
@@ -1651,7 +1659,7 @@ end new;
 
 public function saveFlags
   "Saves the flags with setGlobalRoot."
-  input Flags inFlags;
+  input Flag inFlags;
 algorithm
   setGlobalRoot(Global.flagsIndex, inFlags);
 end saveFlags;
@@ -1674,7 +1682,7 @@ public function loadFlags
   "Loads the flags with getGlobalRoot. Creates a new flags structure if it
    hasn't been created yet."
   input Boolean initialize = true;
-  output Flags flags;
+  output Flag flags;
 protected
   array<Boolean> debug_flags;
   array<FlagData> config_flags;
@@ -1696,7 +1704,7 @@ end loadFlags;
 
 public function backupFlags
   "Creates a copy of the existing flags."
-  output Flags outFlags;
+  output Flag outFlags;
 protected
   array<Boolean> debug_flags;
   array<FlagData> config_flags;
@@ -1773,7 +1781,7 @@ public function set
 protected
   array<Boolean> debug_flags;
   array<FlagData> config_flags;
-  Flags flags;
+  Flag flags;
 algorithm
   FLAGS(debug_flags, config_flags) := loadFlags();
   (debug_flags, outOldValue) := updateDebugFlagArray(debug_flags, inValue, inFlag);
@@ -1786,7 +1794,7 @@ public function isSet
   output Boolean outValue;
 protected
   array<Boolean> debug_flags;
-  Flags flags;
+  Flag flags;
   Integer index;
 algorithm
   DEBUG_FLAG(index = index) := inFlag;
@@ -1847,7 +1855,7 @@ public function readArgs
   input list<String> inArgs;
   output list<String> outArgs = {};
 protected
-  Flags flags;
+  Flag flags;
   Integer numError;
   String arg;
   list<String> rest_args = inArgs;
@@ -1878,7 +1886,7 @@ protected function readArg
   "Reads a single command line argument. Returns true if the argument was not
   consumed, otherwise false."
   input String inArg;
-  input Flags inFlags;
+  input Flag inFlags;
   output Boolean outConsumed;
 protected
   String flagtype;
@@ -1931,7 +1939,7 @@ end readArg;
 protected function parseFlag
   "Parses a single flag."
   input String inFlag;
-  input Flags inFlags;
+  input Flag inFlags;
   input String inFlagPrefix = "";
 protected
   String flag;
@@ -1946,7 +1954,7 @@ protected function parseConfigFlag
   "Tries to look up the flag with the given name, and set it to the given value."
   input String inFlag;
   input list<String> inValues;
-  input Flags inFlags;
+  input Flag inFlags;
   input String inFlagPrefix;
 protected
   ConfigFlag config_flag;
@@ -2006,7 +2014,7 @@ protected function evaluateConfigFlag
   "Evaluates a given flag and it's arguments."
   input ConfigFlag inFlag;
   input list<String> inValues;
-  input Flags inFlags;
+  input Flag inFlags;
 algorithm
   _ := match(inFlag, inFlags)
     local
@@ -2369,7 +2377,7 @@ public function setConfigValue
 protected
   array<Boolean> debug_flags;
   array<FlagData> config_flags;
-  Flags flags;
+  Flag flags;
 algorithm
   flags := loadFlags();
   FLAGS(debug_flags, config_flags) := flags;
@@ -2435,7 +2443,7 @@ public function getConfigValue
 protected
   array<FlagData> config_flags;
   Integer index;
-  Flags flags;
+  Flag flags;
   String name;
 algorithm
   CONFIG_FLAG(name = name, index = index) := inFlag;
@@ -3127,7 +3135,7 @@ function unparseFlags
    values that differ from the default. The format of each string is flag=value."
   output list<String> flagStrings = {};
 protected
-  Flags flags;
+  Flag flags;
   array<Boolean> debug_flags;
   array<FlagData> config_flags;
   String name;

@@ -109,11 +109,15 @@ private:
   Label *mpPathLabel;
   QLineEdit *mpPathTextBox;
   QPushButton *mpBrowsePathButton;
+  Label *mpStartScriptLabel;
+  QLineEdit *mpStartScriptTextBox;
+  QPushButton *mpBrowseStartScriptButton;
   QPushButton *mpOkButton;
   QPushButton *mpCancelButton;
   QDialogButtonBox *mpButtonBox;
 private slots:
   void browseSubModelPath();
+  void browseStartScript();
   void addSubModel();
 };
 

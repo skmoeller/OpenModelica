@@ -1,7 +1,7 @@
 /*
  * This file is part of OpenModelica.
  *
- * Copyright (c) 1998-2014, Open Source Modelica Consortium (OSMC),
+ * Copyright (c) 1998-2019, Open Source Modelica Consortium (OSMC),
  * c/o Linköpings universitet, Department of Computer and Information Science,
  * SE-58183 Linköping, Sweden.
  *
@@ -99,8 +99,9 @@ protected
 import Array;
 import MetaModelica.Dangerous.{listReverseInPlace, arrayGetNoBoundsChecking, arrayUpdateNoBoundsChecking, arrayCreateNoInit};
 import MetaModelica.Dangerous;
-import DoubleEndedList;
+import DoubleEnded;
 import GC;
+import Error;
 
 public function create<T>
   "Creates a list from an element."
@@ -1011,25 +1012,33 @@ algorithm
   outList := append_reverse(outList, l1);
 end mergeSorted;
 
-public function sortIntN
-  "Provides same functionality as sort, but for integer values between 1
-   and N. The complexity in this case is O(n)"
+public function countingSort
+ "Provides same functionality as sort, but for integer values between 1
+   and N. The complexity in this case is O(N + n).
+   This will terminate if the list contains an element > N."
   input list<Integer> inList;
-  input Integer inN;
+  input Integer N;
   output list<Integer> outSorted = {};
 protected
-  array<Boolean> a1;
+  array<Integer> a1;
 algorithm
-  a1 := arrayCreate(inN, false);
-  a1 := fold1r(inList,arrayUpdate,true,a1);
+  if listLength(inList) < 2 then
+    outSorted := inList;
+    return;
+  end if;
 
-  for i in inN:-1:1 loop
-    if a1[i] then
-      outSorted := i :: outSorted;
-    end if;
+  a1 := arrayCreate(N, 0);
+  for v in inList loop
+    a1[v] := intAdd(a1[v], 1);
+  end for;
+
+  for v in N:-1:1 loop
+    for c in 1:a1[v] loop
+      outSorted := v :: outSorted;
+    end for;
   end for;
   GC.free(a1);
-end sortIntN;
+end countingSort;
 
 public function unique<T>
   "Takes a list of elements and returns a list with duplicates removed, so that
@@ -2000,7 +2009,7 @@ public function mapCheckReferenceEq<TI>
   end MapFunc;
 protected
   Boolean allEq=true;
-  DoubleEndedList<TI> delst;
+  DoubleEnded.MutableList<TI> delst;
   Integer n=0;
   TI e1;
 algorithm
@@ -2009,22 +2018,22 @@ algorithm
     // Preserve reference equality without any allocation if nothing changed
     if (if allEq then not referenceEq(e, e1) else false) then
       allEq:=false;
-      delst := DoubleEndedList.empty(e1);
+      delst := DoubleEnded.empty(e1);
       for elt in inList loop
         if n < 1 then
           break;
         end if;
-        DoubleEndedList.push_back(delst, elt);
+        DoubleEnded.push_back(delst, elt);
         n := n-1;
       end for;
     end if;
     if allEq then
       n := n + 1;
     else
-      DoubleEndedList.push_back(delst, e1);
+      DoubleEnded.push_back(delst, e1);
     end if;
   end for;
-  outList := if allEq then inList else DoubleEndedList.toListAndClear(delst);
+  outList := if allEq then inList else DoubleEnded.toListAndClear(delst);
 end mapCheckReferenceEq;
 
 public function mapReverse<TI, TO>
@@ -4230,29 +4239,29 @@ public function map2FoldCheckReferenceEq<TIO, FT, ArgT1, ArgT2>
 protected
   TIO res;
   Boolean allEq=true;
-  DoubleEndedList<TIO> delst;
+  DoubleEnded.MutableList<TIO> delst;
   Integer n=0;
 algorithm
   for e in inList loop
     (res, outArg) := inFunc(e, inConstArg, inConstArg2, outArg);
     if (if allEq then not referenceEq(e, res) else false) then
       allEq:=false;
-      delst := DoubleEndedList.empty(res);
+      delst := DoubleEnded.empty(res);
       for elt in inList loop
         if n < 1 then
           break;
         end if;
-        DoubleEndedList.push_back(delst, elt);
+        DoubleEnded.push_back(delst, elt);
         n := n-1;
       end for;
     end if;
     if allEq then
       n := n + 1;
     else
-      DoubleEndedList.push_back(delst, res);
+      DoubleEnded.push_back(delst, res);
     end if;
   end for;
-  outList := if allEq then inList else DoubleEndedList.toListAndClear(delst);
+  outList := if allEq then inList else DoubleEnded.toListAndClear(delst);
 end map2FoldCheckReferenceEq;
 
 public function map3Fold<TI, TO, FT, ArgT1, ArgT2, ArgT3>
@@ -4501,12 +4510,12 @@ public function flatten<T>
    of the sublists. O(len(outList))
      Example: flatten({{1, 2}, {3, 4, 5}, {6}, {}}) => {1, 2, 3, 4, 5, 6}"
   input list<list<T>> inList;
-  output list<T> outList = listAppend(lst for lst in listReverse(inList));
+  output list<T> outList = if listEmpty(inList) then {} elseif intEq(listLength(inList), 1) then first(inList) else listAppend(lst for lst in listReverse(inList));
 end flatten;
 
 public function flattenReverse<T>
   input list<list<T>> inList;
-  output list<T> outList = listAppend(lst for lst in inList);
+  output list<T> outList = if listEmpty(inList) then {} elseif intEq(listLength(inList), 1) then first(inList) else listAppend(lst for lst in inList);
 end flattenReverse;
 
 public function thread<T>
@@ -4565,6 +4574,27 @@ public function threadTuple<T1, T2>
 algorithm
   outTuples := list((e1, e2) threaded for e1 in inList1, e2 in inList2);
 end threadTuple;
+
+public function zip<T1, T2>
+  "Takes two lists and returns a list of two-element tuples contaning the
+  elements in the same order. Fails if the lists are not of the same length.
+  Example: zip({1, 3}, {2, 4}) =>  {(1, 2), (3, 4)}"
+  input list<T1> inList1;
+  input list<T2> inList2;
+  output list<tuple<T1, T2>> outTuples = {};
+protected
+  list<T2> dummyList = inList2;
+  T2 t2;
+algorithm
+  if intEq(listLength(inList1),listLength(inList2)) then
+    for t1 in inList1 loop
+      t2::dummyList := dummyList;
+      outTuples := (t1, t2)::outTuples;
+    end for;
+  else fail();
+  end if;
+  outTuples := listReverse(outTuples);
+end zip;
 
 public function unzip<T1, T2>
   "Takes a list of two-element tuples and splits the tuples into two separate
@@ -6150,20 +6180,20 @@ public function findAndRemove<T>
   end SelectFunc;
 protected
   Integer i=0;
-  DoubleEndedList<T> delst;
+  DoubleEnded.MutableList<T> delst;
   T t;
 algorithm
   for e in inList loop
     if inFunc(e) then
       outElement := e;
-      delst := DoubleEndedList.fromList({});
+      delst := DoubleEnded.fromList({});
       rest := inList;
       for i in 1:i loop
         t::rest := rest;
-        DoubleEndedList.push_back(delst, t);
+        DoubleEnded.push_back(delst, t);
       end for;
       _::rest := rest;
-      rest := DoubleEndedList.toListAndClear(delst, prependToList=rest);
+      rest := DoubleEnded.toListAndClear(delst, prependToList=rest);
       return;
     end if;
     i := i + 1;
@@ -6188,20 +6218,20 @@ public function findAndRemove1<T, ArgT1>
   end SelectFunc;
 protected
   Integer i=0;
-  DoubleEndedList<T> delst;
+  DoubleEnded.MutableList<T> delst;
   T t;
 algorithm
   for e in inList loop
     if inFunc(e, arg1) then
       outElement := e;
-      delst := DoubleEndedList.fromList({});
+      delst := DoubleEnded.fromList({});
       rest := inList;
       for i in 1:i loop
         t::rest := rest;
-        DoubleEndedList.push_back(delst, t);
+        DoubleEnded.push_back(delst, t);
       end for;
       _::rest := rest;
-      rest := DoubleEndedList.toListAndClear(delst, prependToList=rest);
+      rest := DoubleEnded.toListAndClear(delst, prependToList=rest);
       return;
     end if;
     i := i + 1;
@@ -6366,20 +6396,20 @@ public function replaceAt<T>
 protected
   T e;
   list<T> rest = inList;
-  DoubleEndedList<T> delst;
+  DoubleEnded.MutableList<T> delst;
 algorithm
   true := inPosition >= 1;
-  delst := DoubleEndedList.fromList({});
+  delst := DoubleEnded.fromList({});
 
   // Shuffle elements from inList to outList until the position is reached.
   for i in 1:inPosition-1 loop
     e :: rest := rest;
-    DoubleEndedList.push_back(delst, e);
+    DoubleEnded.push_back(delst, e);
   end for;
 
   // Replace the element at the position and append the remaining elements.
   _ :: rest := rest;
-  outList := DoubleEndedList.toListAndClear(delst, prependToList=inElement::rest);
+  outList := DoubleEnded.toListAndClear(delst, prependToList=inElement::rest);
 end replaceAt;
 
 public function replaceOnTrue<T>
@@ -7415,6 +7445,95 @@ algorithm
 
   outList := listReverseInPlace(outList);
 end mapIndices;
+
+public function allCombinations<T>
+  "{{1,2,3},{4,5},{6}} => {{1,4,6},{1,5,6},{2,4,6},...}.
+  The output is a 2-dim list with lengths (len1*len2*...*lenN)) and N.
+
+  This function screams WARNING I USE COMBINATORIAL EXPLOSION.
+  So there are flags that limit the size of the set it works on."
+  input list<list<T>> lst;
+  input Option<Integer> maxTotalSize;
+  input SourceInfo info;
+  output list<list<T>> out;
+algorithm
+  out := matchcontinue (lst,maxTotalSize,info)
+    local
+      Integer sz,maxSz;
+    case (_,SOME(maxSz),_)
+      algorithm
+        sz := intMul(listLength(lst), applyAndFold(lst,intMul,listLength,1));
+        true := (sz <= maxSz);
+      then allCombinations2(lst);
+    case (_,NONE(),_) then allCombinations2(lst);
+    case (_,SOME(_),_)
+      algorithm
+        Error.addSourceMessage(Error.COMPILER_NOTIFICATION, {"List.allCombinations failed because the input was too large"}, info);
+      then fail();
+  end matchcontinue;
+end allCombinations;
+
+protected function allCombinations2<T>
+  "{{1,2,3},{4,5},{6}} => {{1,4,6},{1,5,6},{2,4,6},...}.
+  The output is a 2-dim list with lengths (len1*len2*...*lenN)) and N.
+
+  This function screams WARNING I USE COMBINATORIAL EXPLOSION."
+  input list<list<T>> ilst;
+  output list<list<T>> out;
+algorithm
+  out := match (ilst)
+    local
+      list<T> x;
+      list<list<T>> lst;
+    case {} then {};
+    case (x::lst)
+      algorithm
+        lst := allCombinations2(lst);
+        lst := allCombinations3(x, lst, {});
+      then lst;
+  end match;
+end allCombinations2;
+
+protected function allCombinations3<T>
+  input list<T> ilst1;
+  input list<list<T>> ilst2;
+  input list<list<T>> iacc;
+  output list<list<T>> out;
+algorithm
+  out := match (ilst1,ilst2,iacc)
+    local
+      T x;
+      list<T> lst1;
+      list<list<T>> lst2;
+      list<list<T>> acc;
+    case ({},_,acc) then listReverse(acc);
+    case (x::lst1,lst2,acc)
+      algorithm
+        acc := allCombinations4(x, lst2, acc);
+        acc := allCombinations3(lst1, lst2, acc);
+      then acc;
+  end match;
+end allCombinations3;
+
+protected function allCombinations4<T>
+  input T x;
+  input list<list<T>> ilst;
+  input list<list<T>> iacc;
+  output list<list<T>> out;
+algorithm
+  out := match (x,ilst,iacc)
+    local
+      list<T> l;
+      list<list<T>> lst;
+      list<list<T>> acc;
+    case (_,{},acc) then {x}::acc;
+    case (_,{l},acc) then (x::l)::acc;
+    case (_,l::lst,acc)
+      algorithm
+        acc := allCombinations4(x, lst, (x::l)::acc);
+      then acc;
+  end match;
+end allCombinations4;
 
 annotation(__OpenModelica_Interface="util");
 end List;

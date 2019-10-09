@@ -38,7 +38,7 @@ encapsulated package BackendDAE
 import Absyn;
 import AvlSetPath;
 import DAE;
-import DoubleEndedList;
+import DoubleEnded;
 import ExpandableArray;
 import FCore;
 import HashTable3;
@@ -257,6 +257,7 @@ uniontype VarKind "variable kind"
   record STATE
     Integer index "how often this states was differentiated";
     Option< .DAE.ComponentRef> derName "the name of the derivative";
+    Boolean natural "false if it was forced by StateSelect.always or StateSelect.prefer";
   end STATE;
   record STATE_DER end STATE_DER;
   record DUMMY_DER end DUMMY_DER;
@@ -635,7 +636,7 @@ uniontype EventInfo
   record EVENT_INFO
     list<TimeEvent> timeEvents         "stores all information related to time events";
     ZeroCrossingSet zeroCrossings "list of zero crossing conditions";
-    DoubleEndedList<ZeroCrossing> relations    "list of zero crossing function as before";
+    DoubleEnded.MutableList<ZeroCrossing> relations    "list of zero crossing function as before";
     ZeroCrossingSet samples       "[deprecated] list of sample as before, only used by cpp runtime (TODO: REMOVE ME)";
     Integer numberMathEvents           "stores the number of math function that trigger events e.g. floor, ceil, integer, ...";
   end EVENT_INFO;
@@ -643,7 +644,7 @@ end EventInfo;
 
 uniontype ZeroCrossingSet
   record ZERO_CROSSING_SET
-    DoubleEndedList<ZeroCrossing> zc;
+    DoubleEnded.MutableList<ZeroCrossing> zc;
     array<ZeroCrossings.Tree> tree;
   end ZERO_CROSSING_SET;
 end ZeroCrossingSet;
@@ -783,8 +784,17 @@ type SymbolicJacobian = tuple<BackendDAE,               // symbolic equation sys
                               list<Var>,                // diff vars (independent vars)
                               list<Var>,                // diffed vars (residual vars)
                               list<Var>,                // all diffed vars (residual vars + dependent vars)
-                              list< .DAE.ComponentRef>    // original dependent variables
+                              list< .DAE.ComponentRef>  // original dependent variables
                               >;
+
+type SparsePatternCref = tuple< .DAE.ComponentRef, list< .DAE.ComponentRef>>;
+type SparsePatternCrefs = list<SparsePatternCref>;
+
+public
+type SymbolicHessian = tuple<BackendDAE,              // symbolic equation system
+                               String,                 // Name of the Hessian Matrix
+                               list<Equation>         //Equations of the first derivatives from Jacobian
+                               >;
 
 public
 type SymbolicHessian = tuple<BackendDAE,              // symbolic equation system

@@ -69,6 +69,7 @@ import Prefixes = NFPrefixes;
 import NFComponent.Component;
 import Ceval = NFCeval;
 import MetaModelica.Dangerous.listReverseInPlace;
+import SimplifyExp = NFSimplifyExp;
 
 constant Expression EQ_ASSERT_STR =
   Expression.STRING("Connected constants/parameters must be equal");
@@ -121,6 +122,8 @@ function evaluateOperators
   input array<list<Connector>> setsArray;
   input CardinalityTable.Table ctable;
   output Expression evalExp;
+
+  import NFOperator.Op;
 algorithm
   evalExp := match exp
     local
@@ -142,7 +145,7 @@ algorithm
           end match;
 
         // inStream/actualStream can't handle non-literal subscripts, so reductions and array
-        // constructors containing such calls needs to expanded to get rid of the iterators.
+        // constructors containing such calls needs to be expanded to get rid of the iterators.
         case Call.TYPED_REDUCTION()
           guard Expression.contains(call.exp, isStreamCall)
           then evaluateOperatorReductionExp(exp, sets, setsArray, ctable);
@@ -154,6 +157,18 @@ algorithm
         else Expression.mapShallow(exp,
           function evaluateOperators(sets = sets, setsArray = setsArray, ctable = ctable));
       end match;
+
+    case Expression.BINARY(exp1 = Expression.CREF(),
+                           operator = Operator.OPERATOR(op = Op.MUL),
+                           exp2 = Expression.CALL(call = call as Call.TYPED_CALL()))
+      guard AbsynUtil.isNamedPathIdent(Function.name(call.fn), "actualStream")
+      then evaluateActualStreamMul(exp.exp1, listHead(call.arguments), exp.operator, sets, setsArray, ctable);
+
+    case Expression.BINARY(exp1 = Expression.CALL(call = call as Call.TYPED_CALL()),
+                           operator = Operator.OPERATOR(op = Op.MUL),
+                           exp2 = Expression.CREF())
+      guard AbsynUtil.isNamedPathIdent(Function.name(call.fn), "actualStream")
+      then evaluateActualStreamMul(exp.exp2, listHead(call.arguments), exp.operator, sets, setsArray, ctable);
 
     else Expression.mapShallow(exp,
       function evaluateOperators(sets = sets, setsArray = setsArray, ctable = ctable));
@@ -804,11 +819,12 @@ protected function evaluateActualStream
   input ConnectionSets.Sets sets;
   input array<list<Connector>> setsArray;
   input CardinalityTable.Table ctable;
+  input Option<ComponentRef> mulCref = NONE();
   output Expression exp;
 protected
-  ComponentRef flow_cr;
   Integer flow_dir;
-  Expression rel_exp, flow_exp, stream_exp, instream_exp;
+  ComponentRef flow_cr;
+  Expression flow_exp, stream_exp, instream_exp;
   Operator op;
 algorithm
   flow_cr := associatedFlowCref(streamCref);
@@ -817,24 +833,51 @@ algorithm
   // Select a branch if we know the flow direction, otherwise generate the whole
   // if-equation.
   if flow_dir == 1 then
-    rel_exp := evaluateInStream(streamCref, sets, setsArray, ctable);
+    exp := evaluateInStream(streamCref, sets, setsArray, ctable);
   elseif flow_dir == -1 then
-    rel_exp := Expression.fromCref(streamCref);
+    exp := Expression.fromCref(streamCref);
   else
+    // actualStream(stream_var) = smooth(0, if flow_var > 0 then inStream(stream_var)
+    //                                                      else stream_var);
     flow_exp := Expression.fromCref(flow_cr);
     stream_exp := Expression.fromCref(streamCref);
     instream_exp := evaluateInStream(streamCref, sets, setsArray, ctable);
     op := Operator.makeGreater(ComponentRef.nodeType(flow_cr));
-    rel_exp := Expression.IF(
+
+    exp := Expression.IF(
       Expression.RELATION(flow_exp, op, Expression.REAL(0.0)),
       instream_exp, stream_exp);
-  end if;
 
-  // actualStream(stream_var) = smooth(0, if flow_var > 0 then inStream(stream_var)
-  //                                                      else stream_var);
-  exp := Expression.CALL(Call.makeTypedCall(NFBuiltinFuncs.SMOOTH,
-    {DAE.INTEGER(0), rel_exp}, Expression.variability(rel_exp)));
+    if isNone(mulCref) or not ComponentRef.isEqual(flow_cr, Util.getOption(mulCref)) then
+      exp := makeSmoothCall(exp, 0);
+    end if;
+  end if;
 end evaluateActualStream;
+
+function evaluateActualStreamMul
+  "Handles expressions on the form flowCref * actualStream(streamCref) where
+   flowCref is associated with streamCref."
+  input Expression crefExp;
+  input Expression actualStreamArg;
+  input Operator op;
+  input ConnectionSets.Sets sets;
+  input array<list<Connector>> setsArray;
+  input CardinalityTable.Table ctable;
+  output Expression outExp;
+protected
+  Expression e1, e2;
+  ComponentRef cr, flow_cr;
+algorithm
+  e1 as Expression.CREF(cref = cr) := evaluateOperators(crefExp, sets, setsArray, ctable);
+  e2 := evaluateActualStream(Expression.toCref(actualStreamArg), sets, setsArray, ctable, SOME(cr));
+  outExp := Expression.BINARY(e1, op, e2);
+
+  // Wrap the expression in smooth if the result would be flow_cr * (if flow_cr > 0 then ...)
+  outExp := match e2
+    case Expression.IF() then makeSmoothCall(outExp, 0);
+    else outExp;
+  end match;
+end evaluateActualStreamMul;
 
 function evaluateFlowDirection
   input ComponentRef flowCref;
@@ -845,8 +888,8 @@ protected
   Real min_val, max_val;
 algorithm
   flow_cls := InstNode.getClass(ComponentRef.node(flowCref));
-  omin := Class.lookupAttributeValue("min", flow_cls);
-  omax := Class.lookupAttributeValue("max", flow_cls);
+  omin := SimplifyExp.simplifyOpt(Class.lookupAttributeValue("min", flow_cls));
+  omax := SimplifyExp.simplifyOpt(Class.lookupAttributeValue("max", flow_cls));
 
   direction := match (omin, omax)
     // No attributes, flow direction can't be decided.
@@ -868,6 +911,16 @@ algorithm
     else 0;
   end match;
 end evaluateFlowDirection;
+
+function makeSmoothCall
+  "Creates a smooth(order, arg) call."
+  input Expression arg;
+  input Integer order;
+  output Expression callExp;
+algorithm
+  callExp := Expression.CALL(Call.makeTypedCall(NFBuiltinFuncs.SMOOTH,
+    {DAE.INTEGER(order), arg}, Expression.variability(arg)));
+end makeSmoothCall;
 
 protected function removeStreamSetElement
   "This function removes the given cref from a connection set."

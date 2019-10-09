@@ -39,6 +39,7 @@
 #include "Options/OptionsDialog.h"
 #include "Options/NotificationsDialog.h"
 #include "Modeling/Commands.h"
+#include "Util/ResourceCache.h"
 
 #include <QHeaderView>
 #include <QColorDialog>
@@ -200,10 +201,28 @@ ShapePropertiesDialog::ShapePropertiesDialog(ShapeAnnotation *pShapeAnnotation, 
     mpFontNameComboBox->setCurrentIndex(0);
   }
   mpFontSizeLabel = new Label(Helper::size);
-  mpFontSizeSpinBox = new DoubleSpinBox;
-  mpFontSizeSpinBox->setRange(0, std::numeric_limits<double>::max());
-  mpFontSizeSpinBox->setValue(mpShapeAnnotation->getFontSize());
-  mpFontSizeSpinBox->setSingleStep(1);
+  mpFontSizeComboBox = new QComboBox;
+  mpFontSizeComboBox->setEditable(true);
+  // get the standard font sizes
+  QList<int> standardFontSizes = QFontDatabase::standardSizes();
+  // remove the font sizes less than Helper::minimumTextFontSize
+  QMutableListIterator<int> mutableListIterator(standardFontSizes);
+  while (mutableListIterator.hasNext()) {
+    if (mutableListIterator.next() < Helper::minimumTextFontSize) {
+      mutableListIterator.remove();
+    }
+  }
+  // add the font sizes to the combobox
+  mpFontSizeComboBox->addItem("(Auto)");
+  for (int i = 0; i < standardFontSizes.size(); ++i) {
+    mpFontSizeComboBox->addItem(QString::number(standardFontSizes.at(i)));
+  }
+  // if the font size is less than equal to 0 then set it to Auto
+  if (mpShapeAnnotation->getFontSize() <= 0 ) {
+    mpFontSizeComboBox->setCurrentIndex(0);
+  } else {
+    mpFontSizeComboBox->lineEdit()->setText(QString::number(mpShapeAnnotation->getFontSize()));
+  }
   mpFontStyleLabel = new Label(tr("Style:"));
   mpTextBoldCheckBox = new QCheckBox(Helper::bold);
   mpTextBoldCheckBox->setChecked(StringHandler::getFontWeight(mpShapeAnnotation->getTextStyles()) == QFont::Bold ? true : false);
@@ -227,7 +246,7 @@ ShapePropertiesDialog::ShapePropertiesDialog(ShapeAnnotation *pShapeAnnotation, 
   pFontAndTextStyleGroupBox->addWidget(mpFontNameLabel, 0, 0);
   pFontAndTextStyleGroupBox->addWidget(mpFontNameComboBox, 0, 1, 1, 3);
   pFontAndTextStyleGroupBox->addWidget(mpFontSizeLabel, 0, 4);
-  pFontAndTextStyleGroupBox->addWidget(mpFontSizeSpinBox, 0, 5);
+  pFontAndTextStyleGroupBox->addWidget(mpFontSizeComboBox, 0, 5);
   pFontAndTextStyleGroupBox->addWidget(mpFontStyleLabel, 1, 0);
   pFontAndTextStyleGroupBox->addWidget(mpTextBoldCheckBox, 1, 1);
   pFontAndTextStyleGroupBox->addWidget(mpTextItalicCheckBox, 1, 2);
@@ -408,23 +427,23 @@ ShapePropertiesDialog::ShapePropertiesDialog(ShapeAnnotation *pShapeAnnotation, 
   // points navigation buttons
   mpMovePointUpButton = new QToolButton;
   mpMovePointUpButton->setObjectName("ShapePointsButton");
-  mpMovePointUpButton->setIcon(QIcon(":/Resources/icons/up.svg"));
+  mpMovePointUpButton->setIcon(ResourceCache::getIcon(":/Resources/icons/up.svg"));
   mpMovePointUpButton->setToolTip(tr("Move point up"));
   connect(mpMovePointUpButton, SIGNAL(clicked()), SLOT(movePointUp()));
   mpMovePointDownButton = new QToolButton;
   mpMovePointDownButton->setObjectName("ShapePointsButton");
-  mpMovePointDownButton->setIcon(QIcon(":/Resources/icons/down.svg"));
+  mpMovePointDownButton->setIcon(ResourceCache::getIcon(":/Resources/icons/down.svg"));
   mpMovePointDownButton->setToolTip(tr("Move point down"));
   connect(mpMovePointDownButton, SIGNAL(clicked()), SLOT(movePointDown()));
   // points manipulation buttons
   mpAddPointButton = new QToolButton;
   mpAddPointButton->setObjectName("ShapePointsButton");
-  mpAddPointButton->setIcon(QIcon(":/Resources/icons/add-icon.svg"));
+  mpAddPointButton->setIcon(ResourceCache::getIcon(":/Resources/icons/add-icon.svg"));
   mpAddPointButton->setToolTip(tr("Add new point"));
   connect(mpAddPointButton, SIGNAL(clicked()), SLOT(addPoint()));
   mpRemovePointButton = new QToolButton;
   mpRemovePointButton->setObjectName("ShapePointsButton");
-  mpRemovePointButton->setIcon(QIcon(":/Resources/icons/delete.svg"));
+  mpRemovePointButton->setIcon(ResourceCache::getIcon(":/Resources/icons/delete.svg"));
   mpRemovePointButton->setToolTip(tr("Remove point"));
   connect(mpRemovePointButton, SIGNAL(clicked()), SLOT(removePoint()));
   mpPointsButtonBox = new QDialogButtonBox(Qt::Vertical);
@@ -779,7 +798,9 @@ bool ShapePropertiesDialog::applyShapeProperties()
     if (mpFontNameComboBox->currentText().compare("Default") != 0) {
       mpShapeAnnotation->setFontName(mpFontNameComboBox->currentText());
     }
-    mpShapeAnnotation->setFontSize(mpFontSizeSpinBox->value());
+    qreal fontSize = 0;
+    fontSize = mpFontSizeComboBox->lineEdit()->text().toDouble();
+    mpShapeAnnotation->setFontSize(fontSize);
     QList<StringHandler::TextStyle> textStyles;
     if (mpTextBoldCheckBox->isChecked()) textStyles.append(StringHandler::TextStyleBold);
     if (mpTextItalicCheckBox->isChecked()) textStyles.append(StringHandler::TextStyleItalic);

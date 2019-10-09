@@ -110,7 +110,7 @@ class ShapeAnnotation : public QObject, public QGraphicsItem, public GraphicItem
   Q_OBJECT
   Q_INTERFACES(QGraphicsItem)
 private:
-  bool mIsCustomShape;
+  ShapeAnnotation *mpReferenceShapeAnnotation;
   bool mIsInheritedShape;
   QPointF mOldScenePosition;
   bool mIsCornerItemClicked;
@@ -121,8 +121,8 @@ private:
 public:
   enum LineGeometryType {VerticalLine, HorizontalLine};
   Transformation mTransformation;
-  ShapeAnnotation(QGraphicsItem *pParent);
-  ShapeAnnotation(bool inheritedShape, GraphicsView *pGraphicsView, QGraphicsItem *pParent = 0);
+  ShapeAnnotation(ShapeAnnotation *pShapeAnnotation, QGraphicsItem *pParent);
+  ShapeAnnotation(bool inheritedShape, GraphicsView *pGraphicsView, ShapeAnnotation *pShapeAnnotation, QGraphicsItem *pParent = 0);
   void setDefaults();
   void setDefaults(ShapeAnnotation *pShapeAnnotation);
   void setUserDefaults();
@@ -132,15 +132,21 @@ public:
   QRectF getBoundingRect() const;
   void applyLinePattern(QPainter *painter);
   void applyFillPattern(QPainter *painter);
-  virtual void parseShapeAnnotation(QString annotation);
-  virtual QString getOMCShapeAnnotation();
-  virtual QString getShapeAnnotation();
+  virtual void parseShapeAnnotation(QString annotation) = 0;
+  virtual QString getOMCShapeAnnotation() = 0;
+  virtual QString getOMCShapeAnnotationWithShapeName() = 0;
+  virtual QString getShapeAnnotation() = 0;
+  static QList<QPointF> getExtentsForInheritedShapeFromIconDiagramMap(GraphicsView *pGraphicsView, ShapeAnnotation *pReferenceShapeAnnotation);
   void initializeTransformation();
   void drawCornerItems();
   void setCornerItemsActiveOrPassive();
   void removeCornerItems();
   void setOldScenePosition(QPointF oldScenePosition) {mOldScenePosition = oldScenePosition;}
   QPointF getOldScenePosition() {return mOldScenePosition;}
+  QAction* getShapePropertiesAction() const {return mpShapePropertiesAction;}
+  QAction* getAlignInterfacesAction() const {return mpAlignInterfacesAction;}
+  QAction* getShapeAttributesAction() const {return mpShapeAttributesAction;}
+  QAction* getEditTransitionAction() const {return mpEditTransitionAction;}
   virtual void addPoint(QPointF point) {Q_UNUSED(point);}
   virtual void clearPoints() {}
   virtual void replaceExtent(int index, QPointF point);
@@ -192,20 +198,19 @@ public:
   void removeRedundantPointsGeometriesAndCornerItems();
   void adjustGeometries();
   virtual void setShapeFlags(bool enable);
-  virtual void updateShape(ShapeAnnotation *pShapeAnnotation);
+  virtual void updateShape(ShapeAnnotation *pShapeAnnotation) = 0;
   void emitAdded() {emit added();}
   void emitChanged() {emit changed();}
   void emitDeleted() {emit deleted();}
   void emitPrepareGeometryChange() {prepareGeometryChange();}
   static int maxTextLengthToShowOnLibraryIcon;
 signals:
-  void updateReferenceShapes();
   void added();
   void changed();
   void deleted();
 public slots:
   void deleteMe();
-  virtual void duplicate();
+  virtual void duplicate() = 0;
   void bringToFront();
   void bringForward();
   void sendToBack();
@@ -264,8 +269,7 @@ protected:
   QImage mImage;
   QList<CornerItem*> mCornerItemsList;
   QList<QVariant> mDynamicTextString; /* list of String() arguments */
-  virtual void contextMenuEvent(QGraphicsSceneContextMenuEvent *pEvent);
-  virtual QVariant itemChange(GraphicsItemChange change, const QVariant &value);
+  virtual QVariant itemChange(GraphicsItemChange change, const QVariant &value) override;
 };
 
 #endif // SHAPEANNOTATION_H

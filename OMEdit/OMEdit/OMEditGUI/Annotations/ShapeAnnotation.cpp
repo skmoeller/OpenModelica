@@ -41,6 +41,7 @@
 #include "Component/ComponentProperties.h"
 #include "TLM/FetchInterfaceDataDialog.h"
 #include "Plotting/VariablesWidget.h"
+#include "Util/ResourceCache.h"
 
 /*!
  * \brief GraphicItem::setDefaults
@@ -308,40 +309,54 @@ QStringList FilledShape::getShapeAnnotation()
 }
 
 /*!
-  \class ShapeAnnotation
-  \brief The base class for all shapes LineAnnotation, PolygonAnnotation, RectangleAnnotation, EllipseAnnotation, TextAnnotation,
-         BitmapAnnotation.
-  */
+ * \class ShapeAnnotation
+ * \brief The base class for all shapes LineAnnotation, PolygonAnnotation, RectangleAnnotation, EllipseAnnotation, TextAnnotation, BitmapAnnotation.
+ */
 /*!
-  \param pParent - pointer to QGraphicsItem
-  */
-ShapeAnnotation::ShapeAnnotation(QGraphicsItem *pParent)
+ * \brief ShapeAnnotation::ShapeAnnotation
+ * \param pShapeAnnotation
+ * \param pParent
+ */
+ShapeAnnotation::ShapeAnnotation(ShapeAnnotation *pShapeAnnotation, QGraphicsItem *pParent)
   : QGraphicsItem(pParent)
 {
   mpGraphicsView = 0;
   mpParentComponent = dynamic_cast<Component*>(pParent);
   //mTransformation = 0;
-  mIsCustomShape = false;
+  mpReferenceShapeAnnotation = pShapeAnnotation;
   mIsInheritedShape = false;
   setOldScenePosition(QPointF(0, 0));
   mIsCornerItemClicked = false;
+  if (pShapeAnnotation) {
+    connect(pShapeAnnotation, SIGNAL(added()), this, SLOT(referenceShapeAdded()));
+    connect(pShapeAnnotation, SIGNAL(changed()), this, SLOT(referenceShapeChanged()));
+    connect(pShapeAnnotation, SIGNAL(deleted()), this, SLOT(referenceShapeDeleted()));
+  }
 }
 
 /*!
-  \param pGraphicsView - pointer to GraphicsView
-  \param pParent - pointer to QGraphicsItem
-  */
-ShapeAnnotation::ShapeAnnotation(bool inheritedShape, GraphicsView *pGraphicsView, QGraphicsItem *pParent)
+ * \brief ShapeAnnotation::ShapeAnnotation
+ * \param inheritedShape
+ * \param pGraphicsView - pointer to GraphicsView
+ * \param pShapeAnnotation
+ * \param pParent - pointer to QGraphicsItem
+ */
+ShapeAnnotation::ShapeAnnotation(bool inheritedShape, GraphicsView *pGraphicsView, ShapeAnnotation *pShapeAnnotation, QGraphicsItem *pParent)
   : QGraphicsItem(pParent)
 {
   mpGraphicsView = pGraphicsView;
   mpParentComponent = 0;
   mTransformation = Transformation(StringHandler::Diagram);
-  mIsCustomShape = true;
+  mpReferenceShapeAnnotation = pShapeAnnotation;
   mIsInheritedShape = inheritedShape;
   setOldScenePosition(QPointF(0, 0));
   mIsCornerItemClicked = false;
   createActions();
+  if (pShapeAnnotation) {
+    connect(pShapeAnnotation, SIGNAL(added()), this, SLOT(referenceShapeAdded()));
+    connect(pShapeAnnotation, SIGNAL(changed()), this, SLOT(referenceShapeChanged()));
+    connect(pShapeAnnotation, SIGNAL(deleted()), this, SLOT(referenceShapeDeleted()));
+  }
 }
 
 int ShapeAnnotation::maxTextLengthToShowOnLibraryIcon = 2;
@@ -374,7 +389,7 @@ void ShapeAnnotation::setDefaults()
   mOriginalFileName = "";
   mFileName = "";
   mImageSource = "";
-  mImage = QImage(":/Resources/icons/bitmap-shape.svg");
+  mImage = ResourceCache::getImage(":/Resources/icons/bitmap-shape.svg");
   mDynamicTextString.clear();
 }
 
@@ -458,7 +473,7 @@ void ShapeAnnotation::createActions()
   mpShapePropertiesAction->setStatusTip(tr("Shows the shape properties"));
   connect(mpShapePropertiesAction, SIGNAL(triggered()), SLOT(showShapeProperties()));
   // shape attributes
-  mpAlignInterfacesAction = new QAction(QIcon(":/Resources/icons/align-interfaces.svg"), Helper::alignInterfaces, mpGraphicsView);
+  mpAlignInterfacesAction = new QAction(ResourceCache::getIcon(":/Resources/icons/align-interfaces.svg"), Helper::alignInterfaces, mpGraphicsView);
   mpAlignInterfacesAction->setStatusTip(Helper::alignInterfacesTip);
   connect(mpAlignInterfacesAction, SIGNAL(triggered()), SLOT(alignInterfaces()));
   // shape attributes
@@ -593,34 +608,45 @@ void ShapeAnnotation::applyFillPattern(QPainter *painter)
   }
 }
 
-/*!
- * \brief ShapeAnnotation::parseShapeAnnotation
- * Parses the shape annotation. Reimplemented by each child shape class to parse their annotation.
- * \param annotation
- */
-void ShapeAnnotation::parseShapeAnnotation(QString annotation)
+QList<QPointF> ShapeAnnotation::getExtentsForInheritedShapeFromIconDiagramMap(GraphicsView *pGraphicsView, ShapeAnnotation *pReferenceShapeAnnotation)
 {
-  Q_UNUSED(annotation);
-}
+  QPointF defaultPoint1 = QPointF(-100.0, -100.0);
+  QPointF defaultPoint2 = QPointF(100.0, 100.0);
+  QPointF point1 = defaultPoint1;
+  QPointF point2 = defaultPoint2;
 
-/*!
- * \brief ShapeAnnotation::getOMCShapeAnnotation
- * Returns the shape annotation in format as returned by OMC. Reimplemented by each child shape class to return their annotation.
- * \return the shape annotation string.
- */
-QString ShapeAnnotation::getOMCShapeAnnotation()
-{
-  return "";
-}
-
-/*!
- * \brief ShapeAnnotation::getShapeAnnotation
- * Returns the shape annotation. Reimplemented by each child shape class to return their annotation.
- * \return the shape annotation string.
- */
-QString ShapeAnnotation::getShapeAnnotation()
-{
-  return "";
+  int index = pGraphicsView->getModelWidget()->getInheritedClassesList().indexOf(pReferenceShapeAnnotation->getGraphicsView()->getModelWidget()->getLibraryTreeItem()) + 1;
+  if (index > 0) {
+    QList<QPointF> extent;
+    if (pGraphicsView->getViewType() == StringHandler::Icon) {
+      extent = pGraphicsView->getModelWidget()->getInheritedClassIconMap().value(index).mExtent;
+    } else {
+      extent = pGraphicsView->getModelWidget()->getInheritedClassDiagramMap().value(index).mExtent;
+    }
+    point1 = extent.size() > 0 ? extent.at(0) : defaultPoint1;
+    point2 = extent.size() > 1 ? extent.at(1) : defaultPoint2;
+    // find the width and height
+    qreal width = fabs(point1.x() - point2.x());
+    qreal height = fabs(point1.y() - point2.y());
+    if (width < 1 || height < 1) {
+      point1 = defaultPoint1;
+      point2 = defaultPoint2;
+    } else {
+      /* if preserveAspectRatio of the base class is true
+       * Take x if width is lesser than height otherwise take y
+       */
+      if (pReferenceShapeAnnotation->getGraphicsView() && pReferenceShapeAnnotation->getGraphicsView()->mCoOrdinateSystem.getPreserveAspectRatio()) {
+        if (width < height) {
+          point1.setY(point1.x());
+          point2.setY(point2.x());
+        } else {
+          point1.setX(point1.y());
+          point2.setX(point2.y());
+        }
+      }
+    }
+  }
+  return QList<QPointF>() << point1 << point2;
 }
 
 /*!
@@ -629,9 +655,18 @@ QString ShapeAnnotation::getShapeAnnotation()
  */
 void ShapeAnnotation::initializeTransformation()
 {
+  QPointF point1 = QPointF(-100.0, -100.0);
+  QPointF point2 = QPointF(100.0, 100.0);
+
+  if (mpReferenceShapeAnnotation && mpReferenceShapeAnnotation->getGraphicsView()) {
+    QList<QPointF> extent = getExtentsForInheritedShapeFromIconDiagramMap(mpGraphicsView, mpReferenceShapeAnnotation);
+    point1 = extent.at(0);
+    point2 = extent.at(1);
+  }
+
   mTransformation.setOrigin(mOrigin);
-  mTransformation.setExtent1(QPointF(-100.0, -100.0));
-  mTransformation.setExtent2(QPointF(100.0, 100.0));
+  mTransformation.setExtent1(point1);
+  mTransformation.setExtent2(point2);
   mTransformation.setRotateAngle(mRotation);
   setTransform(mTransformation.getTransformationMatrix());
 }
@@ -992,11 +1027,6 @@ void ShapeAnnotation::setShapeFlags(bool enable)
   setFlag(QGraphicsItem::ItemIsSelectable, enable);
 }
 
-void ShapeAnnotation::updateShape(ShapeAnnotation *pShapeAnnotation)
-{
-  Q_UNUSED(pShapeAnnotation);
-}
-
 /*!
  * \brief ShapeAnnotation::updateDynamicSelect
  * Updates the shapes according to the DynamicSelect annotation.
@@ -1146,11 +1176,18 @@ void ShapeAnnotation::referenceShapeChanged()
     if (mpGraphicsView) {
       prepareGeometryChange();
       updateShape(pShapeAnnotation);
-      setTransform(pShapeAnnotation->mTransformation.getTransformationMatrix());
+      mTransformation = pShapeAnnotation->mTransformation;
+      QList<QPointF> extent = getExtentsForInheritedShapeFromIconDiagramMap(mpGraphicsView, pShapeAnnotation);
+      if (extent.size() > 1) {
+        mTransformation.setExtent1(extent.at(0));
+        mTransformation.setExtent2(extent.at(1));
+      }
+      setTransform(mTransformation.getTransformationMatrix());
       removeCornerItems();
       drawCornerItems();
       setCornerItemsActiveOrPassive();
       update();
+      mpGraphicsView->getModelWidget()->getLibraryTreeItem()->handleIconUpdated();
     } else if (mpParentComponent) {
       prepareGeometryChange();
       updateShape(pShapeAnnotation);
@@ -1200,15 +1237,6 @@ void ShapeAnnotation::deleteMe()
   } else {
     mpGraphicsView->deleteShape(this);
   }
-}
-
-/*!
- * \brief ShapeAnnotation::duplicate
- * Reimplemented by each child shape class to duplicate the shape.
- */
-void ShapeAnnotation::duplicate()
-{
-  /* duplicate code is implemented in each child shape class. */
 }
 
 /*!
@@ -1641,89 +1669,6 @@ void ShapeAnnotation::alignInterfaces()
 }
 
 /*!
- * \brief ShapeAnnotation::contextMenuEvent
- * Reimplementation of contextMenuEvent.\n
- * Creates a context menu for the shape.\n
- * No context menu for the shapes that are part of Component.
- * \param pEvent - pointer to QGraphicsSceneContextMenuEvent
- */
-void ShapeAnnotation::contextMenuEvent(QGraphicsSceneContextMenuEvent *pEvent)
-{
-  if (!mIsCustomShape) {
-    QGraphicsItem::contextMenuEvent(pEvent);
-    return;
-  }
-  if (!isSelected()) {
-    setSelected(true);
-  }
-
-  QMenu menu(mpGraphicsView);
-  if (mpGraphicsView->getModelWidget()->getLibraryTreeItem()->getLibraryType()== LibraryTreeItem::CompositeModel) {
-    menu.addAction(mpShapeAttributesAction);
-
-    //Only show align interfaces action for bidirectional connections
-    LineAnnotation *pConnectionLineAnnotation = dynamic_cast<LineAnnotation*>(this);
-    QString startName = pConnectionLineAnnotation->getStartComponentName();
-    QString endName = pConnectionLineAnnotation->getEndComponentName();
-    CompositeModelEditor *pEditor = dynamic_cast<CompositeModelEditor*>(mpGraphicsView->getModelWidget()->getEditor());
-    if(pEditor->getInterfaceCausality(startName) == StringHandler::getTLMCausality(StringHandler::TLMBidirectional) &&
-       pEditor->getInterfaceCausality(endName) == StringHandler::getTLMCausality(StringHandler::TLMBidirectional)) {
-        menu.addSeparator();
-        menu.addAction(mpAlignInterfacesAction);
-    }
-
-    menu.addSeparator();
-    menu.addAction(mpGraphicsView->getDeleteAction());
-  } else if (mpGraphicsView->getModelWidget()->getLibraryTreeItem()->getLibraryType()== LibraryTreeItem::Modelica) {
-    menu.addAction(mpShapePropertiesAction);
-    menu.addSeparator();
-    if (isInheritedShape()) {
-      mpGraphicsView->getManhattanizeAction()->setDisabled(true);
-      mpGraphicsView->getDeleteAction()->setDisabled(true);
-      mpGraphicsView->getDuplicateAction()->setDisabled(true);
-      mpGraphicsView->getBringToFrontAction()->setDisabled(true);
-      mpGraphicsView->getBringForwardAction()->setDisabled(true);
-      mpGraphicsView->getSendToBackAction()->setDisabled(true);
-      mpGraphicsView->getSendBackwardAction()->setDisabled(true);
-      mpGraphicsView->getRotateClockwiseAction()->setDisabled(true);
-      mpGraphicsView->getRotateAntiClockwiseAction()->setDisabled(true);
-    }
-    LineAnnotation *pLineAnnotation = dynamic_cast<LineAnnotation*>(this);
-    LineAnnotation::LineType lineType = LineAnnotation::ShapeType;
-    if (pLineAnnotation) {
-      lineType = pLineAnnotation->getLineType();
-      if (lineType != LineAnnotation::ConnectionType && lineType != LineAnnotation::TransitionType) {
-        menu.addAction(mpGraphicsView->getManhattanizeAction());
-      }
-    }
-    menu.addAction(mpGraphicsView->getDeleteAction());
-    if (lineType != LineAnnotation::ConnectionType && lineType != LineAnnotation::TransitionType) {
-      menu.addAction(mpGraphicsView->getDuplicateAction());
-      menu.addSeparator();
-      menu.addAction(mpGraphicsView->getBringToFrontAction());
-      menu.addAction(mpGraphicsView->getBringForwardAction());
-      menu.addAction(mpGraphicsView->getSendToBackAction());
-      menu.addAction(mpGraphicsView->getSendBackwardAction());
-      menu.addSeparator();
-      menu.addAction(mpGraphicsView->getRotateClockwiseAction());
-      menu.addAction(mpGraphicsView->getRotateAntiClockwiseAction());
-    } else if (lineType == LineAnnotation::TransitionType) {
-      menu.addSeparator();
-      menu.addAction(mpEditTransitionAction);
-    }
-  } else if (mpGraphicsView->getModelWidget()->getLibraryTreeItem()->getLibraryType()== LibraryTreeItem::OMS) {
-    BitmapAnnotation *pBitmapAnnotation = dynamic_cast<BitmapAnnotation*>(this);
-    if (pBitmapAnnotation && mpGraphicsView->getModelWidget()->getLibraryTreeItem()->getOMSElement()) {
-      menu.addAction(MainWindow::instance()->getAddOrEditIconAction());
-      menu.addAction(MainWindow::instance()->getDeleteIconAction());
-    } else {
-      return;
-    }
-  }
-  menu.exec(pEvent->screenPos());
-}
-
-/*!
   Reimplementation of itemChange.\n
   Connects the operations/signals, that can be performed on this shape, with the methods/slots depending on the shape's selection value.\n
   No operations/signals connection for shapes that are part of system library classes.
@@ -1745,10 +1690,9 @@ QVariant ShapeAnnotation::itemChange(GraphicsItemChange change, const QVariant &
       /* Only allow manipulations on shapes if the class is not a system library class OR shape is not an inherited component. */
       if (!mpGraphicsView->getModelWidget()->getLibraryTreeItem()->isSystemLibrary() && !isInheritedShape()) {
         if (pLineAnnotation) {
-          connect(mpGraphicsView, SIGNAL(mouseManhattanize()), this, SLOT(manhattanizeShape()), Qt::UniqueConnection);
+          connect(mpGraphicsView, SIGNAL(manhattanize()), this, SLOT(manhattanizeShape()), Qt::UniqueConnection);
         }
-        connect(mpGraphicsView, SIGNAL(mouseDelete()), this, SLOT(deleteMe()), Qt::UniqueConnection);
-        connect(mpGraphicsView, SIGNAL(keyPressDelete()), this, SLOT(deleteMe()), Qt::UniqueConnection);
+        connect(mpGraphicsView, SIGNAL(deleteSignal()), this, SLOT(deleteMe()), Qt::UniqueConnection);
         if (lineType == LineAnnotation::ShapeType) {
           connect(mpGraphicsView, SIGNAL(mouseDuplicate()), this, SLOT(duplicate()), Qt::UniqueConnection);
           connect(mpGraphicsView->getBringToFrontAction(), SIGNAL(triggered()), this, SLOT(bringToFront()), Qt::UniqueConnection);
@@ -1780,10 +1724,9 @@ QVariant ShapeAnnotation::itemChange(GraphicsItemChange change, const QVariant &
       /* Only allow manipulations on shapes if the class is not a system library class OR shape is not an inherited component. */
       if (!mpGraphicsView->getModelWidget()->getLibraryTreeItem()->isSystemLibrary() && !isInheritedShape()) {
         if (pLineAnnotation) {
-          disconnect(mpGraphicsView, SIGNAL(mouseManhattanize()), this, SLOT(manhattanizeShape()));
+          disconnect(mpGraphicsView, SIGNAL(manhattanize()), this, SLOT(manhattanizeShape()));
         }
-        disconnect(mpGraphicsView, SIGNAL(mouseDelete()), this, SLOT(deleteMe()));
-        disconnect(mpGraphicsView, SIGNAL(keyPressDelete()), this, SLOT(deleteMe()));
+        disconnect(mpGraphicsView, SIGNAL(deleteSignal()), this, SLOT(deleteMe()));
         if (lineType == LineAnnotation::ShapeType) {
           disconnect(mpGraphicsView, SIGNAL(mouseDuplicate()), this, SLOT(duplicate()));
           disconnect(mpGraphicsView->getBringToFrontAction(), SIGNAL(triggered()), this, SLOT(bringToFront()));

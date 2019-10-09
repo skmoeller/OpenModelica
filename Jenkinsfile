@@ -1,6 +1,7 @@
 def common
 def shouldWeBuildOSX
 def shouldWeBuildMINGW
+def shouldWeRunTests
 def isPR
 pipeline {
   agent none
@@ -27,15 +28,16 @@ pipeline {
             def buildNumber = env.BUILD_NUMBER as int
             if (buildNumber > 1) milestone(buildNumber - 1)
             milestone(buildNumber)
-            isPR = true
-          } else {
-            isPR = false
           }
           common = load("${env.workspace}/.CI/common.groovy")
+          isPR = common.isPR()
+          print "isPR: ${isPR}"
           shouldWeBuildOSX = common.shouldWeBuildOSX()
           print "shouldWeBuildOSX: ${shouldWeBuildOSX}"
           shouldWeBuildMINGW = common.shouldWeBuildMINGW()
           print "shouldWeBuildMINGW: ${shouldWeBuildMINGW}"
+          shouldWeRunTests = common.shouldWeRunTests()
+          print "shouldWeRunTests: ${shouldWeRunTests}"
         }
       }
     }
@@ -47,6 +49,7 @@ pipeline {
               image 'docker.openmodelica.org/build-deps:v1.13-qt4-xenial'
               label 'linux'
               alwaysPull true
+              args "-v /var/lib/jenkins/gitcache:/var/lib/jenkins/gitcache"
             }
           }
           environment {
@@ -64,10 +67,14 @@ pipeline {
               image 'docker.openmodelica.org/build-deps:v1.14'
               label 'linux'
               alwaysPull true
+              args "-v /var/lib/jenkins/gitcache:/var/lib/jenkins/gitcache"
             }
           }
           steps {
-            script { common.buildOMC('clang', 'clang++', '--without-hwloc') }
+            script {
+              common.buildOMC('clang', 'clang++', '--without-hwloc')
+              common.getVersion()
+            }
             stash name: 'omc-clang', includes: 'build/**, **/config.status'
           }
         }
@@ -130,6 +137,7 @@ pipeline {
               image 'docker.openmodelica.org/build-deps:v1.14'
               label 'linux'
               alwaysPull true
+              args "-v /var/lib/jenkins/gitcache:/var/lib/jenkins/gitcache"
             }
           }
           steps {
@@ -169,6 +177,10 @@ pipeline {
             RUNTESTDB = "/cache/runtest/"
             LIBRARIES = "/cache/omlibrary"
           }
+          when {
+            beforeAgent true
+            expression { shouldWeRunTests }
+          }
           steps {
             script {
               common.standardSetup()
@@ -193,6 +205,10 @@ pipeline {
             RUNTESTDB = "/cache/runtest/"
             LIBRARIES = "/cache/omlibrary"
           }
+          when {
+            beforeAgent true
+            expression { shouldWeRunTests }
+          }
           steps {
             script {
               common.standardSetup()
@@ -212,6 +228,10 @@ pipeline {
               environment {
                 RUNTESTDB = "/cache/runtest/"
                 LIBRARIES = "/cache/omlibrary"
+              }
+              when {
+                beforeAgent true
+                expression { shouldWeRunTests }
               }
               steps {
                 script {
@@ -255,6 +275,10 @@ pipeline {
             COMPLIANCEEXTRAREPORTFLAGS = "--expectedFailures=.CI/compliance.failures --flakyTests=.CI/compliance.flaky"
             COMPLIANCEPREFIX = "compliance"
           }
+          when {
+            beforeAgent true
+            expression { shouldWeRunTests }
+          }
           steps {
             script { common.compliance() }
           }
@@ -280,6 +304,10 @@ pipeline {
             COMPLIANCEEXTRAFLAGS = "-d=newInst"
             COMPLIANCEEXTRAREPORTFLAGS = "--expectedFailures=.CI/compliance-newinst.failures"
             COMPLIANCEPREFIX = "compliance-newinst"
+          }
+          when {
+            beforeAgent true
+            expression { shouldWeRunTests }
           }
           steps {
             script { common.compliance() }
@@ -321,7 +349,8 @@ pipeline {
               additionalBuildArgs '--pull'
               dir '.CI/cache'
               label 'linux'
-              args "--mount type=volume,source=omlibrary-cache,target=/cache/omlibrary"
+              args "--mount type=volume,source=omlibrary-cache,target=/cache/omlibrary " +
+                   "-v /var/lib/jenkins/gitcache:/var/lib/jenkins/gitcache"
             }
           }
           environment {
@@ -360,6 +389,10 @@ pipeline {
               // No runtest.db cache necessary; the tests run in serial and do not load libraries!
             }
           }
+          when {
+            beforeAgent true
+            expression { shouldWeRunTests }
+          }
           steps {
             script {
               common.standardSetup()
@@ -376,6 +409,10 @@ pipeline {
               label 'linux'
             }
           }
+          when {
+            beforeAgent true
+            expression { shouldWeRunTests }
+          }
           steps {
             script { common.standardSetup() }
             unstash 'omc-clang'
@@ -391,6 +428,10 @@ pipeline {
               alwaysPull true
             }
           }
+          when {
+            beforeAgent true
+            expression { shouldWeRunTests }
+          }
           steps {
             script {
               common.standardSetup()
@@ -398,6 +439,33 @@ pipeline {
               common.generateTemplates()
             }
             sh 'make -C testsuite/special/MatlabTranslator/ test'
+          }
+        }
+
+        stage('test-clang-icon-generator') {
+          agent {
+            docker {
+              image 'docker.openmodelica.org/build-deps:v1.14.1'
+              label 'linux'
+              args "--mount type=volume,source=runtest-clang-icon-generator,target=/cache/runtest " +
+                   "--mount type=volume,source=omlibrary-cache,target=/cache/omlibrary"
+            }
+          }
+          environment {
+            RUNTESTDB = "/cache/runtest/"
+            LIBRARIES = "/cache/omlibrary"
+          }
+          when {
+            beforeAgent true
+            expression { shouldWeRunTests }
+          }
+          steps {
+            script {
+              common.standardSetup()
+              unstash 'omc-clang'
+              common.makeLibsAndCache()
+            }
+            sh 'make -C testsuite/openmodelica/icon-generator test'
           }
         }
 
@@ -411,6 +479,10 @@ pipeline {
               label 'linux'
               image 'docker.openmodelica.org/fmuchecker:v2.0.4'
             }
+          }
+          when {
+            beforeAgent true
+            expression { shouldWeRunTests }
           }
           options {
             skipDefaultCheckout true
@@ -433,6 +505,10 @@ pipeline {
           agent {
             label 'osx'
           }
+          when {
+            beforeAgent true
+            expression { shouldWeRunTests }
+          }
           options {
             skipDefaultCheckout true
           }
@@ -452,6 +528,10 @@ pipeline {
               label 'linux-arm32'
               image 'docker.openmodelica.org/fmuchecker:v2.0.4-arm'
             }
+          }
+          when {
+            beforeAgent true
+            expression { shouldWeRunTests }
           }
           options {
             skipDefaultCheckout true
@@ -478,6 +558,10 @@ pipeline {
               alwaysPull true
             }
           }
+          when {
+            beforeAgent true
+            expression { shouldWeRunTests }
+          }
           options {
             skipDefaultCheckout true
           }
@@ -502,7 +586,7 @@ pipeline {
           }
           when {
             beforeAgent true
-            expression { not isPR }
+            expression { !isPR }
           }
           steps {
             unstash 'compliance'
@@ -520,7 +604,7 @@ pipeline {
           }
           when {
             beforeAgent true
-            expression { not isPR }
+            expression { !isPR }
           }
           steps {
             unstash 'usersguide'

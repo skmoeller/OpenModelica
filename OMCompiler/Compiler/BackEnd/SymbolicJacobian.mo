@@ -2027,7 +2027,7 @@ algorithm
         indepVars = createInDepVars(inDiffVars, false);
 
         if Flags.isSet(Flags.JAC_DUMP) then
-          print("Create symbolic Jacobianis from:\n");
+          print("Create symbolic Jacobians from:\n");
           print(BackendDump.varListString(indepVars, "Independent Variables"));
           print(BackendDump.varListString(diffedVars, "Dependent Variables"));
           print("Basic equation system:\n");
@@ -2246,9 +2246,10 @@ ComponentReference.printComponentRefList(comref_diffvars);
         diffData.knownVars = SOME(globalKnownVars); //update diffData
         matrixNameForHess = matrixName+"1"; //Rename the Matrix name for the seeds
         diffData.matrixName = SOME(matrixNameForHess); //update matrix name
-        (derivedEquations, functions) = deriveAll(derivedEquations, arrayList(ass2), x, diffData, functions, true); //Derive second time
+        (derivedEquations2, functions) = deriveAll(derivedEquations, arrayList(ass2), x, diffData, functions, true); //Derive second time
         //BackendDump.dumpEquationList(derivedEquations, "derivedEquations 2");
       end if;
+    /* derivedeq1 und 2 zusammenfassen */
       if Flags.isSet(Flags.JAC_DUMP2) then
         print("*** analytical Jacobians -> after derive all equation: " + realString(clock()) + "\n");
       end if;
@@ -2268,7 +2269,9 @@ ComponentReference.printComponentRefList(comref_diffvars);
 
       if Flags.getConfigBool(Flags.GENERATE_SYMBOLIC_HESSIAN) or false then
         diffVars = BackendVariable.varList(jacOrderedVars);
-        derivedVariables = createAllDiffedVars(diffVars, x, diffedVars, matrixName + "1");
+        derivedVariables2 = createAllDiffedVars(diffVars, x, diffedVars, matrixName + "1");
+            /* derivedvars1 und 2 zusammenfassen */
+
         jacOrderedVars = BackendVariable.listVar1(derivedVariables);
       else
         diffVars = BackendVariable.varList(orderedVars);
@@ -2456,6 +2459,29 @@ algorithm
   end match;
 end getJacobianMatrixbyName;
 
+public function updateJacobianDependencies
+  input output BackendDAE.Jacobian jacobian;
+algorithm
+  jacobian := match jacobian
+    local
+      BackendDAE.Jacobian jac;
+      BackendDAE.SymbolicJacobian symJac;
+      BackendDAE.EqSystem syst;
+      BackendDAE.Shared shared;
+      String name;
+      list<BackendDAE.Var> diffVars;
+      list<BackendDAE.Var> diffedVars;
+      list<BackendDAE.Var> allDiffedVars;
+      list<DAE.ComponentRef> dependencies;
+    case jac as BackendDAE.GENERIC_JACOBIAN()
+      algorithm
+        SOME(symJac as (BackendDAE.DAE({syst}, shared),name,diffVars,diffedVars,allDiffedVars,dependencies)) := jac.jacobian;
+        dependencies := calcJacobianDependencies(symJac);
+        jac.jacobian := SOME((BackendDAE.DAE({syst}, shared),name,diffVars,diffedVars,allDiffedVars,dependencies));
+    then jac;
+    else jacobian;
+  end match;
+end updateJacobianDependencies;
 
 public function calcJacobianDependencies
   input BackendDAE.SymbolicJacobian jacobian;
@@ -2683,6 +2709,7 @@ algorithm
 end calculateTearingSetJacobian;
 
 protected function calculateJacobianComponent
+  "Calculates jacobian matrix for strong components of torn systems and non-linear systems."
   input BackendDAE.StrongComponent inComp;
   input BackendDAE.Variables inVars;
   input BackendDAE.EquationArray inEqns;
@@ -2781,12 +2808,190 @@ algorithm
 
           // generate generic jacobian backend dae
           (jacobian, shared) = getSymbolicJacobian(diffVars, eqns, resVars, oeqns, ovars, inShared, inVars, name, onlySparsePattern);
-
       then (BackendDAE.EQUATIONSYSTEM(residualequations, iterationvarsInts, jacobian, BackendDAE.JAC_GENERIC(), mixedSystem), shared);
 
       case (comp, _, _, _) then (comp, inShared);
   end matchcontinue;
+
+  // Check if all nonlinear iteration variables have start values
+  if BackendDAEUtil.isInitializationDAE(inShared) then
+      try
+        checkNonLinDependecies(outComp,inEqns);
+      else
+        Error.addInternalError("function calculateJacobianComponent failed to check all non-linear iteration variables for start values.", sourceInfo());
+      end try;
+  end if;
 end calculateJacobianComponent;
+
+protected function checkNonLinDependecies
+  "Check if all non-linear iteartion variables of given non-linear equation
+   system have a start value and throw warning if not. Only start values for
+   those have an influence on solver iteration."
+  input BackendDAE.StrongComponent inComp;
+  input BackendDAE.EquationArray inEqns;
+protected
+  String name, msg;
+  Boolean existNonLin;
+algorithm
+  if Flags.isSet(Flags.INITIALIZATION) then
+    // Dump full information.
+    _ := match (inComp)
+      local
+        BackendDAE.Jacobian jac;
+        list<Integer> resIndices, eqnIndices = {};
+        BackendDAE.InnerEquations innerEquations;
+        Boolean linear;
+        String str;
+      // Case non-linear torn equation system
+      case (BackendDAE.TORNSYSTEM(strictTearingSet=BackendDAE.TEARINGSET(jac=jac, residualequations=resIndices, innerEquations=innerEquations), linear=false))
+        algorithm
+          for eq in innerEquations loop
+            eqnIndices := match eq
+              local
+                Integer idx;
+              case BackendDAE.INNEREQUATION(eqn = idx) then idx::eqnIndices;
+              case BackendDAE.INNEREQUATIONCONSTRAINTS(eqn = idx) then idx::eqnIndices;
+              else eqnIndices;
+            end match;
+          end for;
+          eqnIndices := listAppend(resIndices,eqnIndices);
+          printNonLinIterVarsAndEqs(jac,eqnIndices,inEqns);
+        then "";
+
+      // Case non-linear non-torn equation system
+      case (BackendDAE.EQUATIONSYSTEM(eqns=eqnIndices, jac=jac, jacType=BackendDAE.JAC_NONLINEAR()))
+        algorithm
+          printNonLinIterVarsAndEqs(jac,eqnIndices,inEqns);
+        then "";
+
+      // ToDo: Check if jacType=BackendDAE.JAC_GENERIC is needed
+      //case BackendDAE.EQUATIONSYSTEM(jac=jac, jacType=BackendDAE.JAC_GENERIC())
+      else "";
+    end match;
+  else
+    // Only error message.
+    (existNonLin, name) := match (inComp)
+      local
+        BackendDAE.Jacobian jac;
+        Boolean linear;
+        String str;
+      // Case non-linear teared equation system
+      case (BackendDAE.TORNSYSTEM(strictTearingSet=BackendDAE.TEARINGSET(jac=jac), linear=false))
+        then existNonLinIterVars(jac);
+
+      // Case non-linear non-teared equation system
+      case (BackendDAE.EQUATIONSYSTEM(jac=jac, jacType=BackendDAE.JAC_NONLINEAR()))
+        then existNonLinIterVars(jac);
+
+      // ToDo: Check if jacType=BackendDAE.JAC_GENERIC is needed
+      //case BackendDAE.EQUATIONSYSTEM(jac=jac, jacType=BackendDAE.JAC_GENERIC())
+      else (false,"");
+    end match;
+    if existNonLin then
+      msg := System.gettext("For more information set -d=initialization. In OMEdit Tools->Options->Simulation->OMCFlags, in OMNotebook call setCommandLineOptions(\"-d=initialization\")");
+      Error.addMessage(Error.INITIALIZATION_ITERATION_VARIABLES, {name, msg});
+    end if;
+  end if;
+end checkNonLinDependecies;
+
+protected function existNonLinIterVars
+  "Helper function for checkNonLinDependecies. Returns true if any non-linear
+   iteration variables without start value are contained in given jacobian."
+  input BackendDAE.Jacobian jacobian_in;
+  output Boolean existNonLin;
+  output String jacName;
+algorithm
+  (existNonLin, jacName) := match (jacobian_in)
+    local
+      list<BackendDAE.Var> diffVars, residualVars, allDiffedVars;
+      list<DAE.ComponentRef> dependentVarsCref;
+      DAE.ComponentRef varCref;
+      BackendDAE.Var var;
+      String name;
+      Boolean exist=false;
+    case BackendDAE.GENERIC_JACOBIAN(SOME((_,name,diffVars,residualVars,allDiffedVars,dependentVarsCref))) algorithm
+      // Search for non-linear variables without start value
+      for varCref in dependentVarsCref loop
+        for var in diffVars loop
+          if ComponentReference.crefEqual(varCref, var.varName) then
+            if (not BackendVariable.varHasStartValue(var)) then
+              exist:= true;
+              break;
+            end if;
+          end if;
+        end for;
+        if exist then
+          break;
+        end if;
+      end for;
+    then (exist, name);
+
+  // ToDo
+  // case BackendDAE.FULL_JACOBIAN() algorithm
+    else (false, "");
+  end match;
+end existNonLinIterVars;
+
+protected function printNonLinIterVarsAndEqs
+  "Helper function for checkNonLinDependecies. Prints relevant information regarding
+  start attributes of non linear iteration variables."
+  input BackendDAE.Jacobian jacobian;
+  input list<Integer> eqnIndices;
+  input BackendDAE.EquationArray inEqns;
+algorithm
+    _ := match jacobian
+      local
+        BackendDAE.EqSystem syst;
+        BackendDAE.Shared shared;
+        Integer idx = 1;
+        list<BackendDAE.Var> diffVars, residualVars, allDiffedVars, nonLin = {}, nonLinStart = {}, lin = {};
+        list<DAE.ComponentRef> dependentVarsCref;
+        DAE.ComponentRef varCref;
+        BackendDAE.Var var;
+        String name;
+      case BackendDAE.GENERIC_JACOBIAN(jacobian = SOME((BackendDAE.DAE({syst}, shared),name,diffVars,residualVars,allDiffedVars,dependentVarsCref)))
+        algorithm
+          // Get non-linear variables without start value
+          for varCref in dependentVarsCref loop
+            for var in diffVars loop
+              if ComponentReference.crefEqual(varCref, var.varName) then
+                if (not BackendVariable.varHasStartValue(var)) then
+                  nonLin := var::nonLin;
+                else
+                  nonLinStart := var::nonLinStart;
+                end if;
+              end if;
+            end for;
+          end for;
+          if not listEmpty(nonLin) then
+            BackendDump.dumpVarList(nonLin, "Nonlinear iteration variables with default zero start attribute in " + name + ".");
+          end if;
+          if not listEmpty(nonLinStart) then
+            BackendDump.dumpVarList(nonLinStart, "Nonlinear iteration variables with predefined start attribute in " + name + ".");
+          end if;
+
+          // Get linear variables with start value, but ignore discrete vars
+          for var in allDiffedVars loop
+            if (BackendVariable.varHasStartValue(var) and not BackendVariable.isVarDiscrete(var) ) then
+              lin := var::lin;
+            end if;
+          end for;
+          if not listEmpty(lin) then
+            BackendDump.dumpVarList(lin, "Linear iteration variables with predefined start attributes that are unrelevant in " + name + ".");
+          end if;
+
+          if not (listEmpty(nonLin) and listEmpty(nonLinStart) and listEmpty(lin)) then
+            print("Info: Only non-linear iteration variables in non-linear eqation systems require start values. " +
+                 "All other start values have no influence on convergence and are ignored. " +
+                 "Use \"-d=dumpLoops\" to show all loops. In OMEdit Tools->Options->Simulation->OMCFlags, in "+
+                 "OMNotebook call setCommandLineOptions(\"-d=dumpLoops\")\n\n");
+          end if;
+        then "";
+      else "";
+    end match;
+  // ToDo
+  // BackendDAE.FULL_JACOBIAN()
+end printNonLinIterVarsAndEqs;
 
 protected function traverserhasEqnNonDiffParts
 "function breaks differentiation for
@@ -2955,6 +3160,7 @@ algorithm
     end if;
 
     backendDAE := BackendDAEUtil.transformBackendDAE(backendDAE, SOME((BackendDAE.NO_INDEX_REDUCTION(), BackendDAE.EXACT())), NONE(), NONE());
+
     BackendDAE.DAE({BackendDAE.EQSYSTEM(orderedVars = dependentVars)}, BackendDAE.SHARED(globalKnownVars = globalKnownVars)) := backendDAE;
 
     // prepare creation of symbolic jacobian
@@ -2973,6 +3179,7 @@ algorithm
     outJacobian := BackendDAE.GENERIC_JACOBIAN(symJacBDAE, sparsePattern, sparseColoring);
     outShared := BackendDAEUtil.setSharedFunctionTree(inShared, funcs);
   else
+
     if Flags.isSet(Flags.JAC_DUMP) then
       Error.addInternalError("function getSymbolicJacobian failed", sourceInfo());
     end if;

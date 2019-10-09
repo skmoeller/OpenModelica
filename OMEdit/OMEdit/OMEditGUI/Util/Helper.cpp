@@ -70,9 +70,11 @@ QString Helper::subModelFileTypes = "SubModel Files (*.fmu *.mat *.csv);;SubMode
 int Helper::treeIndentation = 13;
 QSize Helper::iconSize = QSize(20, 20);
 int Helper::tabWidth = 20;
+qreal Helper::minimumTextFontSize = 8.0;
 QString Helper::modelicaComponentFormat = "image/modelica-component";
 QString Helper::modelicaFileFormat = "text/uri-list";
 QString Helper::busConnectorFormat = "bus/connector";
+QString Helper::cutCopyPasteFormat = "application/OMEdit.cut-copy-paste";
 qreal Helper::shapesStrokeWidth = 2.0;
 int Helper::headingFontSize = 18;
 QString Helper::ModelicaSimulationOutputFormats = "mat,plt,csv";
@@ -158,6 +160,7 @@ QString Helper::output;
 QString Helper::parameters;
 QString Helper::inputs;
 QString Helper::name;
+QString Helper::startScript;
 QString Helper::comment;
 QString Helper::path;
 QString Helper::type;
@@ -172,6 +175,7 @@ QString Helper::checkAllModelsTip;
 QString Helper::instantiateModel;
 QString Helper::instantiateModelTip;
 QString Helper::FMU;
+QString Helper::exportt;
 QString Helper::exportFMUTip;
 QString Helper::exportEncryptedPackage;
 QString Helper::exportEncryptedPackageTip;
@@ -450,6 +454,7 @@ void Helper::initHelperVariables()
   Helper::parameters = tr("Parameters");
   Helper::inputs = tr("Inputs");
   Helper::name = tr("Name:");
+  Helper::startScript = tr("Start Script:");
   Helper::comment = tr("Comment:");
   Helper::path = tr("Path:");
   Helper::type = tr("Type");
@@ -464,6 +469,7 @@ void Helper::initHelperVariables()
   Helper::instantiateModel = tr("Instantiate Model");
   Helper::instantiateModelTip = tr("Instantiate/Flatten the Modelica class");
   Helper::FMU = tr("FMU");
+  Helper::exportt = tr("Export");
   Helper::exportFMUTip = tr("Exports the model as Functional Mockup Unit (FMU)");
   Helper::exportReadonlyPackage = tr("Read-only Package");
   Helper::exportRealonlyPackageTip = tr("Exports the package as read-only package");
@@ -846,6 +852,8 @@ QString GUIMessages::getMessage(int type)
       return tr("Following error has occurred <b>%1</b> GDB arguments are <b>\"%2\"</b>");
     case INVALID_INSTANCE_NAME:
       return tr("Name <b>%1</b> is not a valid identifier.<br />A name must start with a letter, and all characters must be letters or digits. It may not be a reserved word.");
+    case ENTER_SCRIPT:
+      return tr("Please enter a script file.");
     default:
       return "";
   }

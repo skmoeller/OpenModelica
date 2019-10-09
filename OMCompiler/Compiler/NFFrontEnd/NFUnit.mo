@@ -40,13 +40,14 @@ encapsulated package NFUnit
 public
 import DAE;
 import System;
+import ComponentRef = NFComponentRef;
 
 protected
-import ComponentReference;
 import Error;
-import NFHashTableStringToUnit;
-import NFHashTableUnitToString;
+import HashTableStringToUnit = NFHashTableStringToUnit;
+import HashTableUnitToString = NFHashTableUnitToString;
 import Util;
+import Debug;
 
 
 public uniontype Unit
@@ -63,7 +64,7 @@ public uniontype Unit
   end UNIT;
 
   record MASTER "unknown unit that belongs to all the variables from varList"
-    list<DAE.ComponentRef> varList;
+    list<ComponentRef> varList;
   end MASTER;
 
   record UNKNOWN "unknown SI base unit decomposition"
@@ -86,7 +87,7 @@ protected uniontype Token
   record T_RPAREN end T_RPAREN;
 end Token;
 
-public constant DAE.ComponentRef UPDATECREF = DAE.CREF_IDENT("jhagemann", DAE.T_REAL_DEFAULT, {});
+public constant ComponentRef UPDATECREF = ComponentRef.STRING("jhagemann", ComponentRef.EMPTY());
 
 public constant list<tuple<String, Unit>> LU_COMPLEXUNITS = {
 /*                   fac,mol,cd, m, s, A, K, g*/
@@ -103,44 +104,45 @@ public constant list<tuple<String, Unit>> LU_COMPLEXUNITS = {
 //("var",        UNIT(1e3, 0, 0, 2,-3, 0, 0, 1)), //Var=Watt
   ("Hz",         UNIT(1e0, 0, 0, 0,-1, 0, 0, 0)), //Hertz
   ("Ohm",        UNIT(1e3, 0, 0, 2,-3,-2, 0, 1)), //Ohm
-  ("F",         UNIT(1e-3, 0, 0,-2, 4, 2, 0,-1)), //Farad
+  ("F",          UNIT(1e-3, 0, 0,-2, 4, 2, 0,-1)), //Farad
   ("H",          UNIT(1e3, 0, 0, 2,-2,-2, 0, 1)), //Henry
   ("C",          UNIT(1e0, 0, 0, 0, 1, 1, 0, 0)), //Coulomb
   ("T",          UNIT(1e3, 0, 0, 0,-2,-1, 0, 1)), //Tesla
-  ("S",         UNIT(1e-3, 0, 0,-2, 3, 2, 0,-1)), //Siemens
+  ("S",          UNIT(1e-3, 0, 0,-2, 3, 2, 0,-1)), //Siemens
   ("Wb",         UNIT(1e3, 0, 0, 2,-2,-1, 0, 1)), //Weber
 //("lm",         UNIT(1e0, 0, 1, 0, 0, 0, 0, 0)), //Lumen=Candela
 //("lx",         UNIT(1e0, 0, 1,-2, 0, 0, 0, 0)), //Lux=lm/m^2
   ("N",          UNIT(1e3, 0, 0, 1,-2, 0, 0, 1)), //Newton
   ("Pa",         UNIT(1e3, 0, 0,-1,-2, 0, 0, 1)), //Pascal; displayUnit ="bar"
+  ("bar",        UNIT(1e8, 0, 0,-1,-2, 0, 0, 1)), //bar = 100kPa
   ("J",          UNIT(1e3, 0, 0, 2,-2, 0, 0, 1)), //Joule=N*m
   ("min",        UNIT(6e1, 0, 0, 0, 1, 0, 0, 0)), //Minute
-  ("h",        UNIT(3.6e3, 0, 0, 0, 1, 0, 0, 0)), //Stunde
-  ("d",       UNIT(8.64e4, 0, 0, 0, 1, 0, 0, 0)), //Tag
-  ("l",         UNIT(1e-3, 0, 0, 3, 0, 0, 0, 0)), //Liter
+  ("h",          UNIT(3.6e3, 0, 0, 0, 1, 0, 0, 0)), //Stunde
+  ("d",          UNIT(8.64e4, 0, 0, 0, 1, 0, 0, 0)), //Tag
+  ("l",          UNIT(1e-3, 0, 0, 3, 0, 0, 0, 0)), //Liter
   ("kg",         UNIT(1e3, 0, 0, 0, 0, 0, 0, 1)), //Kilogramm
 //("Bq",         UNIT(1e0, 0, 0, 0,-1, 0, 0, 0)), //Becquerel = Hertz
 //("Gy",         UNIT(1e0, 0, 0, 2,-2, 0, 0, 1)), //Gray
 //("Sv",         UNIT(1e0, 0, 0, 2,-2, 0, 0, 1)), //Sievert=Gray
-//("eV", UNIT(1.60218e-16, 0, 0, 2,-2, 0, 0, 1)), //Elektronenvolt    1, 602...*10^-19 kg*m^2/s^2
-//("R",      UNIT(2.58e-7, 0, 0, 0, 1, 1, 0,-1)), //Röntgen    2, 58*10^-4 C/kg
+//("eV",         UNIT(1.60218e-16, 0, 0, 2,-2, 0, 0, 1)), //Elektronenvolt    1, 602...*10^-19 kg*m^2/s^2
+//("R",          UNIT(2.58e-7, 0, 0, 0, 1, 1, 0,-1)), //Röntgen    2, 58*10^-4 C/kg
   ("kat",        UNIT(1e0, 1, 0, 0,-1, 0, 0, 0)), //Katal
   ("1",          UNIT(1e0, 0, 0, 0, 0, 0, 0, 0)), //1
   ("rad",        UNIT(1e0, 0, 0, 0, 0, 0, 0, 0)), //rad; displayUnit ="deg"
-//("B",         UNIT(1e-2, 0, 0, 0, 0, 0, 0, 0)), //Bel (dezibel dB)
+//("B",          UNIT(1e-2, 0, 0, 0, 0, 0, 0, 0)), //Bel (dezibel dB)
 //("phon",       UNIT(1e0, 0, 0, 0, 0, 0, 0, 0)), //Phon
 //("sone",       UNIT(1e0, 0, 0, 0, 0, 0, 0, 0)), //Sone
 //("sr",         UNIT(1e0, 0, 0, 0, 0, 0, 0, 0)), //Steradiant=m^2/m^2
   ("degC",       UNIT(1e0, 0, 0, 0, 0, 0, 1, 0)), //°Celsius
-  ("degF", UNIT(0.55555555555555555555555555555555555555, 0, 0, 0, 0, 0, 1, 0))};//°Fahrenheit
-//("degF", UNIT(5.0 / 9.0, 0, 0, 0, 0, 0, 1, 0, 459.67)), //°Fahrenheit
+  ("degF",       UNIT(0.55555555555555555555555555555555555555, 0, 0, 0, 0, 0, 1, 0))};//°Fahrenheit
+//("degF",       UNIT(5.0 / 9.0, 0, 0, 0, 0, 0, 1, 0, 459.67)), //°Fahrenheit
 //("degC",       UNIT(1e0, 0, 0, 0, 0, 0, 1, 0, 273.15))};//°Celsius
 /*                 fac, mol, cd, m, s, A, K, g*/
 
 public function getKnownUnits
-  output NFHashTableStringToUnit.HashTable outKnownUnits;
+  output HashTableStringToUnit.HashTable outKnownUnits;
 algorithm
-  outKnownUnits := NFHashTableStringToUnit.emptyHashTableSized(Util.nextPrime(4 * listLength(LU_COMPLEXUNITS)));
+  outKnownUnits := HashTableStringToUnit.emptyHashTableSized(Util.nextPrime(4 * listLength(LU_COMPLEXUNITS)));
 
   for unit in LU_COMPLEXUNITS loop
     outKnownUnits := BaseHashTable.add(unit, outKnownUnits);
@@ -148,12 +150,12 @@ algorithm
 end getKnownUnits;
 
 public function getKnownUnitsInverse
-  output NFHashTableUnitToString.HashTable outKnownUnitsInverse;
+  output HashTableUnitToString.HashTable outKnownUnitsInverse;
 protected
   String s;
   Unit ut;
 algorithm
-  outKnownUnitsInverse := NFHashTableUnitToString.emptyHashTableSized(Util.nextPrime(4 * listLength(LU_COMPLEXUNITS)));
+  outKnownUnitsInverse := HashTableUnitToString.emptyHashTableSized(Util.nextPrime(4 * listLength(LU_COMPLEXUNITS)));
 
   for unit in LU_COMPLEXUNITS loop
     (s, ut) := unit;
@@ -173,6 +175,16 @@ algorithm
     else false;
   end match;
 end isUnit;
+
+public function isMaster
+  input Unit unit;
+  output Boolean res;
+algorithm
+  res := match unit
+    case MASTER() then true;
+    else false;
+  end match;
+end isMaster;
 
 public function hashUnitMod
   input Unit inKey;
@@ -196,7 +208,7 @@ algorithm
       Integer i1, i2, i3, i4, i5, i6, i7;
       Integer j1, j2, j3, j4, j5, j6, j7;
       String s, s2;
-      list<DAE.ComponentRef> lcr, lcr2;
+      list<ComponentRef> lcr, lcr2;
 
     case (UNIT(factor1, i1, i2, i3, i4, i5, i6, i7), UNIT(factor2, j1, j2, j3, j4, j5, j6, j7)) equation
       true = realEq(factor1, factor2);
@@ -241,7 +253,7 @@ algorithm
     local
       String s, str;
       Boolean b;
-      list<DAE.ComponentRef> crefList;
+      list<ComponentRef> crefList;
       Real factor1;
       Integer i1, i2, i3, i4, i5, i6, i7;
 
@@ -314,24 +326,24 @@ algorithm
 end unit2string;
 
 public function printListCr
- input list<DAE.ComponentRef> inlCr;
+ input list<ComponentRef> inlCr;
  output String outS;
 algorithm
   outS := match(inlCr)
 
   local
-    list<DAE.ComponentRef> lCr;
-    DAE.ComponentRef cr;
+    list<ComponentRef> lCr;
+    ComponentRef cr;
     String s;
 
     case {} then "";
 
     case cr::{} equation
-      s = ComponentReference.crefStr(cr);
+      s = ComponentRef.toString(cr);
     then s;
 
     case cr::lCr equation
-      s = ComponentReference.crefStr(cr);
+      s = ComponentRef.toString(cr);
       s = s + ", " + printListCr(lCr);
     then s;
 
@@ -465,7 +477,7 @@ end unitRoot;
 
 public function unitString "Unit to Modelica unit string"
   input Unit inUnit;
-  input NFHashTableUnitToString.HashTable inHtU2S = getKnownUnitsInverse();
+  input HashTableUnitToString.HashTable inHtU2S = getKnownUnitsInverse();
   output String outString;
 algorithm
   outString := match(inUnit)
@@ -564,7 +576,7 @@ end prefix2String;
 public function parseUnitString "author: lochel
   The second argument is optional."
   input String inUnitString;
-  input NFHashTableStringToUnit.HashTable inKnownUnits = getKnownUnits();
+  input HashTableStringToUnit.HashTable inKnownUnits = getKnownUnits();
   output Unit outUnit;
 protected
   list<String> charList;
@@ -577,6 +589,9 @@ algorithm
   tokenList := lexer(charList);
   outUnit := parser3({true, true}, tokenList, UNIT(1e0, 0, 0, 0, 0, 0, 0, 0), inKnownUnits);
   if not isUnit(outUnit) then
+    if Flags.isSet(Flags.FAILTRACE) then
+      Debug.traceln(getInstanceName() + ": failed to parse unit string " + inUnitString);
+    end if;
     fail();
   end if;
 end parseUnitString;
@@ -585,7 +600,7 @@ protected function parser3
   input list<Boolean> inMul "true=Mul, false=Div, initial call with true";
   input list<Token> inTokenList "Tokenliste";
   input Unit inUnit "initial call with UNIT(1e0, 0, 0, 0, 0, 0, 0, 0)";
-  input NFHashTableStringToUnit.HashTable inHtS2U;
+  input HashTableStringToUnit.HashTable inHtS2U;
   output Unit outUnit;
 algorithm
   outUnit := matchcontinue(inMul, inTokenList, inUnit, inHtS2U)
@@ -649,13 +664,13 @@ algorithm
       ut = parser3(b::inMul, tokens, inUnit, inHtS2U);
     then ut;
 
-    else fail();
+    else UNKNOWN("");
   end matchcontinue;
 end parser3;
 
 protected function unitToken2unit
   input String inS;
-  input NFHashTableStringToUnit.HashTable inHtS2U;
+  input HashTableStringToUnit.HashTable inHtS2U;
   output Unit outUnit;
 algorithm
   outUnit := matchcontinue(inS, inHtS2U)

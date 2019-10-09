@@ -62,12 +62,11 @@ public:
   FixedCheckBox* getFixedCheckBox() {return mpFixedCheckBox;}
   QString getOriginalFixedValue() {return mOriginalFixedValue;}
   void setValueType(ValueType valueType) {mValueType = valueType;}
-  void setValueWidget(QString value, bool defaultValue, QString fromUnit, bool valueModified = false, bool adjustSize = true);
+  void setValueWidget(QString value, bool defaultValue, QString fromUnit, bool valueModified = false, bool adjustSize = true, bool unitComboBoxChanged = false);
   ValueType getValueType() {return mValueType;}
   QWidget* getValueWidget();
   bool isValueModified();
   QString getValue();
-  QString getDefaultValue();
   QToolButton* getFileSelectorButton() {return mpFileSelectorButton;}
   void setLoadSelectorFilter(QString loadSelectorFilter) {mLoadSelectorFilter = loadSelectorFilter;}
   QString getLoadSelectorFilter() {return mLoadSelectorFilter;}
@@ -111,11 +110,13 @@ private:
   Label *mpCommentLabel;
 
   void createValueWidget();
+  void enableDisableUnitComboBox(const QString &value);
 public slots:
   void fileSelectorButtonClicked();
   void unitComboBoxChanged(QString text);
   void valueComboBoxChanged(int index);
   void valueCheckBoxChanged(bool toggle);
+  void valueTextBoxEdited(const QString &text);
   void showFixedMenu();
   void trueFixedClicked();
   void falseFixedClicked();
@@ -140,7 +141,7 @@ class ParametersScrollArea : public QScrollArea
   Q_OBJECT
 public:
   ParametersScrollArea();
-  virtual QSize minimumSizeHint() const;
+  virtual QSize minimumSizeHint() const override;
   void addGroupBox(GroupBox *pGroupBox);
   GroupBox *getGroupBox(QString title);
   QVBoxLayout* getLayout();

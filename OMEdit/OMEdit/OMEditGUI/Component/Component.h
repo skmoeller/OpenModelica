@@ -67,14 +67,13 @@ public:
   ComponentInfo(ComponentInfo *pComponentInfo, QObject *pParent = 0);
   void updateComponentInfo(const ComponentInfo *pComponentInfo);
   void parseComponentInfoString(QString value);
-  void fetchModifiers(OMCProxy *pOMCProxy, QString className, Component *pComponent);
-  void fetchParameterValue(OMCProxy *pOMCProxy, QString className);
+  void fetchParameterValue(OMCProxy *pOMCProxy, const QString &className);
   void applyDefaultPrefixes(QString defaultPrefixes);
-  void setClassName(QString className) {mClassName = className;}
+  void setClassName(const QString &className) {mClassName = className;}
   QString getClassName() const {return mClassName;}
-  void setName(QString name) {mName = name;}
+  void setName(const QString &name) {mName = name;}
   QString getName() const {return mName;}
-  void setComment(QString comment) {mComment = comment;}
+  void setComment(const QString &comment) {mComment = comment;}
   QString getComment() const {return StringHandler::removeFirstLastQuotes(mComment);}
   void setProtected(bool protect) {mIsProtected = protect;}
   bool getProtected() const {return mIsProtected;}
@@ -86,43 +85,45 @@ public:
   bool getStream() const {return mIsStream;}
   void setReplaceable(bool replaceable) {mIsReplaceable = replaceable;}
   bool getReplaceable() const {return mIsReplaceable;}
-  void setVariablity(QString variability) {mVariability = variability;}
+  void setVariablity(const QString &variability) {mVariability = variability;}
   QString getVariablity() const {return mVariability;}
   void setInner(bool inner) {mIsInner = inner;}
   bool getInner() const {return mIsInner;}
   void setOuter(bool outer) {mIsOuter = outer;}
   bool getOuter() const {return mIsOuter;}
-  void setCausality(QString causality) {mCasuality = causality;}
+  void setCausality(const QString &causality) {mCasuality = causality;}
   QString getCausality() const {return mCasuality;}
-  void setArrayIndex(QString arrayIndex);
+  void setArrayIndex(const QString &arrayIndex);
   QString getArrayIndex() const {return mArrayIndex;}
+  int getArrayIndexAsNumber(bool *ok) const;
   bool isArray() const {return mIsArray;}
   bool isModifiersLoaded() const {return mModifiersLoaded;}
+  void setModifiersLoaded(bool modifiersLoaded) {mModifiersLoaded = modifiersLoaded;}
   void setModifiersMap(QMap<QString, QString> modifiersMap) {mModifiersMap = modifiersMap;}
   QMap<QString, QString> getModifiersMapWithoutFetching() const {return mModifiersMap;}
   QMap<QString, QString> getModifiersMap(OMCProxy *pOMCProxy, QString className, Component *pComponent);
   bool isParameterValueLoaded() const {return mParameterValueLoaded;}
-  void setParameterValue(QString parameterValue) {mParameterValue = parameterValue;}
+  void setParameterValue(const QString &parameterValue) {mParameterValue = parameterValue;}
   QString getParameterValueWithoutFetching() const {return mParameterValue;}
-  QString getParameterValue(OMCProxy *pOMCProxy, QString className);
+  QString getParameterValue(OMCProxy *pOMCProxy, const QString &className);
   // CompositeModel attributes
-  void setStartCommand(QString startCommand) {mStartCommand = startCommand;}
+  void setStartCommand(const QString &startCommand) {mStartCommand = startCommand;}
   QString getStartCommand() const {return mStartCommand;}
   void setExactStep(bool exactStep) {mExactStep = exactStep;}
   bool getExactStep() const {return mExactStep;}
-  void setModelFile(QString modelFile) {mModelFile = modelFile;}
+  void setModelFile(const QString &modelFile) {mModelFile = modelFile;}
   QString getModelFile() const {return mModelFile;}
-  void setGeometryFile(QString geometryFile) {mGeometryFile = geometryFile;}
+  void setGeometryFile(const QString &geometryFile) {mGeometryFile = geometryFile;}
   QString getGeometryFile() const {return mGeometryFile;}
-  void setPosition(QString position) {mPosition = position;}
+  void setPosition(const QString &position) {mPosition = position;}
   QString getPosition() const {return mPosition;}
-  void setAngle321(QString angle321) {mAngle321 = angle321;}
+  void setAngle321(const QString &angle321) {mAngle321 = angle321;}
   QString getAngle321() const {return mAngle321;}
   void setDimensions(int dimensions) {mDimensions = dimensions;}
   int getDimensions() const {return mDimensions;}
-  void setTLMCausality(QString causality) {mTLMCausality = causality;}
+  void setTLMCausality(const QString &causality) {mTLMCausality = causality;}
   QString getTLMCausality() const {return mTLMCausality;}
-  void setDomain(QString domain) {mDomain = domain;}
+  void setDomain(const QString &domain) {mDomain = domain;}
   QString getDomain() const {return mDomain;}
   // operator overloading
   bool operator==(const ComponentInfo &componentInfo) const;
@@ -160,6 +161,7 @@ private:
   QString mTLMCausality;
   QString mDomain;
 
+  void fetchModifiers(OMCProxy *pOMCProxy, QString className, Component *pComponent);
   bool isModiferClassRecord(QString modifierName, Component *pComponent);
 };
 
@@ -183,9 +185,9 @@ public:
   bool isInheritedComponent() {return mIsInheritedComponent;}
   bool hasShapeAnnotation(Component *pComponent);
   bool hasNonExistingClass();
-  QRectF boundingRect() const;
+  QRectF boundingRect() const override;
   QRectF itemsBoundingRect();
-  void paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWidget *widget = 0);
+  void paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWidget *widget = 0) override;
   LibraryTreeItem* getLibraryTreeItem() {return mpLibraryTreeItem;}
   QString getName() {return mpComponentInfo->getName();}
   GraphicsView* getGraphicsView() {return mpGraphicsView;}
@@ -215,12 +217,17 @@ public:
   void setOldPosition(QPointF oldPosition) {mOldPosition = oldPosition;}
   QPointF getOldPosition() {return mOldPosition;}
   void setComponentFlags(bool enable);
-  QString getTransformationAnnotation();
-  QString getPlacementAnnotation();
+  QString getTransformationAnnotation(bool ModelicaSyntax);
+  QString getPlacementAnnotation(bool ModelicaSyntax = false);
   QString getOMCTransformationAnnotation(QPointF position);
   QString getOMCPlacementAnnotation(QPointF position);
   QString getTransformationOrigin();
   QString getTransformationExtent();
+  bool isExpandableConnector() const;
+  bool isArray() const;
+  int getArrayIndexAsNumber(bool *ok = 0) const;
+  bool isConnectorSizing();
+  static bool isParameterConnectorSizing(Component *pComponent, QString parameter);
   void createClassComponents();
   void applyRotation(qreal angle);
   void addConnectionDetails(LineAnnotation *pConnectorLineAnnotation);
@@ -269,7 +276,6 @@ private:
   QStringList mDialogAnnotation;
   QStringList mChoicesAnnotation;
   QString mParameterValue;
-  QGraphicsRectItem *mpResizerRectangle;
   LineAnnotation *mpNonExistingComponentLine;
   RectangleAnnotation *mpDefaultComponentRectangle;
   TextAnnotation *mpDefaultComponentText;
@@ -378,8 +384,7 @@ public slots:
   void showElementPropertiesDialog();
   void updateDynamicSelect(double time);
 protected:
-  virtual void contextMenuEvent(QGraphicsSceneContextMenuEvent *event);
-  virtual QVariant itemChange(GraphicsItemChange change, const QVariant &value);
+  virtual QVariant itemChange(GraphicsItemChange change, const QVariant &value) override;
 };
 
 #endif // COMPONENT_H

@@ -46,7 +46,6 @@ encapsulated package SCode
   The SCode representation is used as input to the Inst module"
 
 public import Absyn;
-public import AbsynUtil;
 
 // Some definitions are aliased from Absyn
 public type Ident = Absyn.Ident;
@@ -213,7 +212,6 @@ uniontype ClassDef
 
 end ClassDef;
 
-public constant Comment noComment = COMMENT(NONE(),NONE());
 
 public
 uniontype Comment
@@ -224,6 +222,8 @@ uniontype Comment
   end COMMENT;
 
 end Comment;
+
+public constant Comment noComment = COMMENT(NONE(),NONE());
 
 // stefan
 public

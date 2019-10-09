@@ -61,7 +61,11 @@ ModelicaEditor::ModelicaEditor(QWidget *pParent)
   mpPlainTextEdit->setCanHaveBreakpoints(true);
   mpPlainTextEdit->setCompletionCharacters(".");
   /* set the document marker */
-  mpDocumentMarker = new DocumentMarker(mpPlainTextEdit->document());
+  if (isModelicaModelInPackageOneFile()) {
+    mpDocumentMarker = new DocumentMarker(mpPlainTextEdit->document(), mpModelWidget->getLibraryTreeItem()->mClassInformation.lineNumberStart);
+  } else {
+    mpDocumentMarker = new DocumentMarker(mpPlainTextEdit->document());
+  }
 }
 
 /*!
@@ -74,29 +78,36 @@ void ModelicaEditor::popUpCompleter()
   mpPlainTextEdit->clearCompleter();
 
   QList<CompleterItem> annotations;
-  getCompletionAnnotations(stringAfterWord("annotation"), annotations);
+  bool inAnnotation = getCompletionAnnotations(stringAfterWord("annotation"), annotations);
+  mpPlainTextEdit->insertCompleterSymbols(annotations, ":/Resources/icons/completerAnnotation.svg");
 
-  if (!word.contains('.') && annotations.empty()) {
-    QStringList keywords = ModelicaHighlighter::getKeywords();
-    mpPlainTextEdit->insertCompleterKeywords(keywords);
+  bool startsWithUpperCase = !word.isEmpty() && word[0].isUpper();
+
+  if (!word.contains('.') && !inAnnotation) {
+    // Suppose if user specially entered an upper case first letter,
+    // it is definitely not a keyword...
+    if (!startsWithUpperCase) {
+      QStringList keywords = ModelicaHighlighter::getKeywords();
+      mpPlainTextEdit->insertCompleterKeywords(keywords);
+      QList<CompleterItem> codesnippets = getCodeSnippets();
+      mpPlainTextEdit->insertCompleterCodeSnippets(codesnippets);
+    }
     QStringList types = ModelicaHighlighter::getTypes();
     mpPlainTextEdit->insertCompleterTypes(types);
-    QList<CompleterItem> codesnippets = getCodeSnippets();
-    mpPlainTextEdit->insertCompleterCodeSnippets(codesnippets);
   }
-  QList<CompleterItem> classes, components;
-  getCompletionSymbols(word, classes, components);
+  if (!inAnnotation) {
+    QList<CompleterItem> classes, components;
+    getCompletionSymbols(word, classes, components);
 
-  std::sort(classes.begin(), classes.end());
-  classes.erase(std::unique(classes.begin(), classes.end()), classes.end());
+    std::sort(classes.begin(), classes.end());
+    classes.erase(std::unique(classes.begin(), classes.end()), classes.end());
 
-  std::sort(components.begin(), components.end());
-  components.erase(std::unique(components.begin(), components.end()), components.end());
+    std::sort(components.begin(), components.end());
+    components.erase(std::unique(components.begin(), components.end()), components.end());
 
-  mpPlainTextEdit->insertCompleterSymbols(classes, ":/Resources/icons/completerClass.svg");
-  mpPlainTextEdit->insertCompleterSymbols(components, ":/Resources/icons/completerComponent.svg");
-
-  mpPlainTextEdit->insertCompleterSymbols(annotations, ":/Resources/icons/completerAnnotation.svg");
+    mpPlainTextEdit->insertCompleterSymbols(classes, ":/Resources/icons/completerClass.svg");
+    mpPlainTextEdit->insertCompleterSymbols(components, ":/Resources/icons/completerComponent.svg");
+  }
 
   QCompleter *completer = mpPlainTextEdit->completer();
   QRect cr = mpPlainTextEdit->cursorRect();
@@ -258,18 +269,23 @@ void ModelicaEditor::getCompletionAnnotations(const QStringList &stack, QList<Co
  * \brief Resolves the annotation under cursor as a stack of nested names and returns completions
  * \param str A string starting with the "annotation" word up to the cursor position
  * \param annotations Resulting collection of completion items
+ * \return Whether current cursor position is considered inside an annotation
  */
-void ModelicaEditor::getCompletionAnnotations(const QString &str, QList<CompleterItem> &annotations)
+bool ModelicaEditor::getCompletionAnnotations(const QString &str, QList<CompleterItem> &annotations)
 {
   QStringList stack;
   int lastWordStart = 0;
   bool insideWord = false;
 
   if (str.isEmpty())
-    return;
+    return false;
 
   for (int i = 0; i < str.size(); ++i) {
     QChar ch = str[i];
+
+    // do not prevent other completions in case of unrelated unfinished annotation
+    if (ch == ';')
+      return false;
 
     // First, handle string literals
     if (ch == '"') {
@@ -288,7 +304,7 @@ void ModelicaEditor::getCompletionAnnotations(const QString &str, QList<Complete
     }
     if (ch == ')') {
       if (stack.isEmpty()) {
-        return; // not in an annotation at all
+        return false; // not in an annotation at all
       }
       stack.pop_back();
     }
@@ -302,10 +318,11 @@ void ModelicaEditor::getCompletionAnnotations(const QString &str, QList<Complete
   }
 
   if (stack.isEmpty()) {
-    return;
+    return false;
   }
   stack.pop_front(); // pop 'annotation'
   getCompletionAnnotations(stack, annotations);
+  return true;
 }
 
 /*!

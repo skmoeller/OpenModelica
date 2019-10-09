@@ -57,6 +57,7 @@ import Config;
 import ClassInf;
 import DAEDump;
 import DAEUtil;
+import DoubleEnded;
 import Debug;
 import ElementSource;
 import Error;
@@ -148,7 +149,7 @@ algorithm
   eqnarr := BackendEquation.listEquation(eqns);
   reqnarr := BackendEquation.listEquation(reqns);
   ieqnarr := BackendEquation.listEquation(ieqns);
-  einfo := BackendDAE.EVENT_INFO(timeEvents, ZeroCrossings.new(), DoubleEndedList.fromList({}), ZeroCrossings.new(), 0);
+  einfo := BackendDAE.EVENT_INFO(timeEvents, ZeroCrossings.new(), DoubleEnded.fromList({}), ZeroCrossings.new(), 0);
   symjacs := {(NONE(), ({}, {}, ({}, {}), -1), {}), (NONE(), ({}, {}, ({}, {}), -1), {}), (NONE(), ({}, {}, ({}, {}), -1), {}), (NONE(), ({}, {}, ({}, {}), -1), {})};
   syst := BackendDAEUtil.createEqSystem(vars_1, eqnarr, {}, BackendDAE.UNKNOWN_PARTITION(), reqnarr);
   outBackendDAE := BackendDAE.DAE(syst::{},
@@ -1095,13 +1096,15 @@ protected function lowerVarkind
   output BackendDAE.VarKind outVarKind;
 algorithm
   outVarKind := match(inVarKind, daeAttr)
-    // variable -> state if have stateSelect = StateSelect.always
+    // variable -> artificial state if have stateSelect = StateSelect.always
     case (DAE.VARIABLE(), SOME(DAE.VAR_ATTR_REAL(stateSelectOption = SOME(DAE.ALWAYS()))))
-      then BackendDAE.STATE(1, NONE());
+      guard(not Types.isDiscreteType(inType))
+      then BackendDAE.STATE(1, NONE(), false);
 
-    // variable -> state if have stateSelect = StateSelect.prefer
+    // variable -> artificial state if have stateSelect = StateSelect.prefer
     case (DAE.VARIABLE(), SOME(DAE.VAR_ATTR_REAL(stateSelectOption = SOME(DAE.PREFER()))))
-      then BackendDAE.STATE(1, NONE());
+      guard(not Types.isDiscreteType(inType))
+      then BackendDAE.STATE(1, NONE(), false);
 
     else
       equation
@@ -1386,7 +1389,7 @@ algorithm
       then
         (inEquations,inREquations,eqns);
 
-    case DAE.FOR_EQUATION(iter = s, range = e1, equations = eqnslst, source = source)
+    case DAE.FOR_EQUATION(iter = s, range = e1, equations = eqnslst)
       equation
         // create one backend for-equation for each equation element in the loop
         (eqns, reqns, ieqns) = lowerEqns(eqnslst, functionTree, {}, {}, {}, inInitialization);
@@ -2021,7 +2024,7 @@ algorithm
 
     case DAE.DEFINE(componentRef = cr, exp = e, source = source)::xs
       equation
-        (e, _) = ExpressionSolve.solve(Expression.crefExp(cr), e, Expression.crefExp(cr));
+        (e, _) = ExpressionSolve.solve(Expression.crefExp(cr), e, Expression.crefExp(cr), NONE());
         (DAE.PARTIAL_EQUATION(e), source) = ExpressionSimplify.simplifyAddSymbolicOperation(DAE.PARTIAL_EQUATION(e),source);
         whenOp = BackendDAE.ASSIGN(Expression.crefExp(cr), e, source);
         whenEq = BackendDAE.WHEN_STMTS(inCond, {whenOp}, NONE());
@@ -2051,7 +2054,7 @@ algorithm
 
     case (el as DAE.EQUATION(exp = (cre as DAE.CREF()), scalar = e, source = source))::xs algorithm
       try
-        e := ExpressionSolve.solve(cre, e, cre);
+        e := ExpressionSolve.solve(cre, e, cre, NONE());
       else
         Error.addCompilerError("Failed to solve " + DAEDump.dumpElementsStr({el}));
         fail();

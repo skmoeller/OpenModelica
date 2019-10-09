@@ -424,6 +424,36 @@ ThreeDViewer* MainWindow::getThreeDViewer()
 #endif
 
 /*!
+ * \brief MainWindow::isModelingPerspectiveActive
+ * Returns true if the Modeling perspective is active.
+ * \return
+ */
+bool MainWindow::isModelingPerspectiveActive()
+{
+  return mpPerspectiveTabbar->currentIndex() == 1;
+}
+
+/*!
+ * \brief MainWindow::isPlottingPerspectiveActive
+ * Returns true if the Plotting perspective is active.
+ * \return
+ */
+bool MainWindow::isPlottingPerspectiveActive()
+{
+  return mpPerspectiveTabbar->currentIndex() == 2;
+}
+
+/*!
+ * \brief MainWindow::isDebuggingPerspectiveActive
+ * Returns true if the Debugging perspective is active.
+ * \return
+ */
+bool MainWindow::isDebuggingPerspectiveActive()
+{
+  return mpPerspectiveTabbar->currentIndex() == 3;
+}
+
+/*!
  * \brief MainWindow::addRecentFile
  * Adds the currently opened file to the recentFilesList settings.
  * \param fileName
@@ -648,7 +678,7 @@ void MainWindow::openResultFiles(QStringList fileNames)
     QFileInfo fileInfo(fileName);
     QStringList list = mpOMCProxy->readSimulationResultVars(fileInfo.absoluteFilePath());
     if (list.size() > 0) {
-      mpPerspectiveTabbar->setCurrentIndex(2);
+      switchToPlottingPerspectiveSlot();
       mpVariablesWidget->insertVariablesItemsToTree(fileInfo.fileName(), fileInfo.absoluteDir().absolutePath(), list, SimulationOptions());
     }
   }
@@ -1433,6 +1463,46 @@ void MainWindow::showMessagesBrowser()
 }
 
 /*!
+ * \brief MainWindow::switchToWelcomePerspectiveSlot
+ * Slot activated when Ctrl+f1 is clicked.
+ * Switches to welcome perspective.
+ */
+void MainWindow::switchToWelcomePerspectiveSlot()
+{
+  mpPerspectiveTabbar->setCurrentIndex(0);
+}
+
+/*!
+ * \brief MainWindow::switchToModelingPerspectiveSlot
+ * Slot activated when Ctrl+f2 is clicked.
+ * Switches to modeling perspective.
+ */
+void MainWindow::switchToModelingPerspectiveSlot()
+{
+  mpPerspectiveTabbar->setCurrentIndex(1);
+}
+
+/*!
+ * \brief MainWindow::switchToPlottingPerspectiveSlot
+ * Slot activated when Ctrl+f3 is clicked.
+ * Switches to plotting perspective.
+ */
+void MainWindow::switchToPlottingPerspectiveSlot()
+{
+  mpPerspectiveTabbar->setCurrentIndex(2);
+}
+
+/*!
+ * \brief MainWindow::switchToAlgorithmicDebuggingPerspectiveSlot
+ * Slot activated when Ctrl+f5 is clicked.
+ * Switches to algorithmic debugging perspective.
+ */
+void MainWindow::switchToAlgorithmicDebuggingPerspectiveSlot()
+{
+  mpPerspectiveTabbar->setCurrentIndex(3);
+}
+
+/*!
  * \brief MainWindow::showSearchBrowser
  * Shows the Search Browser, selects the search text if any and sets the focus on it.
  */
@@ -1555,12 +1625,17 @@ void MainWindow::loadEncryptedLibrary()
   hideProgressBar();
 }
 
+/*!
+ * \brief MainWindow::showOpenResultFileDialog
+ * Shows the dialog to open the result files.
+ */
 void MainWindow::showOpenResultFileDialog()
 {
   QStringList fileNames = StringHandler::getOpenFileNames(this, QString(Helper::applicationName).append(" - ").append(Helper::chooseFiles),
                                                           NULL, Helper::omResultFileTypes, NULL);
-  if (fileNames.isEmpty())
+  if (fileNames.isEmpty()) {
     return;
+  }
   openResultFiles(fileNames);
 }
 
@@ -2713,12 +2788,8 @@ void MainWindow::toggleShapesButton()
 void MainWindow::openRecentModelWidget()
 {
   /* if Model text is changed manually by user then validate it before opening recent ModelWidget. */
-  ModelWidget *pModelWidget = mpModelWidgetContainer->getCurrentModelWidget();
-  if (pModelWidget && pModelWidget->getLibraryTreeItem()) {
-    LibraryTreeItem *pLibraryTreeItem = pModelWidget->getLibraryTreeItem();
-    if (!pModelWidget->validateText(&pLibraryTreeItem)) {
-      return;
-    }
+  if (!mpModelWidgetContainer->validateText()) {
+    return;
   }
   QAction *pAction = qobject_cast<QAction*>(sender());
   QToolButton *pToolButton = qobject_cast<QToolButton*>(sender());
@@ -2769,15 +2840,14 @@ void MainWindow::updateModelSwitcherMenu(QMdiSubWindow *pActivatedWindow)
 
 /*!
  * \brief MainWindow::runDebugConfiguration
- * Runs the
+ * Runs the debug configuration.
  */
 void MainWindow::runDebugConfiguration()
 {
   QAction *pAction = qobject_cast<QAction*>(sender());
   QToolButton *pToolButton = qobject_cast<QToolButton*>(sender());
-  if (pAction) {
-    pAction = pAction;
-  } else if (pToolButton) {
+
+  if (!pAction && pToolButton) {
     QList<QAction *> actions = mpDebugConfigurationMenu->actions();
     // read the settings and add debug configurations
     QSettings *pSettings = Utilities::getApplicationSettings();
@@ -2789,6 +2859,7 @@ void MainWindow::runDebugConfiguration()
       return;
     }
   }
+
   if (pAction) {
     DebuggerConfigurationsDialog *pDebuggerConfigurationsDialog = new DebuggerConfigurationsDialog(this);
     connect(pDebuggerConfigurationsDialog, SIGNAL(debuggerLaunched()), SLOT(switchToAlgorithmicDebuggingPerspectiveSlot()));
@@ -2980,46 +3051,6 @@ void MainWindow::threeDViewerDockWidgetVisibilityChanged(bool visible)
 void MainWindow::autoSave()
 {
   autoSaveHelper(mpLibraryWidget->getLibraryTreeModel()->getRootLibraryTreeItem());
-}
-
-/*!
- * \brief MainWindow::switchToWelcomePerspectiveSlot
- * Slot activated when Ctrl+f1 is clicked.
- * Switches to welcome perspective.
- */
-void MainWindow::switchToWelcomePerspectiveSlot()
-{
-  mpPerspectiveTabbar->setCurrentIndex(0);
-}
-
-/*!
- * \brief MainWindow::switchToModelingPerspectiveSlot
- * Slot activated when Ctrl+f2 is clicked.
- * Switches to modeling perspective.
- */
-void MainWindow::switchToModelingPerspectiveSlot()
-{
-  mpPerspectiveTabbar->setCurrentIndex(1);
-}
-
-/*!
- * \brief MainWindow::switchToPlottingPerspectiveSlot
- * Slot activated when Ctrl+f3 is clicked.
- * Switches to plotting perspective.
- */
-void MainWindow::switchToPlottingPerspectiveSlot()
-{
-  mpPerspectiveTabbar->setCurrentIndex(2);
-}
-
-/*!
- * \brief MainWindow::switchToAlgorithmicDebuggingPerspectiveSlot
- * Slot activated when Ctrl+f5 is clicked.
- * Switches to algorithmic debugging perspective.
- */
-void MainWindow::switchToAlgorithmicDebuggingPerspectiveSlot()
-{
-  mpPerspectiveTabbar->setCurrentIndex(3);
 }
 
 /*!
@@ -3300,16 +3331,6 @@ void MainWindow::createActions()
   mpFilterClassesAction = new QAction(Helper::filterClasses, this);
   mpFilterClassesAction->setShortcut(QKeySequence("Ctrl+Shift+f"));
   connect(mpFilterClassesAction, SIGNAL(triggered()), SLOT(focusFilterClasses()));
-  // cut action
-  mpCutAction = new QAction(QIcon(":/Resources/icons/cut.svg"), tr("Cut"), this);
-  mpCutAction->setShortcut(QKeySequence("Ctrl+x"));
-  // copy action
-  mpCopyAction = new QAction(QIcon(":/Resources/icons/copy.svg"), Helper::copy, this);
-  //! @todo opening this will stop copying data from messages window.
-  //mpCopyAction->setShortcut(QKeySequence("Ctrl+c"));
-  // paste action
-  mpPasteAction = new QAction(QIcon(":/Resources/icons/paste.svg"), tr("Paste"), this);
-  mpPasteAction->setShortcut(QKeySequence("Ctrl+v"));
   // View Menu
   // show/hide gridlines action
   mpShowGridLinesAction = new QAction(QIcon(":/Resources/icons/grid.svg"), tr("Grid Lines"), this);
@@ -3705,7 +3726,7 @@ void MainWindow::createMenus()
   pFileMenu->addMenu(pImportMenu);
   // Export menu
   QMenu *pExportMenu = new QMenu(menuBar());
-  pExportMenu->setTitle(tr("Export"));
+  pExportMenu->setTitle(Helper::exportt);
   // add actions to Export menu
   pExportMenu->addAction(mpExportToClipboardAction);
   pExportMenu->addAction(mpExportAsImageAction);
@@ -3757,9 +3778,6 @@ void MainWindow::createMenus()
   pEditMenu->addAction(mpRedoAction);
   pEditMenu->addSeparator();
   pEditMenu->addAction(mpFilterClassesAction);
-  //  pEditMenu->addAction(mpCutAction);
-  //  pEditMenu->addAction(mpCopyAction);
-  //  pEditMenu->addAction(mpPasteAction);
   // add Edit menu to menu bar
   menuBar()->addAction(pEditMenu->menuAction());
   // View menu
@@ -3953,15 +3971,11 @@ void MainWindow::autoSaveHelper(LibraryTreeItem *pLibraryTreeItem)
  */
 void MainWindow::switchToWelcomePerspective()
 {
-  ModelWidget *pModelWidget = mpModelWidgetContainer->getCurrentModelWidget();
-  if (pModelWidget && pModelWidget->getLibraryTreeItem()) {
-    LibraryTreeItem *pLibraryTreeItem = pModelWidget->getLibraryTreeItem();
-    if (!pModelWidget->validateText(&pLibraryTreeItem)) {
-      bool signalsState = mpPerspectiveTabbar->blockSignals(true);
-      mpPerspectiveTabbar->setCurrentIndex(1);
-      mpPerspectiveTabbar->blockSignals(signalsState);
-      return;
-    }
+  if (!mpModelWidgetContainer->validateText()) {
+    bool signalsState = mpPerspectiveTabbar->blockSignals(true);
+    mpPerspectiveTabbar->setCurrentIndex(1);
+    mpPerspectiveTabbar->blockSignals(signalsState);
+    return;
   }
   mpCentralStackedWidget->setCurrentWidget(mpWelcomePageWidget);
   mpModelWidgetContainer->currentModelWidgetChanged(0);
@@ -4029,16 +4043,13 @@ void MainWindow::switchToModelingPerspective()
  */
 void MainWindow::switchToPlottingPerspective()
 {
-  ModelWidget *pModelWidget = mpModelWidgetContainer->getCurrentModelWidget();
-  if (pModelWidget && pModelWidget->getLibraryTreeItem()) {
-    LibraryTreeItem *pLibraryTreeItem = pModelWidget->getLibraryTreeItem();
-    if (!pModelWidget->validateText(&pLibraryTreeItem)) {
-      bool signalsState = mpPerspectiveTabbar->blockSignals(true);
-      mpPerspectiveTabbar->setCurrentIndex(1);
-      mpPerspectiveTabbar->blockSignals(signalsState);
-      return;
-    }
+  if (!mpModelWidgetContainer->validateText()) {
+    bool signalsState = mpPerspectiveTabbar->blockSignals(true);
+    mpPerspectiveTabbar->setCurrentIndex(1);
+    mpPerspectiveTabbar->blockSignals(signalsState);
+    return;
   }
+  ModelWidget *pModelWidget = mpModelWidgetContainer->getCurrentModelWidget();
   mpCentralStackedWidget->setCurrentWidget(mpPlotWindowContainer);
   mpModelWidgetContainer->currentModelWidgetChanged(0);
   mpUndoAction->setEnabled(false);
@@ -4202,9 +4213,6 @@ void MainWindow::createToolbars()
   // add actions to edit toolbar
   mpEditToolBar->addAction(mpUndoAction);
   mpEditToolBar->addAction(mpRedoAction);
-  //  mpEditToolBar->addAction(mpCutAction);
-  //  mpEditToolBar->addAction(mpCopyAction);
-  //  mpEditToolBar->addAction(mpPasteAction);
   // View Toolbar
   mpViewToolBar = addToolBar(tr("View Toolbar"));
   mpViewToolBar->setObjectName("View Toolbar");

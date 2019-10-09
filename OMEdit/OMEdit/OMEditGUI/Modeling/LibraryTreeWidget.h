@@ -133,6 +133,7 @@ public:
   bool isSystemElement() const {return (mpOMSElement && (mpOMSElement->type == oms_element_system));}
   bool isComponentElement() const {return (mpOMSElement && (mpOMSElement->type == oms_element_component));}
   bool isFMUComponent() const {return (mpOMSElement && (mpOMSElement->type == oms_element_component) && (mComponentType == oms_component_fmu));}
+  bool isExternalTLMModelComponent() const {return (mpOMSElement && (mpOMSElement->type == oms_element_component) && (mComponentType == oms_component_external));}
   bool isTableComponent() const {return (mpOMSElement && (mpOMSElement->type == oms_element_component) && (mComponentType == oms_component_table));}
   void setSystemType(oms_system_enu_t type) {mSystemType = type;}
   oms_system_enu_t getSystemType() {return mSystemType;}
@@ -150,6 +151,8 @@ public:
   oms_tlmbusconnector_t* getOMSTLMBusConnector() const {return mpOMSTLMBusConnector;}
   void setFMUInfo(const oms_fmu_info_t *pFMUInfo) {mpFMUInfo = pFMUInfo;}
   const oms_fmu_info_t* getFMUInfo() const {return mpFMUInfo;}
+  void setExternalTLMModelInfo(const oms_external_tlm_model_info_t *pExternalTLMModelInfo) { mpExternalTLMModelInfo = pExternalTLMModelInfo;}
+  const oms_external_tlm_model_info_t* getExternalTLMModelInfo() const {return mpExternalTLMModelInfo;}
   void setSubModelPath(QString subModelPath) {mSubModelPath = subModelPath;}
   QString getSubModelPath() const {return mSubModelPath;}
   oms_modelState_enu_t getModelState() const {return mModelState;}
@@ -224,6 +227,7 @@ private:
   oms_busconnector_t *mpOMSBusConnector;
   oms_tlmbusconnector_t *mpOMSTLMBusConnector;
   const oms_fmu_info_t *mpFMUInfo;
+  const oms_external_tlm_model_info_t *mpExternalTLMModelInfo;
   QString mSubModelPath;
   oms_modelState_enu_t mModelState;
 signals:
@@ -259,7 +263,7 @@ private:
   LibraryWidget *mpLibraryWidget;
   bool mShowOnlyModelica;
 protected:
-  virtual bool filterAcceptsRow(int sourceRow, const QModelIndex &sourceParent) const;
+  virtual bool filterAcceptsRow(int sourceRow, const QModelIndex &sourceParent) const override;
 };
 
 class LibraryTreeModel : public QAbstractItemModel
@@ -268,13 +272,13 @@ class LibraryTreeModel : public QAbstractItemModel
 public:
   LibraryTreeModel(LibraryWidget *pLibraryWidget);
   LibraryTreeItem* getRootLibraryTreeItem() {return mpRootLibraryTreeItem;}
-  int columnCount(const QModelIndex &parent = QModelIndex()) const;
-  int rowCount(const QModelIndex &parent = QModelIndex()) const;
-  QVariant headerData(int section, Qt::Orientation orientation, int role = Qt::DisplayRole) const;
-  QModelIndex index(int row, int column, const QModelIndex &parent = QModelIndex()) const;
-  QModelIndex parent(const QModelIndex & index) const;
-  QVariant data(const QModelIndex & index, int role = Qt::DisplayRole) const;
-  Qt::ItemFlags flags(const QModelIndex &index) const;
+  int columnCount(const QModelIndex &parent = QModelIndex()) const override;
+  int rowCount(const QModelIndex &parent = QModelIndex()) const override;
+  QVariant headerData(int section, Qt::Orientation orientation, int role = Qt::DisplayRole) const override;
+  QModelIndex index(int row, int column, const QModelIndex &parent = QModelIndex()) const override;
+  QModelIndex parent(const QModelIndex & index) const override;
+  QVariant data(const QModelIndex & index, int role = Qt::DisplayRole) const override;
+  Qt::ItemFlags flags(const QModelIndex &index) const override;
   LibraryTreeItem* findLibraryTreeItem(const QString &name, LibraryTreeItem *pLibraryTreeItem = 0,
                                        Qt::CaseSensitivity caseSensitivity = Qt::CaseSensitive) const;
   LibraryTreeItem* findLibraryTreeItem(const QRegExp &regExp, LibraryTreeItem *pLibraryTreeItem = 0) const;
@@ -356,7 +360,7 @@ private:
   void deleteFileHelper(LibraryTreeItem *pLibraryTreeItem, LibraryTreeItem *pParentLibraryTreeItem);
   void deleteFileChildren(LibraryTreeItem *pLibraryTreeItem);
 protected:
-  Qt::DropActions supportedDropActions() const;
+  Qt::DropActions supportedDropActions() const override;
 };
 
 class LibraryTreeView : public QTreeView
@@ -460,8 +464,8 @@ public slots:
   void OMSRename();
   void unloadOMSModel();
 protected:
-  virtual void startDrag(Qt::DropActions supportedActions);
-  virtual void keyPressEvent(QKeyEvent *event);
+  virtual void startDrag(Qt::DropActions supportedActions) override;
+  virtual void keyPressEvent(QKeyEvent *event) override;
 };
 
 class LibraryWidget : public QWidget

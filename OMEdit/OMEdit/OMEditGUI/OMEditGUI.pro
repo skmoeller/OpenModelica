@@ -89,12 +89,17 @@ win32 {
     -L$$(OMBUILDDIR)/lib/omc -lomantlr3 -lOMPlot -lomqwt -lomopcua \
     -lOpenModelicaCompiler -lOpenModelicaRuntimeC -lfmilib -lModelicaExternalC -lomcgc -lpthread -lshlwapi \
     -lws2_32 \
-    -L$$(OMBUILDDIR)/bin -lOMSimulator
+    -L$$(OMBUILDDIR)/bin -lOMSimulator -lqjson
 
-  INCLUDEPATH += $$(OMBUILDDIR)/include/omplot \
-    $$(OMBUILDDIR)/include \
+  INCLUDEPATH += $$(OMBUILDDIR)/include \
+    $$(OMBUILDDIR)/include/omplot \
     $$(OMBUILDDIR)/include/omplot/qwt \
-    $$(OMBUILDDIR)/include/omc/antlr3 $$(OMBUILDDIR)/include/omc/c
+    $$(OMBUILDDIR)/include/omc/antlr3 \
+    $$OPENMODELICAHOME/include/omc/scripting-API \
+    $$(OMBUILDDIR)/include/omc/c \
+    $$OPENMODELICAHOME/include/omc/c/util \
+    $$OPENMODELICAHOME/include/omc/fmil \
+    ../../qjson/build/include
 
   RC_FILE = rc_omedit.rc
   CONFIG += osg
@@ -116,6 +121,11 @@ win32 {
   equals(QT_ARCH, i386)|equals(QT_ARCH, i486)|equals(QT_ARCH, i586)|equals(QT_ARCH, i686) { # 32-bit
     LIBS += -latomic -lboost_atomic
   }
+}
+
+# Don't show the warnings from included headers.
+for (path, INCLUDEPATH) {
+  QMAKE_CXXFLAGS += -isystem $${path}
 }
 
 SOURCES += main.cpp \
@@ -206,7 +216,8 @@ SOURCES += main.cpp \
   OMS/InstantiateDialog.cpp \
   OMS/OMSSimulationDialog.cpp \
   OMS/OMSSimulationOutputWidget.cpp \
-  Animation/TimeManager.cpp
+  Animation/TimeManager.cpp \
+  Util/ResourceCache.cpp
 
 HEADERS  += Util/Helper.h \
   Util/Utilities.h \
@@ -298,7 +309,8 @@ HEADERS  += Util/Helper.h \
   OMS/OMSSimulationOptions.h \
   OMS/OMSSimulationDialog.h \
   OMS/OMSSimulationOutputWidget.h \
-  Animation/TimeManager.h
+  Animation/TimeManager.h \
+  Util/ResourceCache.h
 
 CONFIG(osg) {
 
@@ -344,13 +356,6 @@ HEADERS += Animation/AbstractAnimationWindow.h \
   Animation/rapidxml.hpp
 }
 
-LIBS += -lqjson
-INCLUDEPATH += ../../qjson/build/include
-
-INCLUDEPATH += $$OPENMODELICAHOME/include/omc/scripting-API \
-  $$OPENMODELICAHOME/include/omc/c/util \
-  $$OPENMODELICAHOME/include/omc/fmil
-
 OTHER_FILES += Resources/css/stylesheet.qss \
   Resources/XMLSchema/tlmModelDescription.xsd \
   Debugger/Parser/GDBMIOutput.g \
@@ -362,7 +367,7 @@ OTHER_FILES += Resources/css/stylesheet.qss \
 CONFIG += warn_on
 # Only disable the unused variable/function/parameter warning
 win32 {
-  QMAKE_CXXFLAGS += -Wno-clobbered -Wno-unused-variable -Wno-unused-function -Wno-unused-parameter
+  QMAKE_CXXFLAGS += -Wno-clobbered
 }
 
 RESOURCES += resource_omedit.qrc
