@@ -1773,7 +1773,7 @@ public function createLinearModelMatrixes "This function creates the linear mode
   author: wbraun"
   input BackendDAE.BackendDAE inBackendDAE;
   input Boolean useOptimica;
-  input Boolean b = false;
+  input Boolean SymbolicHessian = false;
   output BackendDAE.SymbolicJacobians outJacobianMatrixes;
   output DAE.FunctionTree outFunctionTree;
 
@@ -1897,7 +1897,7 @@ algorithm
 
         // Differentiate the System w.r.t states for matrices A
 
-        (linearModelMatrix, functionTree, sparsePattern, sparseColoring) = generateGenericJacobian(backendDAE2,states,statesarr,inputvarsarr,paramvarsarr,statesarr,varlst,"A",false);
+        (linearModelMatrix, functionTree, sparsePattern, sparseColoring) = generateGenericJacobian(backendDAE2,states,statesarr,inputvarsarr,paramvarsarr,statesarr,varlst,"A",false,SymbolicHessian);
 
         backendDAE2 = BackendDAEUtil.setFunctionTree(backendDAE2, functionTree);
         linearModelMatrices = {(linearModelMatrix,sparsePattern,sparseColoring)};
@@ -1911,7 +1911,7 @@ algorithm
         object = DynamicOptimization.checkObjectIsSet(outputvarsarr, BackendDAE.optimizationLagrangeTermName);
         optimizer_vars = BackendVariable.addVars(object, optimizer_vars);
         //BackendDump.printVariables(optimizer_vars);
-        (linearModelMatrix, funcs, sparsePattern, sparseColoring) = generateGenericJacobian(backendDAE2,states_inputs,statesarr,inputvarsarr,paramvarsarr,optimizer_vars,varlst,"B",false);
+        (linearModelMatrix, funcs, sparsePattern, sparseColoring) = generateGenericJacobian(backendDAE2,states_inputs,statesarr,inputvarsarr,paramvarsarr,optimizer_vars,varlst,"B",false,SymbolicHessian);
         functionTree = DAE.AvlTreePathFunction.join(functionTree, funcs);
         backendDAE2 = BackendDAEUtil.setFunctionTree(backendDAE2, functionTree);
         linearModelMatrices = listAppend(linearModelMatrices,{(linearModelMatrix,sparsePattern,sparseColoring)});
@@ -1923,7 +1923,7 @@ algorithm
         object = DynamicOptimization.checkObjectIsSet(outputvarsarr, BackendDAE.optimizationMayerTermName);
         optimizer_vars = BackendVariable.addVars(object, optimizer_vars);
         //BackendDump.printVariables(optimizer_vars);
-        (linearModelMatrix, funcs, sparsePattern, sparseColoring) = generateGenericJacobian(backendDAE2,states_inputs,statesarr,inputvarsarr,paramvarsarr,optimizer_vars,varlst,"C",false);
+        (linearModelMatrix, funcs, sparsePattern, sparseColoring) = generateGenericJacobian(backendDAE2,states_inputs,statesarr,inputvarsarr,paramvarsarr,optimizer_vars,varlst,"C",false,SymbolicHessian);
         functionTree = DAE.AvlTreePathFunction.join(functionTree, funcs);
         backendDAE2 = BackendDAEUtil.setFunctionTree(backendDAE2, functionTree);
         linearModelMatrices = listAppend(linearModelMatrices,{(linearModelMatrix,sparsePattern,sparseColoring)});
@@ -1935,7 +1935,7 @@ algorithm
         optimizer_vars = BackendVariable.emptyVars();
         optimizer_vars = BackendVariable.listVar1(fconVarsList);
 
-        (linearModelMatrix, funcs, sparsePattern, sparseColoring) = generateGenericJacobian(backendDAE2, states_inputs, statesarr, inputvarsarr, paramvarsarr, optimizer_vars, varlst, "D", false);
+        (linearModelMatrix, funcs, sparsePattern, sparseColoring) = generateGenericJacobian(backendDAE2, states_inputs, statesarr, inputvarsarr, paramvarsarr, optimizer_vars, varlst, "D", false, SymbolicHessian);
         functionTree = DAE.AvlTreePathFunction.join(functionTree, funcs);
         linearModelMatrices = listAppend(linearModelMatrices,{(linearModelMatrix,sparsePattern,sparseColoring)});
         if Flags.isSet(Flags.JAC_DUMP2) then
@@ -1962,6 +1962,7 @@ protected function generateGenericJacobian "author: wbraun"
   input list<BackendDAE.Var> inVars "dependent vars = resVars + other vars";
   input String inName;
   input Boolean onlySparsePattern;
+  input Boolean SymbolicHessian = false;
   output Option<BackendDAE.SymbolicJacobian> outJacobian;
   output DAE.FunctionTree outFunctionTree;
   output BackendDAE.SparsePattern outSparsePattern;
@@ -1973,8 +1974,8 @@ algorithm
   try
     outFunctionTree := shared.functionTree;
     if not onlySparsePattern then
-      (symbolicJacobian, outFunctionTree) := createJacobian(inBackendDAE,inDiffVars, inStateVars, inInputVars, inParameterVars, inDifferentiatedVars, inVars, inName);
-      if not Flags.getConfigBool(Flags.GENERATE_SYMBOLIC_HESSIAN) then
+      (symbolicJacobian, outFunctionTree) := createJacobian(inBackendDAE,inDiffVars, inStateVars, inInputVars, inParameterVars, inDifferentiatedVars, inVars, inName, SymbolicHessian);
+      if not SymbolicHessian then
         true := checkForNonLinearStrongComponents(symbolicJacobian);
       end if;
       outJacobian := SOME(symbolicJacobian);
@@ -1982,7 +1983,7 @@ algorithm
       outJacobian := NONE();
     end if;
     // generate sparse pattern
-    if not Flags.getConfigBool(Flags.GENERATE_SYMBOLIC_HESSIAN) then
+    if not SymbolicHessian then
     (outSparsePattern,outSparseColoring) := generateSparsePattern(inBackendDAE, inDiffVars, BackendVariable.varList(inDifferentiatedVars));
     end if;
   else
@@ -1999,6 +2000,7 @@ protected function createJacobian "author: wbraun"
   input BackendDAE.Variables inDifferentiatedVars "resVars";
   input list<BackendDAE.Var> inVars "dependent vars = resVars + other vars";
   input String inName;
+  input Boolean SymbolicHessian = false;
   output BackendDAE.SymbolicJacobian outJacobian;
   output DAE.FunctionTree outFunctionTree;
 algorithm
@@ -2037,7 +2039,7 @@ algorithm
         end if;
 
         // Differentiate the eqns system in reducedDAE w.r.t. independents
-        (backendDAE as BackendDAE.DAE(shared=_), funcs) = generateSymbolicJacobian(reducedDAE, indepVars, inDifferentiatedVars, BackendVariable.listVar1(seedlst), inStateVars, inInputVars, inParameterVars, inName);
+        (backendDAE as BackendDAE.DAE(shared=_), funcs) = generateSymbolicJacobian(reducedDAE, indepVars, inDifferentiatedVars, BackendVariable.listVar1(seedlst), inStateVars, inInputVars, inParameterVars, inName, SymbolicHessian);
         if Flags.isSet(Flags.JAC_DUMP2) then
           print("analytical Jacobians -> generated equations for Jacobian " + inName + " time: " + realString(clock()) + "\n");
         end if;
@@ -2135,6 +2137,7 @@ protected function generateSymbolicJacobian "author: lochel"
   input BackendDAE.Variables inInputVars;
   input BackendDAE.Variables inParamVars "globalKnownVars";
   input String inMatrixName;
+  input Boolean SymbolicHessian = false;
   output BackendDAE.BackendDAE outJacobian;
   output DAE.FunctionTree outFunctions;
 algorithm
@@ -2152,7 +2155,7 @@ algorithm
       BackendDAE.Variables paramVars;
       BackendDAE.Variables diffedVars "resVars";
       BackendDAE.BackendDAE jacobian;
-      /*Stuff for the Hessian*/
+      /*Staff for the Hessian*/
       BackendDAE.SymbolicHessian hessian;
 
       // BackendDAE
@@ -2163,7 +2166,11 @@ algorithm
       // end BackendDAE
 
       list<BackendDAE.Var> diffVars "independent vars", derivedVariables, diffedVarLst;
-      list<BackendDAE.Equation> eqns, derivedEquations, firstDerivedEqs;
+      list<BackendDAE.Equation> eqns, derivedEquations;
+
+      /*Staff for the Hessian; the partial derivates*/
+      list<BackendDAE.Equation> firstDerivedEqs={};
+      list<BackendDAE.Var> firstDerivedVars={};
 
       list<list<BackendDAE.Equation>> derivedEquationslst;
 
@@ -2219,15 +2226,14 @@ ComponentReference.printComponentRefList(comref_diffvars);
       (derivedEquations, functions) = deriveAll(eqns, arrayList(ass2), x, diffData, functions);
        //BackendDump.dumpEquationList(derivedEquations, "derivedEquations 1");
 
-      /*If Hessian calculated derive the RHS of the system two times!!!*/
-      if Flags.getConfigBool(Flags.GENERATE_SYMBOLIC_HESSIAN) then
-
-        derivedEquations = BackendEquation.replaceDerOpInEquationList(derivedEquations);
+      /*If Hessian calculated derive the RHS of the system two times!*/
+      if SymbolicHessian then
+        /*Set list for the first derivative vars & eqs*/
         firstDerivedEqs = derivedEquations;
 
         diffVars = BackendVariable.varList(diffedVars);
-        derivedVariables = createAllDiffedVars(diffVars, x, diffedVars, matrixName);
-        jacOrderedVars = BackendVariable.listVar1(derivedVariables);
+        firstDerivedVars = createAllDiffedVars(diffVars, x, diffedVars, matrixName);
+        jacOrderedVars = BackendVariable.listVar1(firstDerivedVars);
 
         diffVarsArr = BackendVariable.addVariables(jacOrderedVars, diffVarsArr);
         diffData.independenentVars = SOME(diffVarsArr);
@@ -2236,8 +2242,8 @@ ComponentReference.printComponentRefList(comref_diffvars);
         diffData.dependenentVars = SOME(diffedVars);
 
         diffVars = BackendVariable.varList(orderedVars);
-        derivedVariables = createAllDiffedVars(diffVars, x, diffedVars, matrixName);
-        jacOrderedVars = BackendVariable.listVar1(derivedVariables);
+        firstDerivedVars = createAllDiffedVars(diffVars, x, diffedVars, matrixName);
+        jacOrderedVars = BackendVariable.listVar1(firstDerivedVars);
 
         orderedVars = BackendVariable.addVariables(jacOrderedVars, orderedVars);
         diffData.allVars = SOME(orderedVars);
@@ -2246,10 +2252,13 @@ ComponentReference.printComponentRefList(comref_diffvars);
         diffData.knownVars = SOME(globalKnownVars); //update diffData
         matrixNameForHess = matrixName+"1"; //Rename the Matrix name for the seeds
         diffData.matrixName = SOME(matrixNameForHess); //update matrix name
-        (derivedEquations2, functions) = deriveAll(derivedEquations, arrayList(ass2), x, diffData, functions, true); //Derive second time
+        (derivedEquations, functions) = deriveAll(derivedEquations, arrayList(ass2), x, diffData, functions); //Derive second time
         //BackendDump.dumpEquationList(derivedEquations, "derivedEquations 2");
       end if;
-    /* derivedeq1 und 2 zusammenfassen */
+
+      /*Merge the 1. and 2. derivatives*/
+      derivedEquations = listAppend(derivedEquations,firstDerivedEqs);
+
       if Flags.isSet(Flags.JAC_DUMP2) then
         print("*** analytical Jacobians -> after derive all equation: " + realString(clock()) + "\n");
       end if;
@@ -2267,10 +2276,11 @@ ComponentReference.printComponentRefList(comref_diffvars);
       // all variables for new equation system
       // d(ordered vars)/d(dummyVar)
 
-      if Flags.getConfigBool(Flags.GENERATE_SYMBOLIC_HESSIAN) or false then
+      if SymbolicHessian or false then
         diffVars = BackendVariable.varList(jacOrderedVars);
-        derivedVariables2 = createAllDiffedVars(diffVars, x, diffedVars, matrixName + "1");
-            /* derivedvars1 und 2 zusammenfassen */
+        derivedVariables = createAllDiffedVars(diffVars, x, diffedVars, matrixName + "1");
+        /*Merge the first and second derived variables*/
+        derivedVariables = listAppend(firstDerivedVars,derivedVariables);
 
         jacOrderedVars = BackendVariable.listVar1(derivedVariables);
       else
@@ -2280,6 +2290,9 @@ ComponentReference.printComponentRefList(comref_diffvars);
         jacOrderedVars = BackendVariable.listVar1(derivedVariables);
       end if;
 
+      //print("----------------------------------------\n");
+      //BackendDump.printVarList(derivedVariables);
+      //print("----------------------------------------\n");
 
       // known vars: all variable from original system + seed
       size = BackendVariable.varsSize(orderedVars) +
@@ -2290,9 +2303,7 @@ ComponentReference.printComponentRefList(comref_diffvars);
       jacKnownVars = BackendVariable.addVariables(globalKnownVars, jacKnownVars);
       jacKnownVars = BackendVariable.addVariables(inSeedVars, jacKnownVars);
       (jacKnownVars,_) = BackendVariable.traverseBackendDAEVarsWithUpdate(jacKnownVars, BackendVariable.setVarDirectionTpl, (DAE.INPUT()));
-      if Flags.getConfigBool(Flags.GENERATE_SYMBOLIC_HESSIAN) then
-        derivedEquations = listAppend(firstDerivedEqs,derivedEquations);
-      end if;
+
       jacOrderedEqs = BackendEquation.listEquation(derivedEquations);
 
       shared = BackendDAEUtil.createEmptyShared(BackendDAE.JACOBIAN(), ei, cache, graph);
@@ -2397,7 +2408,6 @@ protected function deriveAll
   input DAE.ComponentRef inDiffCref;
   input BackendDAE.DifferentiateInputData inDiffData;
   input DAE.FunctionTree inFunctions;
-  input Boolean calculateSecondDerivatives = false;
   output list<BackendDAE.Equation> outDerivedEquations = {};
   output DAE.FunctionTree outFunctions = inFunctions;
 protected
