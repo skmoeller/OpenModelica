@@ -71,12 +71,12 @@ protected
  BackendDAE.Shared shared;
  BackendDAE.BackendDAE hessian; //In Shared z.b den Datentyp hessian integrieren!!!
 algorithm
+
+  /*!!!AUFRUF IST HIER NICHT(!) AN DER RICHTIGEN STELLE!!!*/
   if Flags.getConfigBool(Flags.GENERATE_SYMBOLIC_HESSIAN) then
-    hessian:=SymbolicHessian.generateSymbolicHessian(dae);
-    //Ausgabe der "Hesse-Matrix" vorlaeufig um Ergebnis zu kontrollieren:)
-    //print("\n\n System after the usage of the Hessian Matrix.\n\n");
-    //BackendDump.printBackendDAE(hessian);
+    hessian := SymbolicHessian.generateSymbolicHessian(dae);
   end if;
+
   shared := dae.shared;
   {syst} := dae.eqs;
   BackendDAE.EQSYSTEM(orderedVars=vars, orderedEqs=eqns) := syst;

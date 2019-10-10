@@ -151,13 +151,19 @@ protected
   DAE.Exp eqExpr;
   list<DAE.Exp> hessExpr = {};
   list<BackendDAE.Equation> innerEqns = {}, residualEqns = {};
+  Integer lengthEqArr, endFirstDerivatives;
 algorithm
   SOME(lambdas) := lambdasOption;
   lambdaJac := jac;
   {eqs} := lambdaJac.eqs;
   BackendDAE.EQSYSTEM(orderedVars = vars, orderedEqs = eqns) := eqs;
   jacEqns := eqns;
-  (innerEqns, residualEqns) := BackendEquation.traverseEquationArray(eqns, assignEqnToInnerOrResidual, (innerEqns, residualEqns));
+  lengthEqArr := ExpandableArray.getNumberOfElements(eqns);
+  endFirstDerivatives := realInt(lengthEqArr/2);
+  (innerEqns,_) := BackendEquation.traverseEquationArray(eqns, assignEqnToInnerOrResidual, (innerEqns, residualEqns));
+  eqns := getSecondDerivativeEqs(eqns,endFirstDerivatives);
+  (_,residualEqns) := BackendEquation.traverseEquationArray(eqns, assignEqnToInnerOrResidual, (innerEqns, residualEqns));
+
   /*Dump the 'sorted' Equations*/
   //BackendDump.dumpEquationList(innerEqns, "inner Equations");
   //BackendDump.dumpEquationList(residualEqns, "residualEqns");
@@ -308,8 +314,18 @@ algorithm
       else then "";
     end match;
   end for;
-
 end removeStateVars;
+
+protected function getSecondDerivativeEqs
+  input BackendDAE.EquationArray InEqns;
+  input Integer finish;
+  output BackendDAE.EquationArray OutEqns;
+algorithm
+  OutEqns := InEqns;
+  for i in 1:finish loop
+    OutEqns := BackendEquation.delete(i,OutEqns);
+  end for;
+end getSecondDerivativeEqs;
 
 annotation(__OpenModelica_Interface="backend");
 end SymbolicHessian;

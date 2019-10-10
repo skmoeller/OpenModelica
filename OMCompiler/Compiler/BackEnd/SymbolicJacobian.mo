@@ -2252,12 +2252,16 @@ ComponentReference.printComponentRefList(comref_diffvars);
         diffData.knownVars = SOME(globalKnownVars); //update diffData
         matrixNameForHess = matrixName+"1"; //Rename the Matrix name for the seeds
         diffData.matrixName = SOME(matrixNameForHess); //update matrix name
+
+        dummyVarName = ("dummyVar" + matrixNameForHess);
+        x = DAE.CREF_IDENT(dummyVarName,DAE.T_REAL_DEFAULT,{});
+
         (derivedEquations, functions) = deriveAll(derivedEquations, arrayList(ass2), x, diffData, functions); //Derive second time
         //BackendDump.dumpEquationList(derivedEquations, "derivedEquations 2");
       end if;
 
       /*Merge the 1. and 2. derivatives*/
-      derivedEquations = listAppend(derivedEquations,firstDerivedEqs);
+      derivedEquations = listAppend(firstDerivedEqs,derivedEquations);
 
       if Flags.isSet(Flags.JAC_DUMP2) then
         print("*** analytical Jacobians -> after derive all equation: " + realString(clock()) + "\n");
