@@ -45,6 +45,7 @@
  import BackendEquation;
  import BackendVariable;
  import ComponentReference;
+ import DynamicOptimization;
  import SymbolicJacobian;
  import ExpandableArray;
  import Expression;
@@ -101,8 +102,23 @@ algorithm
     local String nameMatrix;
           BackendDAE.BackendDAE dae;
           list<BackendDAE.Var> states;
+          BackendDAE.Variables vars;
+          BackendDAE.EqSystem syst;
+          BackendDAE.EquationArray eqns;
+          BackendDAE.Shared shared;
     case (dae,nameMatrix,states,_,_,_) guard nameMatrix == "A" then SOME(createSymbolicHessian(dae, nameMatrix,states));
-  else then NONE();
+    case (dae,nameMatrix,states,_,_,_)
+    equation
+      shared = dae.shared;
+      {syst} = dae.eqs;
+      BackendDAE.EQSYSTEM(orderedVars=vars, orderedEqs=eqns) = syst;
+      (vars, eqns, shared) = DynamicOptimization.addOptimizationVarsEqns(vars, eqns, shared);
+      syst.orderedVars = vars;
+      syst.orderedEqs = eqns;
+      dae.eqs = {syst};
+      dae.shared = shared;
+    then SOME(createSymbolicHessian(dae, nameMatrix,states));
+    else then NONE();
   end match;
 end wrapperCreateSymbolicHessian;
 
@@ -159,6 +175,7 @@ algorithm
   BackendDAE.EQSYSTEM(orderedVars = vars, orderedEqs = eqns) := eqs;
   jacEqns := eqns;
   lengthEqArr := ExpandableArray.getNumberOfElements(eqns);
+  lengthEqArr := lengthEqArr + mod(lengthEqArr,2);
   endFirstDerivatives := realInt(lengthEqArr/2);
   (innerEqns,_) := BackendEquation.traverseEquationArray(eqns, assignEqnToInnerOrResidual, (innerEqns, residualEqns));
   eqns := getSecondDerivativeEqs(eqns,endFirstDerivatives);

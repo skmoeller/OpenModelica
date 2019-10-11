@@ -71,8 +71,7 @@ protected
  BackendDAE.Shared shared;
  BackendDAE.BackendDAE hessian; //In Shared z.b den Datentyp hessian integrieren!!!
 algorithm
-
-  /*!!!AUFRUF IST HIER NICHT(!) AN DER RICHTIGEN STELLE!!!*/
+  /*Calculate the Hessian*/
   if Flags.getConfigBool(Flags.GENERATE_SYMBOLIC_HESSIAN) then
     hessian := SymbolicHessian.generateSymbolicHessian(dae);
   end if;
@@ -85,10 +84,9 @@ algorithm
   syst.orderedEqs := eqns;
   dae.eqs := {syst};
   dae.shared := shared;
-
 end createDynamicOptimization;
 
-protected function addOptimizationVarsEqns
+public function addOptimizationVarsEqns
 "author: Vitalij Ruge
  add objective function and constraints to DAE. Neeed for derivatives"
   input output BackendDAE.Variables vars;
@@ -135,10 +133,6 @@ algorithm
     Flags.setConfigBool(Flags.GENERATE_SYMBOLIC_LINEARIZATION, true);
 
     shared.classAttrs := {DAE.OPTIMIZATION_ATTRS(mayer, lagrange, startTimeE, finalTimeE)};
-    if Flags.isSet(Flags.DUMP_OPTIMIZATION) then
-      print("\n Added Equations: \n");
-      BackendDump.printEquationList(eqnsLst);
-    end if;
     eqns := BackendEquation.addList(eqnsLst, eqns);
 
 end addOptimizationVarsEqns;
@@ -171,10 +165,6 @@ algorithm
     ind := BackendVariable.getVarIndexFromVars(tG, ov);
     for i in ind loop
       ov := BackendVariable.setVarKindForVar(i, BackendDAE.OPT_TGRID(), ov);
-      if Flags.isSet(Flags.DUMP_OPTIMIZATION) then
-        print("\n Variables after adding the time grid: \n");
-        BackendDump.printVar(BackendVariable.getVarAt(ov,i));
-      end if;
     end for;
   end if;
 
@@ -485,10 +475,6 @@ algorithm
         outShared := BackendVariable.addGlobalKnownVarDAE(v, outShared);
       end for;
       _ := BackendVariable.daeGlobalKnownVars(outShared);
-      if Flags.isSet(Flags.DUMP_OPTIMIZATION) then
-        print("\n Input derivative Variables: \n");
-        BackendDump.printVariables(vars);
-      end if;
     then (isyst, true);
 
     else (isyst, inChanged);
