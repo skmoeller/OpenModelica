@@ -71,10 +71,7 @@ protected
  BackendDAE.Shared shared;
  BackendDAE.BackendDAE hessian; //In Shared z.b den Datentyp hessian integrieren!!!
 algorithm
-  /*Calculate the Hessian*/
-  if Flags.getConfigBool(Flags.GENERATE_SYMBOLIC_HESSIAN) then
-    hessian := SymbolicHessian.generateSymbolicHessian(dae);
-  end if;
+
 
   shared := dae.shared;
   {syst} := dae.eqs;
@@ -84,6 +81,10 @@ algorithm
   syst.orderedEqs := eqns;
   dae.eqs := {syst};
   dae.shared := shared;
+    /*Calculate the Hessian*/
+  if Flags.getConfigBool(Flags.GENERATE_SYMBOLIC_HESSIAN) then
+    hessian := SymbolicHessian.generateSymbolicHessian(dae);
+  end if;
 end createDynamicOptimization;
 
 public function addOptimizationVarsEqns

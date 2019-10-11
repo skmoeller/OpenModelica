@@ -2224,7 +2224,6 @@ ComponentReference.printComponentRefList(comref_diffvars);
         print("*** analytical Jacobians -> before derive all equation: " + realString(clock()) + "\n");
       end if;
       (derivedEquations, functions) = deriveAll(eqns, arrayList(ass2), x, diffData, functions);
-       //BackendDump.dumpEquationList(derivedEquations, "derivedEquations 1");
 
       /*If Hessian calculated derive the RHS of the system two times!*/
       if SymbolicHessian then
@@ -2259,6 +2258,8 @@ ComponentReference.printComponentRefList(comref_diffvars);
         (derivedEquations, functions) = deriveAll(derivedEquations, arrayList(ass2), x, diffData, functions); //Derive second time
         //BackendDump.dumpEquationList(derivedEquations, "derivedEquations 2");
       end if;
+       BackendDump.dumpEquationList(firstDerivedEqs, "derivedEquations 1");
+       BackendDump.dumpEquationList(derivedEquations, "derivedEquations 2");
 
       /*Merge the 1. and 2. derivatives*/
       derivedEquations = listAppend(firstDerivedEqs,derivedEquations);

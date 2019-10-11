@@ -106,18 +106,7 @@ algorithm
           BackendDAE.EqSystem syst;
           BackendDAE.EquationArray eqns;
           BackendDAE.Shared shared;
-    case (dae,nameMatrix,states,_,_,_) guard nameMatrix == "A" then SOME(createSymbolicHessian(dae, nameMatrix,states));
-    case (dae,nameMatrix,states,_,_,_)
-    equation
-      shared = dae.shared;
-      {syst} = dae.eqs;
-      BackendDAE.EQSYSTEM(orderedVars=vars, orderedEqs=eqns) = syst;
-      (vars, eqns, shared) = DynamicOptimization.addOptimizationVarsEqns(vars, eqns, shared);
-      syst.orderedVars = vars;
-      syst.orderedEqs = eqns;
-      dae.eqs = {syst};
-      dae.shared = shared;
-    then SOME(createSymbolicHessian(dae, nameMatrix,states));
+    case (dae,nameMatrix,states,_,_,_) then SOME(createSymbolicHessian(dae, nameMatrix,states));
     else then NONE();
   end match;
 end wrapperCreateSymbolicHessian;
@@ -175,11 +164,14 @@ algorithm
   BackendDAE.EQSYSTEM(orderedVars = vars, orderedEqs = eqns) := eqs;
   jacEqns := eqns;
   lengthEqArr := ExpandableArray.getNumberOfElements(eqns);
-  lengthEqArr := lengthEqArr + mod(lengthEqArr,2);
+  BackendDump.dumpEquationArray(eqns, "eqns");
+  //lengthEqArr := lengthEqArr + mod(lengthEqArr,2);
   endFirstDerivatives := realInt(lengthEqArr/2);
-  (innerEqns,_) := BackendEquation.traverseEquationArray(eqns, assignEqnToInnerOrResidual, (innerEqns, residualEqns));
-  eqns := getSecondDerivativeEqs(eqns,endFirstDerivatives);
-  (_,residualEqns) := BackendEquation.traverseEquationArray(eqns, assignEqnToInnerOrResidual, (innerEqns, residualEqns));
+  (innerEqns,residualEqns) := BackendEquation.traverseEquationArray(eqns, assignEqnToInnerOrResidual, (innerEqns, residualEqns));
+  //eqns := getSecondDerivativeEqs(eqns,endFirstDerivatives);
+  //  BackendDump.dumpEquationArray(eqns, "filtered eqns");
+
+  //(_,residualEqns) := BackendEquation.traverseEquationArray(eqns, assignEqnToInnerOrResidual, (innerEqns, residualEqns));
 
   /*Dump the 'sorted' Equations*/
   //BackendDump.dumpEquationList(innerEqns, "inner Equations");
@@ -289,7 +281,7 @@ algorithm
   (innerEqns, residualEqns) := eqnTpl;
   if isResidualEqn(eqn) then
     residualEqns := eqn :: residualEqns;
-  else
+  elseif isInnerEqn(eqn) then
     innerEqns := eqn :: innerEqns;
   end if;
   eqnTpl := (innerEqns, residualEqns);
@@ -304,11 +296,26 @@ algorithm
       DAE.ComponentRef cr;
     /* other eqn types relevant? */
     case BackendDAE.EQUATION(exp = DAE.CREF(componentRef = cr))
-      guard(Util.stringStartsWith("$DER",ComponentReference.crefFirstIdent(cr)))
+      guard(ComponentReference.isSecondPartialDerivativeHessian(cr))
     then true;
     else false;
   end match;
 end isResidualEqn;
+
+protected function isInnerEqn
+  input BackendDAE.Equation eqn;
+  output Boolean b;
+algorithm
+  b := match eqn
+    local
+      DAE.ComponentRef cr;
+    /* other eqn types relevant? */
+    case BackendDAE.EQUATION(exp = DAE.CREF(componentRef = cr))
+      guard(Util.stringStartsWith("$DER",ComponentReference.crefFirstIdent(cr)))
+    then false;
+    else true;
+  end match;
+end isInnerEqn;
 
 protected function removeStateVars
   input output BackendDAE.Variables variables;
@@ -339,7 +346,7 @@ protected function getSecondDerivativeEqs
   output BackendDAE.EquationArray OutEqns;
 algorithm
   OutEqns := InEqns;
-  for i in 1:finish loop
+  for i in (finish+1):(2*finish+1) loop
     OutEqns := BackendEquation.delete(i,OutEqns);
   end for;
 end getSecondDerivativeEqs;
