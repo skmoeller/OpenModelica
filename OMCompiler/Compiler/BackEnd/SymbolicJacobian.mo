@@ -2149,18 +2149,18 @@ algorithm
       DAE.ComponentRef x;
       String dummyVarName;
 
-      BackendDAE.Variables diffVarsArr;
+      BackendDAE.Variables diffVarsArr, diffVarsArr2;
       BackendDAE.Variables stateVars;
       BackendDAE.Variables inputVars;
       BackendDAE.Variables paramVars;
-      BackendDAE.Variables diffedVars "resVars";
+      BackendDAE.Variables diffedVars, diffedVars2 "resVars";
       BackendDAE.BackendDAE jacobian;
       /*Staff for the Hessian*/
       BackendDAE.SymbolicHessian hessian;
 
       // BackendDAE
-      BackendDAE.Variables orderedVars, jacOrderedVars; // ordered Variables, only states and alg. vars
-      BackendDAE.Variables globalKnownVars, jacKnownVars; // Known variables, i.e. constants and parameters
+      BackendDAE.Variables orderedVars, orderedVars2, jacOrderedVars; // ordered Variables, only states and alg. vars
+      BackendDAE.Variables globalKnownVars, globalKnownVars2, jacKnownVars; // Known variables, i.e. constants and parameters
       BackendDAE.EquationArray orderedEqs, jacOrderedEqs; // ordered Equations
       BackendDAE.EquationArray removedEqs, jacRemovedEqs; // Removed equations a=b
       // end BackendDAE
@@ -2206,19 +2206,25 @@ algorithm
       diffVarsArr = BackendVariable.listVar1(diffVars);
       comref_diffvars = List.map(diffVars, BackendVariable.varCref);
       diffData = BackendDAE.emptyInputData;
-/*
+
 BackendDump.dumpVariables(diffVarsArr, "diffVarsArr");
 BackendDump.dumpVariables(diffedVars, "diffedVars");
 BackendDump.dumpVariables(globalKnownVars, "globalKnownVars");
 BackendDump.dumpVariables(orderedVars, "orderedVars");
 ComponentReference.printComponentRefList(comref_diffvars);
-*/
+
       diffData.independenentVars = SOME(diffVarsArr);
       diffData.dependenentVars = SOME(diffedVars);
       diffData.knownVars = SOME(globalKnownVars);
       diffData.allVars = SOME(orderedVars);
       diffData.diffCrefs = comref_diffvars;
       diffData.matrixName = SOME(matrixName);
+
+      diffVarsArr2 = BackendVariable.copyVariables(diffVarsArr);
+      diffedVars2 = BackendVariable.copyVariables(diffedVars);
+      globalKnownVars2 = BackendVariable.copyVariables(globalKnownVars);
+      orderedVars2 = BackendVariable.copyVariables(orderedVars);
+
       eqns = BackendEquation.equationList(orderedEqs);
       if Flags.isSet(Flags.JAC_DUMP2) then
         print("*** analytical Jacobians -> before derive all equation: " + realString(clock()) + "\n");
@@ -2234,23 +2240,28 @@ ComponentReference.printComponentRefList(comref_diffvars);
         firstDerivedVars = createAllDiffedVars(diffVars, x, diffedVars, matrixName);
         jacOrderedVars = BackendVariable.listVar1(firstDerivedVars);
 
-        diffVarsArr = BackendVariable.addVariables(jacOrderedVars, diffVarsArr);
+        diffVarsArr2 = BackendVariable.addVariables(jacOrderedVars, diffVarsArr2);
         diffData.independenentVars = SOME(diffVarsArr);
 
-        diffedVars = BackendVariable.addVariables(jacOrderedVars, diffedVars);
+        diffedVars2 = BackendVariable.addVariables(jacOrderedVars, diffedVars2);
         diffData.dependenentVars = SOME(diffedVars);
 
         diffVars = BackendVariable.varList(orderedVars);
         firstDerivedVars = createAllDiffedVars(diffVars, x, diffedVars, matrixName);
         jacOrderedVars = BackendVariable.listVar1(firstDerivedVars);
 
-        orderedVars = BackendVariable.addVariables(jacOrderedVars, orderedVars);
-        diffData.allVars = SOME(orderedVars);
+        orderedVars2 = BackendVariable.addVariables(jacOrderedVars, orderedVars2);
+        diffData.allVars = SOME(orderedVars2);
 
-        globalKnownVars = BackendVariable.addVariables(inSeedVars, globalKnownVars); //Add seed vars to known vars
+        globalKnownVars2 = BackendVariable.addVariables(inSeedVars, globalKnownVars2); //Add seed vars to known vars
         diffData.knownVars = SOME(globalKnownVars); //update diffData
         matrixNameForHess = matrixName+"1"; //Rename the Matrix name for the seeds
         diffData.matrixName = SOME(matrixNameForHess); //update matrix name
+        BackendDump.dumpVariables(diffVarsArr, "diffVarsArr 2");
+BackendDump.dumpVariables(diffedVars, "diffedVars 2");
+BackendDump.dumpVariables(globalKnownVars, "globalKnownVars 2");
+BackendDump.dumpVariables(orderedVars, "orderedVars 2");
+ComponentReference.printComponentRefList(comref_diffvars);
 
         dummyVarName = ("dummyVar" + matrixNameForHess);
         x = DAE.CREF_IDENT(dummyVarName,DAE.T_REAL_DEFAULT,{});
