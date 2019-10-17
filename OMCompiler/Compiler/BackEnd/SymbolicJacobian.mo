@@ -1931,15 +1931,17 @@ algorithm
           print("analytical Jacobians -> generated system for matrix C time: " + realString(clock()) + "\n");
         end if;
 
-        // Differentiate the System w.r.t inputs for matrices D
-        optimizer_vars = BackendVariable.emptyVars();
-        optimizer_vars = BackendVariable.listVar1(fconVarsList);
+        if not SymbolicHessian then
+          // Differentiate the System w.r.t inputs for matrices D
+          optimizer_vars = BackendVariable.emptyVars();
+          optimizer_vars = BackendVariable.listVar1(fconVarsList);
 
-        (linearModelMatrix, funcs, sparsePattern, sparseColoring) = generateGenericJacobian(backendDAE2, states_inputs, statesarr, inputvarsarr, paramvarsarr, optimizer_vars, varlst, "D", false, SymbolicHessian);
-        functionTree = DAE.AvlTreePathFunction.join(functionTree, funcs);
-        linearModelMatrices = listAppend(linearModelMatrices,{(linearModelMatrix,sparsePattern,sparseColoring)});
-        if Flags.isSet(Flags.JAC_DUMP2) then
-          print("analytical Jacobians -> generated system for matrix D time: " + realString(clock()) + "\n");
+          (linearModelMatrix, funcs, sparsePattern, sparseColoring) = generateGenericJacobian(backendDAE2, states_inputs, statesarr, inputvarsarr, paramvarsarr, optimizer_vars, varlst, "D", false, SymbolicHessian);
+          functionTree = DAE.AvlTreePathFunction.join(functionTree, funcs);
+            linearModelMatrices = listAppend(linearModelMatrices,{(linearModelMatrix,sparsePattern,sparseColoring)});
+            if Flags.isSet(Flags.JAC_DUMP2) then
+              print("analytical Jacobians -> generated system for matrix D time: " + realString(clock()) + "\n");
+            end if;
         end if;
 
       then
