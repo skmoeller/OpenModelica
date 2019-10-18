@@ -1931,18 +1931,16 @@ algorithm
           print("analytical Jacobians -> generated system for matrix C time: " + realString(clock()) + "\n");
         end if;
 
-        if not SymbolicHessian then
-          // Differentiate the System w.r.t inputs for matrices D
-          optimizer_vars = BackendVariable.emptyVars();
-          optimizer_vars = BackendVariable.listVar1(fconVarsList);
+        // Differentiate the System w.r.t inputs for matrices D
+        optimizer_vars = BackendVariable.emptyVars();
+        optimizer_vars = BackendVariable.listVar1(fconVarsList);
 
-          (linearModelMatrix, funcs, sparsePattern, sparseColoring) = generateGenericJacobian(backendDAE2, states_inputs, statesarr, inputvarsarr, paramvarsarr, optimizer_vars, varlst, "D", false, SymbolicHessian);
-          functionTree = DAE.AvlTreePathFunction.join(functionTree, funcs);
-            linearModelMatrices = listAppend(linearModelMatrices,{(linearModelMatrix,sparsePattern,sparseColoring)});
-            if Flags.isSet(Flags.JAC_DUMP2) then
-              print("analytical Jacobians -> generated system for matrix D time: " + realString(clock()) + "\n");
-            end if;
-        end if;
+        (linearModelMatrix, funcs, sparsePattern, sparseColoring) = generateGenericJacobian(backendDAE2, states_inputs, statesarr, inputvarsarr, paramvarsarr, optimizer_vars, varlst, "D", false, SymbolicHessian);
+        functionTree = DAE.AvlTreePathFunction.join(functionTree, funcs);
+        linearModelMatrices = listAppend(linearModelMatrices,{(linearModelMatrix,sparsePattern,sparseColoring)});
+          if Flags.isSet(Flags.JAC_DUMP2) then
+            print("analytical Jacobians -> generated system for matrix D time: " + realString(clock()) + "\n");
+          end if;
 
       then
         (linearModelMatrices, functionTree);
@@ -2209,11 +2207,13 @@ algorithm
       comref_diffvars = List.map(diffVars, BackendVariable.varCref);
       diffData = BackendDAE.emptyInputData;
 
-BackendDump.dumpVariables(diffVarsArr, "diffVarsArr");
-BackendDump.dumpVariables(diffedVars, "diffedVars");
-BackendDump.dumpVariables(globalKnownVars, "globalKnownVars");
-BackendDump.dumpVariables(orderedVars, "orderedVars");
-ComponentReference.printComponentRefList(comref_diffvars);
+      /*
+      BackendDump.dumpVariables(diffVarsArr, "diffVarsArr");
+      BackendDump.dumpVariables(diffedVars, "diffedVars");
+      BackendDump.dumpVariables(globalKnownVars, "globalKnownVars");
+      BackendDump.dumpVariables(orderedVars, "orderedVars");
+      ComponentReference.printComponentRefList(comref_diffvars);
+      */
 
       diffData.independenentVars = SOME(diffVarsArr);
       diffData.dependenentVars = SOME(diffedVars);
@@ -2259,11 +2259,14 @@ ComponentReference.printComponentRefList(comref_diffvars);
         diffData.knownVars = SOME(globalKnownVars); //update diffData
         matrixNameForHess = matrixName+"1"; //Rename the Matrix name for the seeds
         diffData.matrixName = SOME(matrixNameForHess); //update matrix name
+
+        /*
         BackendDump.dumpVariables(diffVarsArr, "diffVarsArr 2");
-BackendDump.dumpVariables(diffedVars, "diffedVars 2");
-BackendDump.dumpVariables(globalKnownVars, "globalKnownVars 2");
-BackendDump.dumpVariables(orderedVars, "orderedVars 2");
-ComponentReference.printComponentRefList(comref_diffvars);
+        BackendDump.dumpVariables(diffedVars, "diffedVars 2");
+        BackendDump.dumpVariables(globalKnownVars, "globalKnownVars 2");
+        BackendDump.dumpVariables(orderedVars, "orderedVars 2");
+        ComponentReference.printComponentRefList(comref_diffvars);
+        */
 
         dummyVarName = ("dummyVar" + matrixNameForHess);
         x = DAE.CREF_IDENT(dummyVarName,DAE.T_REAL_DEFAULT,{});

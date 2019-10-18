@@ -195,10 +195,14 @@ protected
   DAE.Exp EqSum;
   BackendDAE.Equation eq;
 algorithm
-  EqSum := Expression.makeSum(hessExpr);
-  eqns := ExpandableArray.new(1, inEq);
-  (vars, eq) := setHessian(inEq, EqSum, matrixName, vars);
-  eqns := ExpandableArray.set(1, eq, eqns);
+  if (listLength(hessExpr) <> 0) then
+    EqSum := Expression.makeSum(hessExpr);
+    eqns := ExpandableArray.new(1, inEq);
+    (vars, eq) := setHessian(inEq, EqSum, matrixName, vars);
+    eqns := ExpandableArray.set(1, eq, eqns);
+  else
+    eqns := BackendEquation.emptyEqns();
+  end if;
 end addEquations;
 
 protected function setHessian
