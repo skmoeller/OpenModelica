@@ -71,8 +71,6 @@ protected
  BackendDAE.Shared shared;
  BackendDAE.BackendDAE hessian; //In Shared z.b den Datentyp hessian integrieren!!!
 algorithm
-
-
   shared := dae.shared;
   {syst} := dae.eqs;
   BackendDAE.EQSYSTEM(orderedVars=vars, orderedEqs=eqns) := syst;

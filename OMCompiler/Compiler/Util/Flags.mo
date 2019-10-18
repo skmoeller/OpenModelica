@@ -551,6 +551,8 @@ constant DebugFlag NF_EXPAND_FUNC_ARGS = DEBUG_FLAG(187, "nfExpandFuncArgs", fal
   Util.gettext("Expand all function arguments in the new frontend."));
 constant DebugFlag DUMP_JL = DEBUG_FLAG(188, "dumpJL", false,
   Util.gettext("Dumps the absyn representation of a program as a Julia representation"));
+constant DebugFlag DUMP_HESSIAN = DEBUG_FLAG(189, "dumpHess", false,
+  Util.gettext("Dumps the Hessian matrices A,B,C,D for dynamic Optimization"));
 
 // This is a list of all debug flags, to keep track of which flags are used. A
 // flag can not be used unless it's in this list, and the list is checked at
@@ -745,7 +747,8 @@ constant list<DebugFlag> allDebugFlags = {
   FMI20_DEPENDENCIES,
   WARNING_MINMAX_ATTRIBUTES,
   NF_EXPAND_FUNC_ARGS,
-  DUMP_JL
+  DUMP_JL,
+  DUMP_HESSIAN
 };
 
 public

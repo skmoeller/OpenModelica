@@ -8676,6 +8676,7 @@ algorithm
                               {},
                               backendDAEType,
                               {},
+                              {},
                               ei,
                               emptyPartitionsInfo(),
                               BackendDAE.emptyDAEModeData,
@@ -8925,6 +8926,20 @@ algorithm
     case shared as BackendDAE.SHARED() then shared.symjacs;
   end match;
 end getSharedSymJacs;
+
+public function setSharedSymHesss
+  input BackendDAE.Shared inShared;
+  input BackendDAE.SymbolicHessians symHesss;
+  output BackendDAE.Shared outShared;
+algorithm
+  outShared := match inShared
+    local
+      BackendDAE.Shared shared;
+    case shared as BackendDAE.SHARED()
+      algorithm shared.symHesss := symHesss;
+      then shared;
+  end match;
+end setSharedSymHesss;
 
 public function setSharedFunctionTree
   input BackendDAE.Shared inShared;

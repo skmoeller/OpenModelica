@@ -1938,9 +1938,9 @@ algorithm
         (linearModelMatrix, funcs, sparsePattern, sparseColoring) = generateGenericJacobian(backendDAE2, states_inputs, statesarr, inputvarsarr, paramvarsarr, optimizer_vars, varlst, "D", false, SymbolicHessian);
         functionTree = DAE.AvlTreePathFunction.join(functionTree, funcs);
         linearModelMatrices = listAppend(linearModelMatrices,{(linearModelMatrix,sparsePattern,sparseColoring)});
-          if Flags.isSet(Flags.JAC_DUMP2) then
-            print("analytical Jacobians -> generated system for matrix D time: " + realString(clock()) + "\n");
-          end if;
+        if Flags.isSet(Flags.JAC_DUMP2) then
+          print("analytical Jacobians -> generated system for matrix D time: " + realString(clock()) + "\n");
+        end if;
 
       then
         (linearModelMatrices, functionTree);

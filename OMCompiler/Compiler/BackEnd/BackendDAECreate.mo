@@ -111,6 +111,7 @@ protected
   BackendDAE.EquationArray eqnarr, reqnarr, ieqnarr;
   BackendDAE.ExternalObjectClasses extObjCls;
   BackendDAE.SymbolicJacobians symjacs;
+  BackendDAE.SymbolicHessians symHesss;
   BackendDAE.EventInfo einfo;
   list<DAE.Element> elems, aliaseqns;
   DAE.FunctionTree functionTree;
@@ -151,6 +152,7 @@ algorithm
   ieqnarr := BackendEquation.listEquation(ieqns);
   einfo := BackendDAE.EVENT_INFO(timeEvents, ZeroCrossings.new(), DoubleEnded.fromList({}), ZeroCrossings.new(), 0);
   symjacs := {(NONE(), ({}, {}, ({}, {}), -1), {}), (NONE(), ({}, {}, ({}, {}), -1), {}), (NONE(), ({}, {}, ({}, {}), -1), {}), (NONE(), ({}, {}, ({}, {}), -1), {})};
+  symHesss := {NONE(), NONE(), NONE(), NONE()};
   syst := BackendDAEUtil.createEqSystem(vars_1, eqnarr, {}, BackendDAE.UNKNOWN_PARTITION(), reqnarr);
   outBackendDAE := BackendDAE.DAE(syst::{},
                                   BackendDAE.SHARED(globalKnownVars,
@@ -167,7 +169,9 @@ algorithm
                                                     einfo,
                                                     extObjCls,
                                                     BackendDAE.SIMULATION(),
-                                                    symjacs,inExtraInfo,
+                                                    symjacs,
+                                                    symHesss,
+                                                    inExtraInfo,
                                                     BackendDAEUtil.emptyPartitionsInfo(),
                                                     BackendDAE.emptyDAEModeData,
                                                     NONE()

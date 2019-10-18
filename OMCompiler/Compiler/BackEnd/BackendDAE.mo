@@ -130,6 +130,7 @@ uniontype Shared "Data shared for all equation-systems"
     ExternalObjectClasses extObjClasses     "classes of external objects, contains constructor & destructor";
     BackendDAEType backendDAEType           "indicate for what the BackendDAE is used";
     SymbolicJacobians symjacs               "Symbolic Jacobians";
+    SymbolicHessians symHesss               "SymbolicHessians";
     ExtraInfo info "contains extra info that we send around like the model name";
     PartitionsInfo partitionsInfo;
     BackendDAEModeData daeModeData "DAEMode Data";
@@ -791,15 +792,11 @@ type SparsePatternCref = tuple< .DAE.ComponentRef, list< .DAE.ComponentRef>>;
 type SparsePatternCrefs = list<SparsePatternCref>;
 
 public
-type SymbolicHessian = tuple<BackendDAE,              // symbolic equation system
-                               String,                 // Name of the Hessian Matrix
-                               list<Equation>         //Equations of the first derivatives from Jacobian
-                               >;
+type SymbolicHessians = list< Option<SymbolicHessian> >;
 
 public
-type SymbolicHessian = tuple<BackendDAE,              // symbolic equation system
-                               String,                 // Name of the Hessian Matrix
-                               list<Equation>         //Equations of the first derivatives from Jacobian
+type SymbolicHessian = tuple<  BackendDAE,              // symbolic equation system
+                               String                   // Name of the Hessian Matrix
                                >;
 
 public

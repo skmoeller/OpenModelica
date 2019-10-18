@@ -63,7 +63,7 @@ public function generateSymbolicHessian
   output BackendDAE.BackendDAE outHessian "second derivates-> this is the hessian"; //Improve it by using special hessian struct -> need to added!!!
 protected
   BackendDAE.SymbolicJacobians linearModelMatrixes; //All Matrices A,B,C,D
-  list< Option< BackendDAE.BackendDAE > > SymbolicHessians = {};
+  BackendDAE.SymbolicHessians symHesss = {};
   Option< list< DAE.ComponentRef > > lambdas; //Lagrange factors
   /*Stuff for the Jacobian*/
   BackendDAE.EqSystems eqs;
@@ -73,36 +73,39 @@ algorithm
   BackendDAE.DAE(eqs=eqs,shared=shared) := inBackendDAE;
   (linearModelMatrixes, funcs) := SymbolicJacobian.createLinearModelMatrixes(inBackendDAE, true ,true);
 
-  shared := BackendDAEUtil.setSharedSymJacs(shared, linearModelMatrixes);
-  functionTree := BackendDAEUtil.getFunctions(shared);
-  functionTree := DAE.AvlTreePathFunction.join(functionTree, funcs);
-  shared := BackendDAEUtil.setSharedFunctionTree(shared, functionTree);
-  outHessian := BackendDAE.DAE(eqs,shared);
-
   for jacobian in linearModelMatrixes loop
     _ := match jacobian
     local
       BackendDAE.SymbolicJacobian symJac;
     case ((SOME(symJac),_,_))
     equation
-      SymbolicHessians = createSymbolicHessian(symJac)::SymbolicHessians;//Generate the Hessians by adding the lambdas and add up all equations -> write in list!!!
+      symHesss = createSymbolicHessian(symJac)::symHesss;//Generate the Hessians by adding the lambdas and add up all equations -> write in list!!!
     then "";
     else then "";
     end match;
   end for;
+  symHesss := listReverse(symHesss);
 
-  SymbolicHessians := listReverse(SymbolicHessians);
+  if Flags.isSet(Flags.DUMP_HESSIAN) then
+    printHessian(symHesss);
+  end if;
+
+  shared := BackendDAEUtil.setSharedSymHesss(shared, symHesss);
+  functionTree := BackendDAEUtil.getFunctions(shared);
+  functionTree := DAE.AvlTreePathFunction.join(functionTree, funcs);
+  shared := BackendDAEUtil.setSharedFunctionTree(shared, functionTree);
+  outHessian := BackendDAE.DAE(eqs,shared);
 end generateSymbolicHessian;
 
 protected function createSymbolicHessian
   input BackendDAE.SymbolicJacobian InSymJac "Symbolic Jacobian Matrix";
-  output Option< BackendDAE.BackendDAE > Hessian "Symbolic Hessian Matrix";
+  output Option< BackendDAE.SymbolicHessian > Hessian "Symbolic Hessian Matrix";
 algorithm
   Hessian := match InSymJac
     local
     BackendDAE.BackendDAE dae;
     String nameMatrix;
-    case (dae,nameMatrix,_,_,_,_) then SOME(multiplyLambdas(dae, nameMatrix)); //multiple the lagrange factors and add the equations
+    case (dae,nameMatrix,_,_,_,_) then SOME((multiplyLambdas(dae, nameMatrix), nameMatrix)); //multiple the lagrange factors and add the equations
     else then NONE();
   end match;
 end createSymbolicHessian;
@@ -155,10 +158,6 @@ algorithm
       eqs.orderedVars := vars;
       lambdaJac.eqs := {eqs};
     end if;
-
-  print("\n\n ***Hessian for "+matrixName+"***\n\n");
-  BackendDump.dumpDAE(lambdaJac);
-
 end multiplyLambdas;
 
 protected function getLambdaList
@@ -253,6 +252,7 @@ algorithm
 end setHessian;
 
 protected function assignEqnToInnerOrResidual
+  "Functions splits the equation in a list of residual and inner equations (needed for the second derivatives)"
   input output BackendDAE.Equation eqn;
   input output tuple<list<BackendDAE.Equation>, list<BackendDAE.Equation>> eqnTpl;
 protected
@@ -268,6 +268,7 @@ algorithm
 end assignEqnToInnerOrResidual;
 
 protected function isResidualEqn
+  "Function checks if a given Equation is a normal derivativ"
   input BackendDAE.Equation eqn;
   output Boolean b;
 algorithm
@@ -283,6 +284,7 @@ algorithm
 end isResidualEqn;
 
 protected function isInnerEqn
+  "Functions checks if a given Equation is an inner derivativ"
   input BackendDAE.Equation eqn;
   output Boolean b;
 algorithm
@@ -298,6 +300,7 @@ algorithm
 end isInnerEqn;
 
 protected function removeStateVars
+  "Functions removes the first derivatives from the variables"
   input output BackendDAE.Variables variables;
 protected
   BackendDAE.VariableArray varriableArray;
@@ -319,6 +322,26 @@ algorithm
     end match;
   end for;
 end removeStateVars;
+
+protected function printHessian
+  "Functions prints the Hessians A,B,C,D"
+  input BackendDAE.SymbolicHessians symHesss;
+algorithm
+  for hessian in symHesss loop
+    _:= match hessian
+      local BackendDAE.SymbolicHessian symHe;
+            BackendDAE.BackendDAE dae;
+            String matrixName;
+      case SOME(symHe)
+      equation
+        (dae,matrixName) = symHe;
+        print("\n\n########################################\nHessian for "+matrixName+"\n########################################\n\n");
+        BackendDump.dumpDAE(dae);
+      then "";
+      case NONE() then "";
+    end match;
+  end for;
+end printHessian;
 
 annotation(__OpenModelica_Interface="backend");
 end SymbolicHessian;
