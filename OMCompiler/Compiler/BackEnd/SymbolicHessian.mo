@@ -98,6 +98,7 @@ algorithm
 end generateSymbolicHessian;
 
 protected function createSymbolicHessian
+  "Function creates the symbolic Hessians for the Jacobians A, B and C"
   input BackendDAE.SymbolicJacobian InSymJac "Symbolic Jacobian Matrix";
   output Option< BackendDAE.SymbolicHessian > Hessian "Symbolic Hessian Matrix";
 algorithm
@@ -105,7 +106,7 @@ algorithm
     local
     BackendDAE.BackendDAE dae;
     String nameMatrix;
-    case (dae,nameMatrix,_,_,_,_) then SOME((multiplyLambdas(dae, nameMatrix), nameMatrix)); //multiple the lagrange factors and add the equations
+    case (dae,nameMatrix,_,_,_,_) guard nameMatrix == "A" or nameMatrix == "B" or nameMatrix == "C" then SOME((multiplyLambdas(dae, nameMatrix), nameMatrix)); //multiple the lagrange factors and add the equations
     else then NONE();
   end match;
 end createSymbolicHessian;
@@ -133,11 +134,10 @@ algorithm
   (innerEqns,residualEqns) := BackendEquation.traverseEquationArray(eqns, assignEqnToInnerOrResidual, (innerEqns, residualEqns));
   //BackendDump.dumpEquationArray(eqns, "filtered eqns");
 
-  lambdasOption := if Flags.getConfigBool(Flags.GENERATE_SYMBOLIC_HESSIAN) then SOME(getLambdaList(listLength(residualEqns))) else NONE();
+  lambdasOption := if Flags.getConfigBool(Flags.GENERATE_SYMBOLIC_HESSIAN) and (listLength(residualEqns)<>0) then SOME(getLambdaList(listLength(residualEqns))) else NONE();
 
     if isSome(lambdasOption) then
       SOME(lambdas) := lambdasOption;
-      /*Dump the 'sorted' Equations*/
       //BackendDump.dumpEquationList(innerEqns, "inner Equations");
       //BackendDump.dumpEquationList(residualEqns, "residualEqns");
 
@@ -157,6 +157,9 @@ algorithm
       eqs.orderedEqs := eqns;
       eqs.orderedVars := vars;
       lambdaJac.eqs := {eqs};
+    else
+      print("\n***Error***\n NO RESIDUAL EQUATIONS GIVEN!\n\n");
+      fail();
     end if;
 end multiplyLambdas;
 
@@ -194,14 +197,10 @@ protected
   DAE.Exp EqSum;
   BackendDAE.Equation eq;
 algorithm
-  if (listLength(hessExpr) <> 0) then
-    EqSum := Expression.makeSum(hessExpr);
-    eqns := ExpandableArray.new(1, inEq);
-    (vars, eq) := setHessian(inEq, EqSum, matrixName, vars);
-    eqns := ExpandableArray.set(1, eq, eqns);
-  else
-    eqns := BackendEquation.emptyEqns();
-  end if;
+  EqSum := Expression.makeSum(hessExpr);
+  eqns := ExpandableArray.new(1, inEq);
+  (vars, eq) := setHessian(inEq, EqSum, matrixName, vars);
+  eqns := ExpandableArray.set(1, eq, eqns);
 end addEquations;
 
 protected function setHessian
