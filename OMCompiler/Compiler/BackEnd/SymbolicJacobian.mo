@@ -2147,19 +2147,19 @@ algorithm
       BackendDAE.BackendDAE bDAE;
       DAE.FunctionTree functions;
       list<DAE.ComponentRef> vars, comref_diffvars, comref_diffedvars;
-      DAE.ComponentRef x;
+      DAE.ComponentRef x,x2;
       String dummyVarName;
 
-      BackendDAE.Variables diffVarsArr, diffVarsArr2;
+      BackendDAE.Variables diffVarsArr, diffVarsArr2_Seed1, diffVarsArr2_Seed2, diffVarsArr_Seed2;
       BackendDAE.Variables stateVars;
       BackendDAE.Variables inputVars;
       BackendDAE.Variables paramVars;
-      BackendDAE.Variables diffedVars, diffedVars2 "resVars";
+      BackendDAE.Variables diffedVars, diffedVars2_Seed1, diffedVars2_Seed2, diffedVars_Seed2 "resVars";
       BackendDAE.BackendDAE jacobian;
 
       // BackendDAE
-      BackendDAE.Variables orderedVars, orderedVars2, jacOrderedVars; // ordered Variables, only states and alg. vars
-      BackendDAE.Variables globalKnownVars, globalKnownVars2, jacKnownVars; // Known variables, i.e. constants and parameters
+      BackendDAE.Variables orderedVars, orderedVars2_Seed1, orderedVars2_Seed2, orderedVars_Seed2, jacOrderedVars; // ordered Variables, only states and alg. vars
+      BackendDAE.Variables globalKnownVars, globalKnownVars2_Seed1, globalKnownVars2_Seed2, globalKnownVars_Seed2, jacKnownVars; // Known variables, i.e. constants and parameters
       BackendDAE.EquationArray orderedEqs, jacOrderedEqs; // ordered Equations
       BackendDAE.EquationArray removedEqs, jacRemovedEqs; // Removed equations a=b
       // end BackendDAE
@@ -2169,7 +2169,11 @@ algorithm
 
       /*Staff for the Hessian; the partial derivates*/
       list<BackendDAE.Equation> firstDerivedEqs={};
+      list<BackendDAE.Equation> firstDerivedEqsSeed1={};
+      list<BackendDAE.Equation> firstDerivedEqsSeed2={};
       list<BackendDAE.Var> firstDerivedVars={};
+      list<BackendDAE.Var> firstDerivedVarsSeed1={};
+      list<BackendDAE.Var> firstDerivedVarsSeed2={};
 
       list<list<BackendDAE.Equation>> derivedEquationslst;
 
@@ -2181,7 +2185,7 @@ algorithm
       array<Integer> ass2;
       list<Integer> assLst;
 
-      BackendDAE.DifferentiateInputData diffData;
+      BackendDAE.DifferentiateInputData diffData, diffData2;
 
       BackendDAE.ExtraInfo ei;
       Integer size;
@@ -2221,11 +2225,6 @@ algorithm
       diffData.diffCrefs = comref_diffvars;
       diffData.matrixName = SOME(matrixName);
 
-      diffVarsArr2 = BackendVariable.copyVariables(diffVarsArr);
-      diffedVars2 = BackendVariable.copyVariables(diffedVars);
-      globalKnownVars2 = BackendVariable.copyVariables(globalKnownVars);
-      orderedVars2 = BackendVariable.copyVariables(orderedVars);
-
       eqns = BackendEquation.equationList(orderedEqs);
       if Flags.isSet(Flags.JAC_DUMP2) then
         print("*** analytical Jacobians -> before derive all equation: " + realString(clock()) + "\n");
@@ -2234,54 +2233,117 @@ algorithm
 
       /*If Hessian calculated derive the RHS of the system two times!*/
       if SymbolicHessian then
-        /*Set list for the first derivative vars & eqs*/
-        firstDerivedEqs = derivedEquations;
+        //Rename the Matrix name for the seeds
+        matrixNameForHess = (matrixName+"1");
+        /*New vars because of the usage of pointers*/
+        diffVarsArr2_Seed1 = BackendVariable.copyVariables(diffVarsArr);
+        diffedVars2_Seed1 = BackendVariable.copyVariables(diffedVars);
+        globalKnownVars2_Seed1 = BackendVariable.copyVariables(globalKnownVars);
+        orderedVars2_Seed1 = BackendVariable.copyVariables(orderedVars);
+
+        diffVarsArr_Seed2 = BackendVariable.copyVariables(diffVarsArr);
+        diffedVars_Seed2 = BackendVariable.copyVariables(diffedVars);
+        globalKnownVars_Seed2 = BackendVariable.copyVariables(globalKnownVars);
+        orderedVars_Seed2 = BackendVariable.copyVariables(orderedVars);
+
+        diffVarsArr2_Seed2 = BackendVariable.copyVariables(diffVarsArr);
+        diffedVars2_Seed2 = BackendVariable.copyVariables(diffedVars);
+        globalKnownVars2_Seed2 = BackendVariable.copyVariables(globalKnownVars);
+        orderedVars2_Seed2 = BackendVariable.copyVariables(orderedVars);
+
+        firstDerivedEqsSeed1 = derivedEquations;
 
         diffVars = BackendVariable.varList(diffedVars);
-        firstDerivedVars = createAllDiffedVars(diffVars, x, diffedVars, matrixName);
-        jacOrderedVars = BackendVariable.listVar1(firstDerivedVars);
+        firstDerivedVarsSeed1 = createAllDiffedVars(diffVars, x, diffedVars, matrixName);
+        jacOrderedVars = BackendVariable.listVar1(firstDerivedVarsSeed1);
 
-        diffVarsArr2 = BackendVariable.addVariables(jacOrderedVars, diffVarsArr2);
+        diffVarsArr2_Seed1 = BackendVariable.addVariables(jacOrderedVars, diffVarsArr2_Seed1);
         diffData.independenentVars = SOME(diffVarsArr);
 
-        diffedVars2 = BackendVariable.addVariables(jacOrderedVars, diffedVars2);
+        diffedVars2_Seed1 = BackendVariable.addVariables(jacOrderedVars, diffedVars2_Seed1);
         diffData.dependenentVars = SOME(diffedVars);
 
         diffVars = BackendVariable.varList(orderedVars);
-        firstDerivedVars = createAllDiffedVars(diffVars, x, diffedVars, matrixName);
-        jacOrderedVars = BackendVariable.listVar1(firstDerivedVars);
+        firstDerivedVarsSeed1 = createAllDiffedVars(diffVars, x, diffedVars, matrixName);
+        jacOrderedVars = BackendVariable.listVar1(firstDerivedVarsSeed1);
 
-        orderedVars2 = BackendVariable.addVariables(jacOrderedVars, orderedVars2);
-        diffData.allVars = SOME(orderedVars2);
+        orderedVars2_Seed1 = BackendVariable.addVariables(jacOrderedVars, orderedVars2_Seed1);
+        diffData.allVars = SOME(orderedVars2_Seed1);
 
-        globalKnownVars2 = BackendVariable.addVariables(inSeedVars, globalKnownVars2); //Add seed vars to known vars
-        diffData.knownVars = SOME(globalKnownVars); //update diffData
-        matrixNameForHess = matrixName+"1"; //Rename the Matrix name for the seeds
-        diffData.matrixName = SOME(matrixNameForHess); //update matrix name
+        globalKnownVars2_Seed1 = BackendVariable.addVariables(inSeedVars, globalKnownVars2_Seed1);
+        diffData.knownVars = SOME(globalKnownVars);
 
-        /*
-        BackendDump.dumpVariables(diffVarsArr, "diffVarsArr 2");
-        BackendDump.dumpVariables(diffedVars, "diffedVars 2");
-        BackendDump.dumpVariables(globalKnownVars, "globalKnownVars 2");
-        BackendDump.dumpVariables(orderedVars, "orderedVars 2");
-        ComponentReference.printComponentRefList(comref_diffvars);
-        */
-
+        /*Section for second derivatives*/
+        diffData.matrixName = SOME(matrixNameForHess);
+        /*Derive second time*/
         dummyVarName = ("dummyVar" + matrixNameForHess);
         x = DAE.CREF_IDENT(dummyVarName,DAE.T_REAL_DEFAULT,{});
-
-        (derivedEquations, functions) = deriveAll(derivedEquations, arrayList(ass2), x, diffData, functions); //Derive second time
+        (derivedEquations, functions) = deriveAll(derivedEquations, arrayList(ass2), x, diffData, functions);
         //BackendDump.dumpEquationList(derivedEquations, "derivedEquations 2");
       end if;
-       //BackendDump.dumpEquationList(firstDerivedEqs, "derivedEquations 1");
-       //BackendDump.dumpEquationList(derivedEquations, "derivedEquations 2");
 
       /*Merge the 1. and 2. derivatives*/
-      derivedEquations = listAppend(firstDerivedEqs,derivedEquations);
+      derivedEquations = listAppend(firstDerivedEqsSeed1,derivedEquations);
 
       if Flags.isSet(Flags.JAC_DUMP2) then
         print("*** analytical Jacobians -> after derive all equation: " + realString(clock()) + "\n");
       end if;
+
+      if SymbolicHessian or false then
+        diffVars = BackendVariable.varList(jacOrderedVars);
+        derivedVariables = createAllDiffedVars(diffVars, x, diffedVars, matrixName + "1");
+        /*Merge the first and second derived variables*/
+        derivedVariables = listAppend(firstDerivedVarsSeed1,derivedVariables);
+        jacOrderedVars = BackendVariable.listVar1(derivedVariables);
+      else
+        diffVars = BackendVariable.varList(orderedVars);
+        derivedVariables = createAllDiffedVars(diffVars, x, diffedVars, matrixName);
+
+        jacOrderedVars = BackendVariable.listVar1(derivedVariables);
+      end if;
+
+      if SymbolicHessian then
+        /*Data for 1. Derivatives with second seed*/
+        x2 = DAE.CREF_IDENT(dummyVarName,DAE.T_REAL_DEFAULT,{});
+
+        diffData2 = BackendDAE.emptyInputData;
+
+        diffData2.independenentVars = SOME(diffVarsArr_Seed2);
+        diffData2.dependenentVars = SOME(diffedVars_Seed2);
+        diffData2.knownVars = SOME(globalKnownVars_Seed2);
+        diffData2.allVars = SOME(orderedVars_Seed2);
+        diffData2.diffCrefs = comref_diffvars;
+        diffData2.matrixName = SOME(matrixNameForHess);
+
+        firstDerivedEqsSeed2 = BackendEquation.equationList(orderedEqs);
+        (firstDerivedEqsSeed2, _) = deriveAll(firstDerivedEqsSeed2, arrayList(ass2), x2, diffData2, functions);
+
+        /*Set list for the first derivative vars & eqs*/
+        derivedEquations = listAppend(derivedEquations,firstDerivedEqsSeed2);
+
+        diffVars = BackendVariable.varList(diffedVars_Seed2);
+        firstDerivedVarsSeed2 = createAllDiffedVars(diffVars, x2, diffedVars, matrixNameForHess);
+        firstDerivedVarsSeed2 = listAppend(firstDerivedVarsSeed2,derivedVariables);
+        jacOrderedVars = BackendVariable.listVar1(firstDerivedVarsSeed2);
+
+        diffVarsArr2_Seed2 = BackendVariable.addVariables(jacOrderedVars, diffVarsArr2_Seed2);
+
+        diffedVars2_Seed2 = BackendVariable.addVariables(jacOrderedVars, diffedVars2_Seed2);
+
+        diffVars = BackendVariable.varList(orderedVars_Seed2);
+        firstDerivedVarsSeed2 = createAllDiffedVars(diffVars, x2, diffedVars, matrixNameForHess);
+        jacOrderedVars = BackendVariable.listVar1(firstDerivedVarsSeed2);
+
+        orderedVars2_Seed2 = BackendVariable.addVariables(jacOrderedVars, orderedVars2_Seed2);
+
+        globalKnownVars2_Seed2 = BackendVariable.addVariables(inSeedVars, globalKnownVars2_Seed2);
+
+        diffVars = BackendVariable.varList(jacOrderedVars);
+        /*Merge the first and second derived variables*/
+        derivedVariables = listAppend(firstDerivedVarsSeed2,derivedVariables);
+        jacOrderedVars = BackendVariable.listVar1(derivedVariables);
+      end if;
+
       // replace all der(x), since ExpressionSolve can't handle der(x) proper
       derivedEquations = BackendEquation.replaceDerOpInEquationList(derivedEquations);
       if Flags.isSet(Flags.JAC_DUMP2) then
@@ -2295,20 +2357,6 @@ algorithm
 
       // all variables for new equation system
       // d(ordered vars)/d(dummyVar)
-
-      if SymbolicHessian or false then
-        diffVars = BackendVariable.varList(jacOrderedVars);
-        derivedVariables = createAllDiffedVars(diffVars, x, diffedVars, matrixName + "1");
-        /*Merge the first and second derived variables*/
-        derivedVariables = listAppend(firstDerivedVars,derivedVariables);
-
-        jacOrderedVars = BackendVariable.listVar1(derivedVariables);
-      else
-        diffVars = BackendVariable.varList(orderedVars);
-        derivedVariables = createAllDiffedVars(diffVars, x, diffedVars, matrixName);
-
-        jacOrderedVars = BackendVariable.listVar1(derivedVariables);
-      end if;
 
       //print("----------------------------------------\n");
       //BackendDump.printVarList(derivedVariables);
