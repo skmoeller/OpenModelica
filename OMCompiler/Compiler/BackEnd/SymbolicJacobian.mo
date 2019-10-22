@@ -1934,8 +1934,7 @@ algorithm
         // Differentiate the System w.r.t inputs for matrices D
         optimizer_vars = BackendVariable.emptyVars();
         optimizer_vars = BackendVariable.listVar1(fconVarsList);
-        print("\n\n"+"Variables to diff for"+"\n\n");
-        BackendDump.printVariables(optimizer_vars);
+        //BackendDump.printVariables(optimizer_vars);
 
         (linearModelMatrix, funcs, sparsePattern, sparseColoring) = generateGenericJacobian(backendDAE2, states_inputs, statesarr, inputvarsarr, paramvarsarr, optimizer_vars, varlst, "D", false, SymbolicHessian);
         functionTree = DAE.AvlTreePathFunction.join(functionTree, funcs);

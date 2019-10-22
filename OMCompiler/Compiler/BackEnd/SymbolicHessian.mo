@@ -60,7 +60,7 @@
 public function generateSymbolicHessian
   "Function to generate the symbolic hessian with respect to the stats of an dynamic optimization problem."
   input BackendDAE.BackendDAE inBackendDAE "Input BackendDAE";
-  output BackendDAE.BackendDAE outHessian "second derivates-> this is the hessian"; //Improve it by using special hessian struct -> need to added!!!
+  output BackendDAE.BackendDAE outHessian "second derivates-> this is the hessian";
 protected
   BackendDAE.SymbolicJacobians linearModelMatrixes; //All Matrices A,B,C,D
   BackendDAE.SymbolicHessians symHesss = {};
@@ -136,31 +136,36 @@ algorithm
 
   lambdasOption := if Flags.getConfigBool(Flags.GENERATE_SYMBOLIC_HESSIAN) and (listLength(residualEqns)<>0) then SOME(getLambdaList(listLength(residualEqns))) else NONE();
 
-    if isSome(lambdasOption) then
-      SOME(lambdas) := lambdasOption;
-      //BackendDump.dumpEquationList(innerEqns, "inner Equations");
-      //BackendDump.dumpEquationList(residualEqns, "residualEqns");
+  if isSome(lambdasOption) then
+    SOME(lambdas) := lambdasOption;
+    //BackendDump.dumpEquationList(innerEqns, "inner Equations");
+    //BackendDump.dumpEquationList(residualEqns, "residualEqns");
 
-      /*get ordered equations from jac
-      traverse and multiply each lambda on rhs
-      e1.rhs -> e1.rhs * lambda[1]*/
-      for lambdaList in lambdas loop
-        eq :: residualEqns := residualEqns;
-        eqExpr := BackendEquation.getEquationRHS(eq);
-        eqExpr := multiplyLambda2Expression(eqExpr, lambdaList);
-        hessExpr := eqExpr::hessExpr;
-      end for;
-      (vars, eqns) := addEquations(hessExpr, eq, matrixName, vars);
-      vars := removeStateVars(vars);
-      eqns := BackendEquation.addList(innerEqns, eqns);
-      /*Updating the DAE*/
-      eqs.orderedEqs := eqns;
-      eqs.orderedVars := vars;
-      lambdaJac.eqs := {eqs};
-    else
-      print("\n***Error***\n NO RESIDUAL EQUATIONS GIVEN!\n\n");
-      fail();
-    end if;
+    /*get ordered equations from jac
+    traverse and multiply each lambda on rhs
+    e1.rhs -> e1.rhs * lambda[1]*/
+    for lambdaList in lambdas loop
+      eq :: residualEqns := residualEqns;
+      eqExpr := BackendEquation.getEquationRHS(eq);
+      eqExpr := multiplyLambda2Expression(eqExpr, lambdaList);
+      hessExpr := eqExpr::hessExpr;
+    end for;
+
+    (vars, eqns) := addEquations(hessExpr, eq, matrixName, vars);
+    vars := removeStateVars(vars);
+    eqns := BackendEquation.addList(innerEqns, eqns);
+
+    /*Updating the DAE*/
+    eqs.orderedEqs := eqns;
+    eqs.orderedVars := vars;
+    eqs.matching := BackendDAE.NO_MATCHING();
+    lambdaJac.eqs := {eqs};
+  else
+    print("\n***Error***\n NO RESIDUAL EQUATIONS GIVEN!\n\n");
+    fail();
+  end if;
+
+  lambdaJac :=  BackendDAEUtil.transformBackendDAE(lambdaJac,SOME((BackendDAE.NO_INDEX_REDUCTION(),BackendDAE.EXACT())),NONE(),NONE());
 end multiplyLambdas;
 
 protected function getLambdaList
@@ -211,7 +216,7 @@ protected function setHessian
   input output BackendDAE.Variables vars;
   output BackendDAE.Equation outEq;
 protected
-  DAE.ComponentRef hessCref = ComponentReference.makeCrefIdent(Util.hessianIdent + matrixName, DAE.T_ARRAY_REAL_NODIM, {});
+  DAE.ComponentRef hessCref = ComponentReference.makeCrefIdent(Util.hessianIdent + matrixName, DAE.T_REAL_DEFAULT, {});
 algorithm
   outEq := match (inEq)
     local
@@ -323,7 +328,7 @@ algorithm
 end removeStateVars;
 
 protected function printHessian
-  "Functions prints the Hessians A,B,C,D"
+  "Functions prints the Hessians A,B,C"
   input BackendDAE.SymbolicHessians symHesss;
 algorithm
   for hessian in symHesss loop
