@@ -4007,10 +4007,38 @@ algorithm
       String s1, s2, s3;
     case DAE.CREF_QUAL(ident = s1, componentRef = DAE.CREF_QUAL(componentRef = DAE.CREF_QUAL(ident = s2, componentRef = DAE.CREF_QUAL(componentRef = DAE.CREF_QUAL(ident = s3)))))
       guard(Util.stringStartsWith("$DER",s1) and Util.stringStartsWith("$pDER",s2) and Util.stringStartsWith("$pDER",s3))
-    then true;
+      then true;
     else false;
   end match;
 end isSecondPartialDerivativeHessian;
+
+public function isMayerOrLagrange
+  input DAE.ComponentRef cr;
+  output Boolean b;
+algorithm
+  b := match cr
+    local
+      String s1, s2, s3;
+    case DAE.CREF_QUAL(ident = s1, componentRef = DAE.CREF_QUAL(ident = s2, componentRef = DAE.CREF_QUAL(componentRef = DAE.CREF_QUAL(ident = s3))))
+      guard(Util.stringStartsWith("$OMC",s1) and Util.stringStartsWith("$pDER",s2) and Util.stringStartsWith("$pDER",s3))
+      then true;
+    else false;
+  end match;
+end isMayerOrLagrange;
+
+public function isConstraint
+  input DAE.ComponentRef cr;
+  output Boolean b;
+algorithm
+  b := match cr
+    local
+      String s1, s2, s3;
+    case DAE.CREF_QUAL(ident = s1, componentRef = DAE.CREF_QUAL(ident = s2,componentRef = DAE.CREF_QUAL(componentRef = DAE.CREF_QUAL(ident = s3))))
+      guard(Util.stringStartsWith("$con",s1) and Util.stringStartsWith("$pDER",s2) and Util.stringStartsWith("$pDER",s3))
+      then true;
+    else false;
+  end match;
+end isConstraint;
 
 annotation(__OpenModelica_Interface="frontend");
 end ComponentReference;

@@ -133,7 +133,6 @@ algorithm
   jacEqns := eqns;
   (innerEqns,residualEqns) := BackendEquation.traverseEquationArray(eqns, assignEqnToInnerOrResidual, (innerEqns, residualEqns));
   //BackendDump.dumpEquationArray(eqns, "filtered eqns");
-
   lambdasOption := if Flags.getConfigBool(Flags.GENERATE_SYMBOLIC_HESSIAN) and (listLength(residualEqns)<>0) then SOME(getLambdaList(listLength(residualEqns))) else NONE();
 
   if isSome(lambdasOption) then
@@ -150,11 +149,9 @@ algorithm
       eqExpr := multiplyLambda2Expression(eqExpr, lambdaList);
       hessExpr := eqExpr::hessExpr;
     end for;
-
     (vars, eqns) := addEquations(hessExpr, eq, matrixName, vars);
     vars := removeStateVars(vars);
     eqns := BackendEquation.addList(innerEqns, eqns);
-
     /*Updating the DAE*/
     eqs.orderedEqs := eqns;
     eqs.orderedVars := vars;
@@ -281,7 +278,7 @@ algorithm
       DAE.ComponentRef cr;
     /* other eqn types relevant? */
     case BackendDAE.EQUATION(exp = DAE.CREF(componentRef = cr))
-      guard(ComponentReference.isSecondPartialDerivativeHessian(cr))
+      guard(ComponentReference.isSecondPartialDerivativeHessian(cr) or ComponentReference.isMayerOrLagrange(cr) or ComponentReference.isConstraint(cr))
     then true;
     else false;
   end match;
@@ -318,7 +315,7 @@ algorithm
     _ := match varArr[i]
       local
         DAE.ComponentRef cr;
-      case SOME(BackendDAE.VAR(varName = cr)) guard(Util.stringStartsWith("$DER",ComponentReference.crefFirstIdent(cr)))
+      case SOME(BackendDAE.VAR(varName = cr)) guard(Util.stringStartsWith("$DER",ComponentReference.crefFirstIdent(cr)) or ComponentReference.isConstraint(cr) or ComponentReference.isMayerOrLagrange(cr))
         equation
           variables = BackendVariable.deleteVar(cr, variables);
         then "";
