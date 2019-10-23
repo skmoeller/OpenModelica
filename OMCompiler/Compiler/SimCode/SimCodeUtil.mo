@@ -216,6 +216,7 @@ protected
   BackendDAE.EventInfo eventInfo;
   BackendDAE.Shared shared;
   BackendDAE.SymbolicJacobians symJacs;
+  BackendDAE.SymbolicHessians symHesss;
   BackendDAE.Variables globalKnownVars;
   Boolean ifcpp;
   HashTableCrIListArray.HashTable varToArrayIndexMapping "maps each array-variable to a array of positions";
@@ -243,6 +244,7 @@ protected
   list<DAE.Exp> lits;
   list<SimCode.ClockedPartition> clockedPartitions;
   list<SimCode.JacobianMatrix> LinearMatrices, SymbolicJacs, SymbolicJacsTemp, SymbolicJacsStateSelect, SymbolicJacsStateSelectInternal, SymbolicJacsNLS, SymbolicJacsFMI={},SymbolicJacsdatarecon={};
+  list<SimCode.HessianMatrix> SymbolicHesss;
   list<SimCode.SimEqSystem> algorithmAndEquationAsserts;
   list<SimCode.SimEqSystem> localKnownVars;
   list<SimCode.SimEqSystem> allEquations;
@@ -341,6 +343,7 @@ algorithm
                                 constraints=constraints,
                                 classAttrs=classAttributes,
                                 symjacs=symJacs,
+                                symHesss=symHesss,
                                 eventInfo=eventInfo) := dlow.shared;
 
     removedEqs := BackendDAEUtil.collapseRemovedEqs(dlow);
@@ -541,7 +544,12 @@ algorithm
       SymbolicJacsNLS := listAppend(SymbolicJacsTemp, SymbolicJacsNLS);
       if debug then execStat("simCode: create FMI model structure"); end if;
     end if;
-    // collect symbolic jacobians in linear loops of the overall jacobians
+
+    /*
+      ###################################################################
+      collect symbolic jacobians in linear loops of the overall jacobians
+      ###################################################################
+    */
     (LinearMatrices, uniqueEqIndex) := createJacobianLinearCode(symJacs, modelInfo, uniqueEqIndex, shared);
     (SymbolicJacs, modelInfo, SymbolicJacsTemp) := addAlgebraicLoopsModelInfoSymJacs(LinearMatrices, modelInfo);
     SymbolicJacs := listAppend(SymbolicJacsFMI, SymbolicJacs);
@@ -556,10 +564,18 @@ algorithm
     SymbolicJacs := listAppend(SymbolicJacs, SymbolicJacsTemp);
     SymbolicJacs := listAppend(SymbolicJacs, SymbolicJacsStateSelectInternal);
     jacobianSimvars := collectAllJacobianVars(SymbolicJacs);
+
     modelInfo := setJacobianVars(jacobianSimvars, modelInfo);
     seedVars := collectAllSeedVars(SymbolicJacs);
     modelInfo := setSeedVars(seedVars, modelInfo);
     execStat("simCode: created linear, non-linear and system jacobian parts");
+
+    /*
+      ###################################################################
+                          collect symbolic hessians
+      ###################################################################
+    */
+    (SymbolicHesss, _) := createHessianCode(symHesss, modelInfo, uniqueEqIndex);
 
     // map index also odeEquations and algebraicEquations
     systemIndexMap := List.fold(allEquations, getSystemIndexMap, arrayCreate(uniqueEqIndex, -1));
@@ -708,6 +724,7 @@ algorithm
                               makefileParams,
                               SimCode.DELAYED_EXPRESSIONS(delayedExps, maxDelayedExpIndex),
                               SymbolicJacs,
+                              SymbolicHesss,
                               simSettingsOpt,
                               filenamePrefix,
                               fullPathPrefix,
@@ -4941,6 +4958,212 @@ algorithm
         fail();
   end matchcontinue;
 end createSymbolicJacobianssSimCode;
+
+public function createHessianCode
+  input BackendDAE.SymbolicHessians inSymHesss;
+  input SimCode.ModelInfo inModelInfo;
+  input Integer iuniqueEqIndex;
+  output list<SimCode.HessianMatrix> res = {};
+  output Integer ouniqueEqIndex;
+protected
+  SimCode.HashTableCrefToSimVar crefSimVarHT;
+  list<String> matrixnames;
+algorithm
+        // The jacobian code requires single systems;
+        // I did not rewrite it to take advantage of any parallelism in the code
+        // This is used to set the matrixnames for Linearization and DataReconciliation procedure
+        // For dataReconciliation F is set in earlier order which cause index problem for linearization matrix and hence identify if
+        // dataReconciliation is involved and pass the matrix names
+  crefSimVarHT := createCrefToSimVarHT(inModelInfo);
+  matrixnames := {"A", "B", "C"};
+  (res, ouniqueEqIndex) := createSymbolicHessiansSimCode(inSymHesss, crefSimVarHT, iuniqueEqIndex, matrixnames, res);
+end createHessianCode;
+
+public function createSymbolicHessiansSimCode
+"function creates the hessian matrices column-wise
+ author: skmoeller"
+  input BackendDAE.SymbolicHessians inSymHesss;
+  input SimCode.HashTableCrefToSimVar inSimVarHT;
+  input Integer iuniqueEqIndex;
+  input list<String> inNames;
+  input list<SimCode.HessianMatrix> inHessianMatrixes;
+  output list<SimCode.HessianMatrix> outHessianMatrixes;
+  output Integer ouniqueEqIndex;
+algorithm
+  (outHessianMatrixes, ouniqueEqIndex) :=
+  matchcontinue (inSymHesss, inNames)
+    local
+      BackendDAE.EqSystem syst;
+      BackendDAE.Shared shared;
+      BackendDAE.StrongComponents comps;
+/*
+      BackendDAE.Variables vars, globalKnownVars, empty, systvars, emptyVars;
+
+      DAE.ComponentRef x;
+      list<BackendDAE.Var>  diffVars, diffedVars, alldiffedVars, seedVarLst, allVars;
+      list<DAE.ComponentRef> diffCompRefs, diffedCompRefs, allCrefs;
+
+      Integer uniqueEqIndex, nRows;
+*/
+/*
+      SimCodeVar.SimVars simvars;
+      list<SimCode.SimEqSystem> columnEquations;
+      list<SimCodeVar.SimVar> columnVars, otherColumnVars;
+      list<SimCodeVar.SimVar> columnVarsKn;
+      list<SimCodeVar.SimVar> seedVars, indexVars, seedIndexVars;
+
+      BackendDAE.SparsePatternCrefs sparsepattern, sparsepatternT;
+      list<list<DAE.ComponentRef>> colsColors;
+      Integer maxColor;
+*/
+      Integer uniqueEqIndex; //, nRows;
+      String name; //dummyVar
+      list<String> restnames;
+      BackendDAE.SymbolicHessians rest;
+      list<SimCode.HessianMatrix> hessianMatrixLst;
+/*
+      list<tuple<Integer, list<Integer>>> sparseInts, sparseIntsT;
+      list<list<Integer>> coloring;
+      Option<BackendDAE.SymbolicJacobian> optionBDAE;
+
+      SimCode.JacobianMatrix tmpJac;
+      HashTableCrefSimVar.HashTable crefToSimVarHTJacobian;
+*/
+
+    case (_, {}) then (inHessianMatrixes, iuniqueEqIndex); // lists have to be of equal length (?)
+
+    // if nothing is generated (D)
+    /*
+    case ({}, name::restnames)
+      equation
+        tmpJac = SimCode.emptyJacobian;
+        tmpJac.matrixName = name;
+        linearModelMatrices = tmpJac::inJacobianMatrixes;
+        (linearModelMatrices, uniqueEqIndex) = createSymbolicJacobianssSimCode({}, inSimVarHT, iuniqueEqIndex, restnames, linearModelMatrices);
+     then
+        (linearModelMatrices, uniqueEqIndex);
+
+    case (((NONE(), ({}, {}, ({}, {}), _), {}))::rest, name::restnames)
+      equation
+        tmpJac = SimCode.emptyJacobian;
+        tmpJac.matrixName = name;
+        linearModelMatrices = tmpJac::inJacobianMatrixes;
+        (linearModelMatrices, uniqueEqIndex) = createSymbolicJacobianssSimCode(rest, inSimVarHT, iuniqueEqIndex, restnames, linearModelMatrices);
+     then
+        (linearModelMatrices, uniqueEqIndex);
+    */
+    case (SOME((BackendDAE.DAE(eqs={syst as BackendDAE.EQSYSTEM(matching=BackendDAE.MATCHING(comps=comps))},shared=shared), name))::rest, _::restnames)
+      algorithm
+        /*
+        if Flags.isSet(Flags.JAC_DUMP2) then
+          print("analytical Jacobians -> creating SimCode equations for Matrix " + name + " time: " + realString(clock()) + "\n");
+        end if;
+        // generate also discrete equations, they might be introduced by wrapFunctionCalls
+        (columnEquations, _, uniqueEqIndex, _) = createEquations(false, false, true, false, syst, shared, comps, iuniqueEqIndex, {});
+        if Flags.isSet(Flags.JAC_DUMP2) then
+          print("analytical Jacobians -> created all SimCode equations for Matrix " + name +  " time: " + realString(clock()) + "\n");
+        end if;
+
+        // create SimCodeVar.SimVars from jacobian vars
+        dummyVar = ("dummyVar" + name);
+        x = DAE.CREF_IDENT(dummyVar, DAE.T_REAL_DEFAULT, {});
+
+        // get cse and other aux vars > columnVars
+        emptyVars =  BackendVariable.emptyVars();
+        ((allVars, _)) = BackendVariable.traverseBackendDAEVars(syst.orderedVars, getFurtherVars , ({}, x));
+        systvars = BackendVariable.listVar1(allVars);
+        ((otherColumnVars, _)) =  BackendVariable.traverseBackendDAEVars(systvars, traversingdlowvarToSimvar, ({}, emptyVars));
+        otherColumnVars = List.map1(otherColumnVars, setSimVarKind, BackendDAE.JAC_DIFF_VAR());
+        otherColumnVars = List.map1(otherColumnVars, setSimVarMatrixName, SOME(name));
+        otherColumnVars = rewriteIndex(otherColumnVars, 0);
+
+        //sort variable for index
+        empty = BackendVariable.listVar1(alldiffedVars);
+        allCrefs = List.map(alldiffedVars, BackendVariable.varCref);
+        columnVars = getSimVars2Crefs(allCrefs, inSimVarHT);
+        columnVars = List.sort(columnVars, compareVarIndexGt);
+        (_, (_, alldiffedVars)) = List.mapFoldTuple(columnVars, sortBackVarWithSimVarsOrder, (empty, {}));
+        alldiffedVars = listReverse(alldiffedVars);
+        vars = BackendVariable.listVar1(diffedVars);
+
+        columnVars = createAllDiffedSimVars(alldiffedVars, x, vars, 0, listLength(otherColumnVars), name, otherColumnVars);
+        if Flags.isSet(Flags.JAC_DUMP2) then
+          print("\n---+++ second columnVars +++---\n");
+          print(Tpl.tplString(SimCodeDump.dumpVarsShort, columnVars));
+          print("analytical Jacobians -> create column variables for matrix " + name + " time: " + realString(clock()) + "\n");
+        end if;
+
+        if Flags.isSet(Flags.JAC_DUMP2) then
+          print("analytical Jacobians -> create all SimCode vars for Matrix " + name + " time: " + realString(clock()) + "\n");
+          print("\n---+++  columnVars +++---\n");
+          print(Tpl.tplString(SimCodeDump.dumpVarsShort, columnVars));
+        end if;
+
+        seedVars = getSimVars2Crefs(diffCompRefs, inSimVarHT);
+        seedVars = List.sort(seedVars, compareVarIndexGt);
+
+        if Flags.isSet(Flags.JAC_DUMP2) then
+          print("diffCrefs: " + ComponentReference.printComponentRefListStr(diffCompRefs) + "\n");
+          print("\n---+++  seedVars +++---\n");
+          print(Tpl.tplString(SimCodeDump.dumpVarsShort, seedVars));
+        end if;
+
+        indexVars = getSimVars2Crefs(diffedCompRefs, inSimVarHT);
+        indexVars = List.sort(indexVars, compareVarIndexGt);
+
+        if Flags.isSet(Flags.JAC_DUMP2) then
+          print("diffedCrefs: " + ComponentReference.printComponentRefListStr(diffedCompRefs) + "\n");
+          print("\n---+++  indexVars +++---\n");
+          print(Tpl.tplString(SimCodeDump.dumpVarsShort, indexVars));
+
+          print("\n---+++  sparse pattern vars +++---\n");
+          dumpSparsePattern(sparsepattern);
+          print("\n---+++  sparse pattern transpose +++---\n");
+          dumpSparsePattern(sparsepatternT);
+        end if;
+        seedVars = rewriteIndex(seedVars, 0);
+        indexVars = rewriteIndex(indexVars, 0);
+        seedIndexVars = listAppend(seedVars, indexVars);
+        sparseInts = sortSparsePattern(seedIndexVars, sparsepattern, false);
+        sparseIntsT = sortSparsePattern(seedIndexVars, sparsepatternT, false);
+
+        maxColor = listLength(colsColors);
+        nRows =  listLength(diffedVars);
+        coloring = sortColoring(seedVars, colsColors);
+
+        if Flags.isSet(Flags.JAC_DUMP2) then
+          print("analytical Jacobians -> transformed to SimCode for Matrix " + name + " time: " + realString(clock()) + "\n");
+          print("\n---+++  sparse pattern vars +++---\n");
+          dumpSparsePatternInt(sparseInts);
+          print("\n---+++  sparse pattern transpose +++---\n");
+          dumpSparsePatternInt(sparseIntsT);
+        end if;
+
+        // create seed vars
+        seedVars = replaceSeedVarsName(seedVars, name);
+        seedVars = List.map1(seedVars, setSimVarKind, BackendDAE.SEED_VAR());
+        seedVars = List.map1(seedVars, setSimVarMatrixName, SOME(name));
+
+        // create hash table for this jacobians
+        crefToSimVarHTJacobian = HashTableCrefSimVar.emptyHashTableSized(listLength(seedVars)+ listLength(columnVars));
+        crefToSimVarHTJacobian = List.fold(seedVars, HashTableCrefSimVar.addSimVarToHashTable, crefToSimVarHTJacobian);
+        crefToSimVarHTJacobian = List.fold(columnVars, HashTableCrefSimVar.addSimVarToHashTable, crefToSimVarHTJacobian);
+
+        tmpJac = SimCode.JAC_MATRIX({SimCode.JAC_COLUMN(columnEquations, columnVars, nRows)}, seedVars, name, sparseInts, sparseIntsT, coloring, maxColor, -1, 0, SOME(crefToSimVarHTJacobian));
+        linearModelMatrices = tmpJac::inJacobianMatrixes;
+        (linearModelMatrices, uniqueEqIndex) = createSymbolicJacobianssSimCode(rest, inSimVarHT, uniqueEqIndex, restnames, linearModelMatrices);
+        */
+        hessianMatrixLst := SimCode.emptyHessian :: inHessianMatrixes;
+        uniqueEqIndex := iuniqueEqIndex + 1;
+     then
+        (hessianMatrixLst, uniqueEqIndex);
+    else
+      equation
+        Error.addInternalError("Generation of symbolic hessian matrix SimCode (SimCode.createSymbolicHessiansSimCode) failed", sourceInfo());
+      then
+        fail();
+  end matchcontinue;
+end createSymbolicHessiansSimCode;
 
 public function getSimVars2Crefs
   input list<DAE.ComponentRef> inCrefs;

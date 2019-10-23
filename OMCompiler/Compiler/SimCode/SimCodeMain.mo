@@ -1183,6 +1183,7 @@ protected
   tuple<Option<BackendDAE.SymbolicJacobian>, BackendDAE.SparsePattern, BackendDAE.SparseColoring> daeModeJac;
   SimCode.JacobianMatrix symDAESparsPattern;
   list<SimCode.JacobianMatrix> symJacs, SymbolicJacs, SymbolicJacsNLS, SymbolicJacsTemp, SymbolicJacsStateSelect;
+  list<SimCode.HessianMatrix> SymbolicHesss;
   list<SimCode.SimEqSystem> initialEquations, removedInitialEquations, jacobianEquations;
   list<SimCodeVar.SimVar> jacobianSimvars, seedVars;
   list<SimCode.SimEqSystem> startValueEquations;        // --> updateBoundStartValues
@@ -1330,6 +1331,8 @@ algorithm
     // update hash table
     crefToSimVarHT := SimCodeUtil.createCrefToSimVarHT(modelInfo);
 
+    SymbolicHesss := {SimCode.emptyHessian};
+
     simCode := SimCode.SIMCODE(modelInfo,
                               {}, // Set by the traversal below...
                               recordDecls,
@@ -1362,6 +1365,7 @@ algorithm
                               makefileParams,
                               SimCode.DELAYED_EXPRESSIONS(delayedExps, maxDelayedExpIndex),
                               SymbolicJacs,
+                              SymbolicHesss,
                               simSettingsOpt,
                               filenamePrefix,
                               "",

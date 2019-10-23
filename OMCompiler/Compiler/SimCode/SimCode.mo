@@ -92,7 +92,23 @@ uniontype JacobianMatrix
   end JAC_MATRIX;
 end JacobianMatrix;
 
+uniontype HessianMatrix
+  record HESS_MATRIX
+    list<JacobianColumn> columns;       // columns equations and variables
+    list<SimCodeVar.SimVar> seedVars;   // corresponds to the number of columns
+    String matrixName;                  // unique matrix name
+    //SparsityPattern sparsity;
+    //SparsityPattern sparsityT;
+    //ist<list<Integer>> coloredCols;
+    //Integer maxColorCols;
+    Integer hessianIndex;
+    Integer partitionIndex;
+    Option<HashTableCrefSimVar.HashTable> crefsHT; // all jacobian variables
+  end HESS_MATRIX;
+end HessianMatrix;
+
 constant JacobianMatrix emptyJacobian = JAC_MATRIX({}, {}, "", {}, {}, {}, 0, -1, 0, NONE());
+constant HessianMatrix emptyHessian = HESS_MATRIX({}, {}, "", -1, 0, NONE());
 
 constant PartitionData emptyPartitionData = PARTITIONDATA(-1,{},{},{});
 
@@ -134,6 +150,7 @@ uniontype SimCode
     SimCodeFunction.MakefileParams makefileParams;
     DelayedExpression delayedExps;
     list<JacobianMatrix> jacobianMatrixes;
+    list<HessianMatrix> hessianMatrixes;
     Option<SimulationSettings> simulationSettingsOpt;
     String fileNamePrefix, fullPathPrefix "Used in FMI where files are generated in a special directory";
     String fmuTargetName;
