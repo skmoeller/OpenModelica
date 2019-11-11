@@ -98,6 +98,7 @@ import HashSetExp;
 import HashTableCrefSimVar;
 import HashTableSimCodeEqCache;
 import HpcOmSimCode;
+import HpcOmMemory;
 import Inline;
 import List;
 import Matching;
@@ -4997,28 +4998,34 @@ algorithm
       BackendDAE.Shared shared;
       BackendDAE.StrongComponents comps;
 
-      BackendDAE.Variables vars, globalKnownVars, empty, systvars, emptyVars;
+      BackendDAE.Variables vars, globalKnownVars, empty, systvarsSeed1, emptyVars;
 
-      DAE.ComponentRef x;
-      list<BackendDAE.Var>  diffVars, diffedVars, alldiffedVars, seedVarLst, allVars;
+      DAE.ComponentRef x1, x2;
+      list<BackendDAE.Var>  diffVars, diffedVars, alldiffedVars, seedVarLst, allVarsSeed1;
       list<DAE.ComponentRef> diffCompRefs, diffedCompRefs, allCrefs;
 
       Integer uniqueEqIndex, nRows;
 
       SimCodeVar.SimVars simvars;
       list<SimCode.SimEqSystem> columnEquations;
-      list<SimCodeVar.SimVar> columnVars, otherColumnVars;
+      list<SimCodeVar.SimVar> columnVars, columnVarsSeed1, otherColumnVarsSeed1;
       list<SimCodeVar.SimVar> columnVarsKn;
       list<SimCodeVar.SimVar> seedVars, indexVars, seedIndexVars;
 
       Integer uniqueEqIndex; //, nRows;
-      String nameFirstDer, nameSecondDer; //dummyVar
+      String nameFirstDer, nameSecondDer, dummyVar1, dummyVar2; //dummyVar
       list<String> restnames;
       BackendDAE.SymbolicHessians rest;
       list<SimCode.HessianMatrix> hessianMatrixLst;
+      BackendDAE.SymbolicHessian hess;
 
       SimCode.HessianMatrix tmpHess;
       HashTableCrefSimVar.HashTable crefToSimVarHTHessian;
+
+    case (NONE()::rest, _::restnames)
+      algorithm
+        (outHessianMatrixes, ouniqueEqIndex) := createSymbolicHessiansSimCode(rest, inSimVarHT, iuniqueEqIndex, restnames, inHessianMatrixes);
+    then (outHessianMatrixes, ouniqueEqIndex);
 
     case (_, {}) then (inHessianMatrixes, iuniqueEqIndex); // lists have to be of equal length (?)
 
@@ -5042,28 +5049,33 @@ algorithm
      then
         (linearModelMatrices, uniqueEqIndex);
     */
-    case (SOME((BackendDAE.DAE(eqs={syst as BackendDAE.EQSYSTEM(matching=BackendDAE.MATCHING(comps=comps))},shared=shared),nameFirstDer,_,_,_))::rest, _::restnames)
+    case (SOME((BackendDAE.DAE(eqs={syst as BackendDAE.EQSYSTEM(matching=BackendDAE.MATCHING(comps=comps))},shared=shared),nameFirstDer,_,_,alldiffedVars))::rest, _::restnames)
       algorithm
-        /*
+        print(intString(iuniqueEqIndex) + "---\n");
         // generate also discrete equations, they might be introduced by wrapFunctionCalls
-        (columnEquations, _, uniqueEqIndex, _) = createEquations(false, false, true, false, syst, shared, comps, iuniqueEqIndex, {});
+        (columnEquations, _, uniqueEqIndex, _) := createEquations(false, false, true, false, syst, shared, comps, iuniqueEqIndex, {});
 
         // create SimCodeVar.SimVars from hessian vars
-        nameSecondDer = (nameFirstDer+"1");
-        dummyVar1 = ("dummyVar" + nameFirstDer);
-        x1 = DAE.CREF_IDENT(dummyVar1, DAE.T_REAL_DEFAULT, {});
-        dummyVar2 = ("dummyVar" + nameSecondDer);
-        x2 = DAE.CREF_IDENT(dummyVar2, DAE.T_REAL_DEFAULT, {});
+        nameSecondDer := (nameFirstDer+"1");
+        dummyVar1 := ("dummyVar" + nameFirstDer);
+        x1 := DAE.CREF_IDENT(dummyVar1, DAE.T_REAL_DEFAULT, {});
+        dummyVar2 := ("dummyVar" + nameSecondDer);
+        x2 := DAE.CREF_IDENT(dummyVar2, DAE.T_REAL_DEFAULT, {});
 
-        emptyVars =  BackendVariable.emptyVars();
+        emptyVars :=  BackendVariable.emptyVars();
         // get cse and other aux vars > columnVarsSeed1
-        ((allVarsSeed1, _)) = BackendVariable.traverseBackendDAEVars(syst.orderedVars, getFurtherVars , ({}, x1));
-        systvarsSeed1 = BackendVariable.listVar1(allVarsSeed1);
-        ((otherColumnVarsSeed1, _)) =  BackendVariable.traverseBackendDAEVars(systvarsSeed1, traversingdlowvarToSimvar, ({}, emptyVars));
-        otherColumnVarsSeed1 = List.map1(otherColumnVarsSeed1, setSimVarKind, BackendDAE.HESS_DIFF_VAR());
-        otherColumnVarsSeed1 = List.map1(otherColumnVarsSeed1, setSimVarMatrixName, SOME(nameFirstDer));
-        otherColumnVarsSeed1 = rewriteIndex(otherColumnVarsSeed1, 0);
+        ((allVarsSeed1, _)) := BackendVariable.traverseBackendDAEVars(syst.orderedVars, getFurtherVars , ({}, x1));
+        systvarsSeed1 := BackendVariable.listVar1(allVarsSeed1);
+        ((otherColumnVarsSeed1, _)) :=  BackendVariable.traverseBackendDAEVars(systvarsSeed1, traversingdlowvarToSimvar, ({}, emptyVars));
+        otherColumnVarsSeed1 := List.map1(otherColumnVarsSeed1, setSimVarKind, BackendDAE.HESS_DIFF_VAR());
+        otherColumnVarsSeed1 := List.map1(otherColumnVarsSeed1, setSimVarMatrixName, SOME(nameFirstDer));
+        otherColumnVarsSeed1 := rewriteIndex(otherColumnVarsSeed1, 0);
 
+        print("otherColumnVarsSeed1\n");
+        for simvar in otherColumnVarsSeed1 loop
+          print("var: " + HpcOmMemory.dumpSimCodeVar(simvar) + "\n");
+        end for;
+/*
         // get cse and other aux vars > columnVarsSeed2
         ((allVarsSeed2, _)) = BackendVariable.traverseBackendDAEVars(syst.orderedVars, getFurtherVars , ({}, x2));
         systvarsSeed2 = BackendVariable.listVar1(allVarsSeed2);
@@ -5071,26 +5083,38 @@ algorithm
         otherColumnVarsSeed2 = List.map1(otherColumnVarsSeed2, setSimVarKind, BackendDAE.HESS_DIFF_VAR());
         otherColumnVarsSeed2 = List.map1(otherColumnVarsSeed2, setSimVarMatrixName, SOME(nameFirstDer));
         otherColumnVarsSeed2 = rewriteIndex(otherColumnVarsSeed2, 0);
+*/
 
         //sort variable for index
-        empty = BackendVariable.listVar1(alldiffedVars);
-        allCrefs = List.map(alldiffedVars, BackendVariable.varCref);
-        columnVarsSeed1 = getSimVars2Crefs(allCrefs, inSimVarHT);
-        columnVarsSeed1 = List.sort(columnVarsSeed1, compareVarIndexGt);
-        (_, (_, alldiffedVars)) = List.mapFoldTuple(columnVarsSeed1, sortBackVarWithSimVarsOrder, (empty, {}));
-        alldiffedVars = listReverse(alldiffedVars);
+        empty := BackendVariable.listVar1(alldiffedVars);
+        allCrefs := List.map(alldiffedVars, BackendVariable.varCref);
+
+        columnVarsSeed1 := getSimVars2Crefs(allCrefs, inSimVarHT);
+        columnVarsSeed1 := List.sort(columnVarsSeed1, compareVarIndexGt);
+
+                print("columnVarsSeed1\n");
+
+        for simvar in columnVarsSeed1 loop
+          print("var: " + HpcOmMemory.dumpSimCodeVar(simvar) + "\n");
+        end for;
+
+        (_, (_, alldiffedVars)) := List.mapFoldTuple(columnVarsSeed1, sortBackVarWithSimVarsOrder, (empty, {}));
+        alldiffedVars := listReverse(alldiffedVars);
+        BackendDump.dumpVarList(alldiffedVars, "alldiffedVars");
+
+/*
         vars = BackendVariable.listVar1(diffedVars);
 
         columnVarsSeed2 = columnVarsSeed1;
 
+
+        // dump vars with dumpSimCodeVar
         columnVars = {};
         columnVarsSeed1 = createAllDiffedSimVars(alldiffedVars, x1, vars, 0, listLength(otherColumnVarsSeed1), nameFirstDer, otherColumnVarsSeed1);
         columnVars = listAppend(columnVarsSeed1,columnVars);
-        columnVarsSeed1 = createAllDiffedSimVars(alldiffedVars, x1, vars, 0, listLength(otherColumnVarsSeed1), nameFirstDer, otherColumnVarsSeed1);
+        columnVarsSeed1 = createAllDiffedSimVars(alldiffedVars, x2, vars, 0, listLength(columnVarsSeed1), nameSecondDer, columnVarsSeed1);
         columnVars = listAppend(columnVarsSeed1,columnVars);
 
-        columnVarsSeed2 = createAllDiffedSimVars(alldiffedVars, x2, vars, 0, listLength(otherColumnVarsSeed2), nameSecondDer, otherColumnVarsSeed2);
-        columnVars = listAppend(columnVarsSeed2,columnVars);
         columnVarsSeed2 = createAllDiffedSimVars(alldiffedVars, x2, vars, 0, listLength(otherColumnVarsSeed2), nameSecondDer, otherColumnVarsSeed2);
         columnVars = listAppend(columnVarsSeed2,columnVars);
 
@@ -5120,7 +5144,7 @@ algorithm
         linearModelMatrices = tmpHess::inHessianMatrixes;
         (linearModelMatrices, uniqueEqIndex) = createSymbolicHessiansSimCode(rest, inSimVarHT, uniqueEqIndex, restnames, linearModelMatrices);
         */
-        hessianMatrixLst := tmpHess :: inHessianMatrixes;
+        hessianMatrixLst := SimCode.emptyHessian :: inHessianMatrixes;
         uniqueEqIndex := iuniqueEqIndex + 1;
      then
         (hessianMatrixLst, uniqueEqIndex);
