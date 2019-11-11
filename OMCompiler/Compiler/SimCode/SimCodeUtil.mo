@@ -4996,7 +4996,7 @@ algorithm
       BackendDAE.EqSystem syst;
       BackendDAE.Shared shared;
       BackendDAE.StrongComponents comps;
-/*
+
       BackendDAE.Variables vars, globalKnownVars, empty, systvars, emptyVars;
 
       DAE.ComponentRef x;
@@ -5004,35 +5004,25 @@ algorithm
       list<DAE.ComponentRef> diffCompRefs, diffedCompRefs, allCrefs;
 
       Integer uniqueEqIndex, nRows;
-*/
-/*
+
       SimCodeVar.SimVars simvars;
       list<SimCode.SimEqSystem> columnEquations;
       list<SimCodeVar.SimVar> columnVars, otherColumnVars;
       list<SimCodeVar.SimVar> columnVarsKn;
       list<SimCodeVar.SimVar> seedVars, indexVars, seedIndexVars;
 
-      BackendDAE.SparsePatternCrefs sparsepattern, sparsepatternT;
-      list<list<DAE.ComponentRef>> colsColors;
-      Integer maxColor;
-*/
       Integer uniqueEqIndex; //, nRows;
       String name; //dummyVar
       list<String> restnames;
       BackendDAE.SymbolicHessians rest;
       list<SimCode.HessianMatrix> hessianMatrixLst;
-/*
-      list<tuple<Integer, list<Integer>>> sparseInts, sparseIntsT;
-      list<list<Integer>> coloring;
-      Option<BackendDAE.SymbolicJacobian> optionBDAE;
 
-      SimCode.JacobianMatrix tmpJac;
-      HashTableCrefSimVar.HashTable crefToSimVarHTJacobian;
-*/
+      SimCode.HessianMatrix tmpHess;
+      HashTableCrefSimVar.HashTable crefToSimVarHTHessian;
 
     case (_, {}) then (inHessianMatrixes, iuniqueEqIndex); // lists have to be of equal length (?)
 
-    // if nothing is generated (D)
+    // if nothing is generated (D) ??WHAT TO DO WITH THIS SECTION??
     /*
     case ({}, name::restnames)
       equation
@@ -5052,19 +5042,13 @@ algorithm
      then
         (linearModelMatrices, uniqueEqIndex);
     */
-    case (SOME((BackendDAE.DAE(eqs={syst as BackendDAE.EQSYSTEM(matching=BackendDAE.MATCHING(comps=comps))},shared=shared), name))::rest, _::restnames)
+    case (SOME((BackendDAE.DAE(eqs={syst as BackendDAE.EQSYSTEM(matching=BackendDAE.MATCHING(comps=comps))},shared=shared),name,_,_,_))::rest, _::restnames)
       algorithm
         /*
-        if Flags.isSet(Flags.JAC_DUMP2) then
-          print("analytical Jacobians -> creating SimCode equations for Matrix " + name + " time: " + realString(clock()) + "\n");
-        end if;
         // generate also discrete equations, they might be introduced by wrapFunctionCalls
         (columnEquations, _, uniqueEqIndex, _) = createEquations(false, false, true, false, syst, shared, comps, iuniqueEqIndex, {});
-        if Flags.isSet(Flags.JAC_DUMP2) then
-          print("analytical Jacobians -> created all SimCode equations for Matrix " + name +  " time: " + realString(clock()) + "\n");
-        end if;
 
-        // create SimCodeVar.SimVars from jacobian vars
+        // create SimCodeVar.SimVars from hessian vars
         dummyVar = ("dummyVar" + name);
         x = DAE.CREF_IDENT(dummyVar, DAE.T_REAL_DEFAULT, {});
 
@@ -5073,7 +5057,7 @@ algorithm
         ((allVars, _)) = BackendVariable.traverseBackendDAEVars(syst.orderedVars, getFurtherVars , ({}, x));
         systvars = BackendVariable.listVar1(allVars);
         ((otherColumnVars, _)) =  BackendVariable.traverseBackendDAEVars(systvars, traversingdlowvarToSimvar, ({}, emptyVars));
-        otherColumnVars = List.map1(otherColumnVars, setSimVarKind, BackendDAE.JAC_DIFF_VAR());
+        otherColumnVars = List.map1(otherColumnVars, setSimVarKind, BackendDAE.HESS_DIFF_VAR());
         otherColumnVars = List.map1(otherColumnVars, setSimVarMatrixName, SOME(name));
         otherColumnVars = rewriteIndex(otherColumnVars, 0);
 
@@ -5087,71 +5071,32 @@ algorithm
         vars = BackendVariable.listVar1(diffedVars);
 
         columnVars = createAllDiffedSimVars(alldiffedVars, x, vars, 0, listLength(otherColumnVars), name, otherColumnVars);
-        if Flags.isSet(Flags.JAC_DUMP2) then
-          print("\n---+++ second columnVars +++---\n");
-          print(Tpl.tplString(SimCodeDump.dumpVarsShort, columnVars));
-          print("analytical Jacobians -> create column variables for matrix " + name + " time: " + realString(clock()) + "\n");
-        end if;
-
-        if Flags.isSet(Flags.JAC_DUMP2) then
-          print("analytical Jacobians -> create all SimCode vars for Matrix " + name + " time: " + realString(clock()) + "\n");
-          print("\n---+++  columnVars +++---\n");
-          print(Tpl.tplString(SimCodeDump.dumpVarsShort, columnVars));
-        end if;
 
         seedVars = getSimVars2Crefs(diffCompRefs, inSimVarHT);
         seedVars = List.sort(seedVars, compareVarIndexGt);
 
-        if Flags.isSet(Flags.JAC_DUMP2) then
-          print("diffCrefs: " + ComponentReference.printComponentRefListStr(diffCompRefs) + "\n");
-          print("\n---+++  seedVars +++---\n");
-          print(Tpl.tplString(SimCodeDump.dumpVarsShort, seedVars));
-        end if;
-
         indexVars = getSimVars2Crefs(diffedCompRefs, inSimVarHT);
         indexVars = List.sort(indexVars, compareVarIndexGt);
 
-        if Flags.isSet(Flags.JAC_DUMP2) then
-          print("diffedCrefs: " + ComponentReference.printComponentRefListStr(diffedCompRefs) + "\n");
-          print("\n---+++  indexVars +++---\n");
-          print(Tpl.tplString(SimCodeDump.dumpVarsShort, indexVars));
-
-          print("\n---+++  sparse pattern vars +++---\n");
-          dumpSparsePattern(sparsepattern);
-          print("\n---+++  sparse pattern transpose +++---\n");
-          dumpSparsePattern(sparsepatternT);
-        end if;
         seedVars = rewriteIndex(seedVars, 0);
         indexVars = rewriteIndex(indexVars, 0);
         seedIndexVars = listAppend(seedVars, indexVars);
-        sparseInts = sortSparsePattern(seedIndexVars, sparsepattern, false);
-        sparseIntsT = sortSparsePattern(seedIndexVars, sparsepatternT, false);
 
-        maxColor = listLength(colsColors);
         nRows =  listLength(diffedVars);
-        coloring = sortColoring(seedVars, colsColors);
-
-        if Flags.isSet(Flags.JAC_DUMP2) then
-          print("analytical Jacobians -> transformed to SimCode for Matrix " + name + " time: " + realString(clock()) + "\n");
-          print("\n---+++  sparse pattern vars +++---\n");
-          dumpSparsePatternInt(sparseInts);
-          print("\n---+++  sparse pattern transpose +++---\n");
-          dumpSparsePatternInt(sparseIntsT);
-        end if;
 
         // create seed vars
         seedVars = replaceSeedVarsName(seedVars, name);
         seedVars = List.map1(seedVars, setSimVarKind, BackendDAE.SEED_VAR());
         seedVars = List.map1(seedVars, setSimVarMatrixName, SOME(name));
 
-        // create hash table for this jacobians
-        crefToSimVarHTJacobian = HashTableCrefSimVar.emptyHashTableSized(listLength(seedVars)+ listLength(columnVars));
-        crefToSimVarHTJacobian = List.fold(seedVars, HashTableCrefSimVar.addSimVarToHashTable, crefToSimVarHTJacobian);
-        crefToSimVarHTJacobian = List.fold(columnVars, HashTableCrefSimVar.addSimVarToHashTable, crefToSimVarHTJacobian);
+        // create hash table for this Hessians
+        crefToSimVarHTHessian = HashTableCrefSimVar.emptyHashTableSized(listLength(seedVars)+ listLength(columnVars));
+        crefToSimVarHTHessian = List.fold(seedVars, HashTableCrefSimVar.addSimVarToHashTable, crefToSimVarHTJacobian);
+        crefToSimVarHTHessian = List.fold(columnVars, HashTableCrefSimVar.addSimVarToHashTable, crefToSimVarHTJacobian);
 
-        tmpJac = SimCode.JAC_MATRIX({SimCode.JAC_COLUMN(columnEquations, columnVars, nRows)}, seedVars, name, sparseInts, sparseIntsT, coloring, maxColor, -1, 0, SOME(crefToSimVarHTJacobian));
-        linearModelMatrices = tmpJac::inJacobianMatrixes;
-        (linearModelMatrices, uniqueEqIndex) = createSymbolicJacobianssSimCode(rest, inSimVarHT, uniqueEqIndex, restnames, linearModelMatrices);
+        tmpHess = SimCode.HESS_MATRIX({SimCode.JAC_COLUMN(columnEquations, columnVars, nRows)}, seedVars, name, -1, 0, SOME(crefToSimVarHTJacobian));
+        linearModelMatrices = tmpHess::inHessianMatrixes;
+        (linearModelMatrices, uniqueEqIndex) = createSymbolicHessiansSimCode(rest, inSimVarHT, uniqueEqIndex, restnames, linearModelMatrices);
         */
         hessianMatrixLst := SimCode.emptyHessian :: inHessianMatrixes;
         uniqueEqIndex := iuniqueEqIndex + 1;

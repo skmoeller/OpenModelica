@@ -97,10 +97,6 @@ uniontype HessianMatrix
     list<JacobianColumn> columns;       // columns equations and variables
     list<SimCodeVar.SimVar> seedVars;   // corresponds to the number of columns
     String matrixName;                  // unique matrix name
-    //SparsityPattern sparsity;
-    //SparsityPattern sparsityT;
-    //ist<list<Integer>> coloredCols;
-    //Integer maxColorCols;
     Integer hessianIndex;
     Integer partitionIndex;
     Option<HashTableCrefSimVar.HashTable> crefsHT; // all jacobian variables

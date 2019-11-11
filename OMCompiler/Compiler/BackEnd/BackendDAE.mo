@@ -273,6 +273,7 @@ uniontype VarKind "variable kind"
   record EXTOBJ Absyn.Path fullClassName; end EXTOBJ;
   record JAC_VAR end JAC_VAR;
   record JAC_DIFF_VAR end JAC_DIFF_VAR;
+  record HESS_DIFF_VAR end HESS_DIFF_VAR;
   record SEED_VAR end SEED_VAR;
   record OPT_CONSTR end OPT_CONSTR;
   record OPT_FCONSTR end OPT_FCONSTR;
@@ -796,7 +797,10 @@ type SymbolicHessians = list< Option<SymbolicHessian> >;
 
 public
 type SymbolicHessian = tuple<  BackendDAE,              // symbolic equation system
-                               String                   // Name of the Hessian Matrix
+                               String,                  // Name of the Hessian Matrix
+                               list<Var>,               //
+                               list<Var>,               //
+                               list<Var>                //
                                >;
 
 public

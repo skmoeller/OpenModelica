@@ -7282,7 +7282,6 @@ algorithm
   if causalized then
     BackendDAE.DAE(systs,shared) := stateDeselectionDAE(outDAE, args, stateDeselection);
   end if;
-
   // sort assigned equations to blt form
   systs := mapSortEqnsDAE(systs, shared);
   outDAE := BackendDAE.DAE(systs, shared);

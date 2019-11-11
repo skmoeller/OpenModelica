@@ -101,12 +101,22 @@ protected function createSymbolicHessian
   "Function creates the symbolic Hessians for the Jacobians A, B and C"
   input BackendDAE.SymbolicJacobian InSymJac "Symbolic Jacobian Matrix";
   output Option< BackendDAE.SymbolicHessian > Hessian "Symbolic Hessian Matrix";
+protected
+  list< BackendDAE.Var > var1 ,var2, var3;
 algorithm
   Hessian := match InSymJac
     local
     BackendDAE.BackendDAE dae;
     String nameMatrix;
-    case (dae,nameMatrix,_,_,_,_) guard nameMatrix == "A" or nameMatrix == "B" or nameMatrix == "C" then SOME((multiplyLambdas(dae, nameMatrix), nameMatrix)); //multiple the lagrange factors and add the equations
+    case (dae,nameMatrix,var1,var2,var3,_) guard nameMatrix == "A" or nameMatrix == "B" or nameMatrix == "C"
+    equation
+      print("First Vars");
+      BackendDump.printVarList(var1);
+      print("Second Vars");
+      BackendDump.printVarList(var2);
+      print("Third Vars");
+      BackendDump.printVarList(var3);
+    then SOME((multiplyLambdas(dae, nameMatrix), nameMatrix,var1,var2,var3)); //multiple the lagrange factors and add the equations
     else then NONE();
   end match;
 end createSymbolicHessian;
@@ -335,7 +345,7 @@ algorithm
             String matrixName;
       case SOME(symHe)
       equation
-        (dae,matrixName) = symHe;
+        (dae,matrixName,_,_,_) = symHe;
         print("\n\n########################################\nHessian for "+matrixName+"\n########################################\n\n");
         BackendDump.dumpDAE(dae);
       then "";
