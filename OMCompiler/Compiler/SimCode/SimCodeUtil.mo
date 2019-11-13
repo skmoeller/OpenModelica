@@ -5042,8 +5042,8 @@ algorithm
         columnVars := List.map1(columnVars, setSimVarMatrixName, SOME(nameFirstSeed));
         columnVars := rewriteIndex(columnVars, 0);
 
-        diffCompRefs := list(v.varName for v in diffVars);
-        diffedCompRefs := list(v.varName for v in diffedVars);
+        diffCompRefs := list(v.varName for v in diffVars); // is this right?
+        diffedCompRefs := list(v.varName for v in diffedVars); // is this right?
         seedVars := getSimVars2Crefs(diffCompRefs, inSimVarHT);
         seedVars := List.sort(seedVars, compareVarIndexGt);
 

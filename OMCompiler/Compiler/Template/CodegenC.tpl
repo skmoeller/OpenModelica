@@ -612,6 +612,7 @@ template simulationFile_inz(SimCode simCode)
     <%simulationFileHeader(simCode.fileNamePrefix)%>
     #include "<%simCode.fileNamePrefix%>_11mix.h"
     #include "<%simCode.fileNamePrefix%>_12jac.h"
+    #include "<%simCode.fileNamePrefix%>_18hes.h"
     #if defined(__cplusplus)
     extern "C" {
     #endif
@@ -775,6 +776,38 @@ template simulationFile_jac_header(SimCode simCode)
   end match
 end simulationFile_jac_header;
 
+template simulationFile_hes(SimCode simCode)
+"Hessians: skmoeller"
+::=
+  match simCode
+    case simCode as SIMCODE(__) then
+    <<
+    /* Hessians <%listLength(hessianMatrices)%> */
+    <%simulationFileHeader(simCode.fileNamePrefix)%>
+    #include "<%fileNamePrefix%>_18hes.h"
+    <%functionAnalyticJacobians(hessianMatrices, modelNamePrefix(simCode))%>
+
+    <%\n%>
+    >>
+    /* adrpo: leave a newline at the end of file to get rid of the warning */
+  end match
+end simulationFile_hes;
+
+template simulationFile_hes_header(SimCode simCode)
+"Hessians: skmoeller"
+::=
+  match simCode
+    case simCode as SIMCODE(__) then
+    <<
+    /* Hessians */
+    static const REAL_ATTRIBUTE dummyREAL_ATTRIBUTE = omc_dummyRealAttribute;
+    <%symJacDefinition(hessianMatrices, modelNamePrefix(simCode))%>
+    <%\n%>
+    >>
+    /* adrpo: leave a newline at the end of file to get rid of the warning */
+  end match
+end simulationFile_hes_header;
+
 template simulationFile_opt(SimCode simCode)
 "Optimization"
 ::=
@@ -785,6 +818,7 @@ template simulationFile_opt(SimCode simCode)
     /* Optimization */
     <%simulationFileHeader(simCode.fileNamePrefix)%>
     #include "<%fileNamePrefix%>_12jac.h"
+    #include "<%fileNamePrefix%>_18hes.h"
     #if defined(__cplusplus)
     extern "C" {
     #endif
@@ -1083,6 +1117,7 @@ template simulationFile(SimCode simCode, String guid, String isModelExchangeFMU)
 
     #include "<%simCode.fileNamePrefix%>_12jac.h"
     #include "<%simCode.fileNamePrefix%>_13opt.h"
+    #include "<%simCode.fileNamePrefix%>_18hes.h"
 
     struct OpenModelicaGeneratedFunctionCallbacks <%symbolName(modelNamePrefixStr,"callback")%> = {
        <% if isModelExchangeFMU then "NULL" else '(int (*)(DATA *, threadData_t *, void *)) <%symbolName(modelNamePrefixStr,"performSimulation")%>'%>,
@@ -6121,7 +6156,7 @@ case SIMCODE(modelInfo=MODELINFO(__), makefileParams=MAKEFILE_PARAMS(__), simula
   CFILES=<%fileNamePrefix%>_functions.c <%fileNamePrefix%>_records.c \
   <%fileNamePrefix%>_01exo.c <%fileNamePrefix%>_02nls.c <%fileNamePrefix%>_03lsy.c <%fileNamePrefix%>_04set.c <%fileNamePrefix%>_05evt.c <%fileNamePrefix%>_06inz.c <%fileNamePrefix%>_07dly.c \
   <%fileNamePrefix%>_08bnd.c <%fileNamePrefix%>_09alg.c <%fileNamePrefix%>_10asr.c <%fileNamePrefix%>_11mix.c <%fileNamePrefix%>_12jac.c <%fileNamePrefix%>_13opt.c <%fileNamePrefix%>_14lnz.c \
-  <%fileNamePrefix%>_15syn.c <%fileNamePrefix%>_16dae.c <%fileNamePrefix%>_17inl.c <%extraFiles |> extraFile => ' <%extraFile%>'%>
+  <%fileNamePrefix%>_15syn.c <%fileNamePrefix%>_16dae.c <%fileNamePrefix%>_17inl.c <%fileNamePrefix%>_18hes.c <%extraFiles |> extraFile => ' <%extraFile%>'%>
 
   OFILES=$(CFILES:.c=.obj)
   GENERATEDFILES=$(MAINFILE) $(FILEPREFIX)_functions.h $(FILEPREFIX).makefile $(CFILES)
@@ -6176,7 +6211,7 @@ case SIMCODE(modelInfo=MODELINFO(varInfo=varInfo as VARINFO(__)), delayedExps=DE
   CFILES=<%fileNamePrefix%>_functions.c <%fileNamePrefix%>_records.c \
   <%fileNamePrefix%>_01exo.c <%fileNamePrefix%>_02nls.c <%fileNamePrefix%>_03lsy.c <%fileNamePrefix%>_04set.c <%fileNamePrefix%>_05evt.c <%fileNamePrefix%>_06inz.c <%fileNamePrefix%>_07dly.c \
   <%fileNamePrefix%>_08bnd.c <%fileNamePrefix%>_09alg.c <%fileNamePrefix%>_10asr.c <%fileNamePrefix%>_11mix.c <%fileNamePrefix%>_12jac.c <%fileNamePrefix%>_13opt.c <%fileNamePrefix%>_14lnz.c \
-  <%fileNamePrefix%>_15syn.c <%fileNamePrefix%>_16dae.c <%fileNamePrefix%>_17inl.c <%extraFiles |> extraFile => ' \<%\n%>  <%extraFile%>'%>
+  <%fileNamePrefix%>_15syn.c <%fileNamePrefix%>_16dae.c <%fileNamePrefix%>_17inl.c <%fileNamePrefix%>_18hes.c <%extraFiles |> extraFile => ' \<%\n%>  <%extraFile%>'%>
 
   OFILES=$(CFILES:.c=.o)
   GENERATEDFILES=$(MAINFILE) <%fileNamePrefix%>.makefile <%fileNamePrefix%>_literals.h <%fileNamePrefix%>_functions.h $(CFILES)

@@ -550,6 +550,8 @@ algorithm
           (CodegenC.simulationFile_dae, "_16dae.c"),
           (CodegenC.simulationFile_dae_header, "_16dae.h"),
           (CodegenC.simulationFile_inl, "_17inl.c"),
+          (CodegenC.simulationFile_hes, "_18hes.c"),
+          (CodegenC.simulationFile_hes_header, "_18hes.h"),
           (CodegenC.simulationHeaderFile, "_model.h")
         } loop
           (func,str) := f;
