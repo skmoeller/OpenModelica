@@ -5010,7 +5010,7 @@ algorithm
       list<SimCode.SimEqSystem> columnEquations;
       list<SimCodeVar.SimVar> columnVars, columnVarsSeed1, columnVarsSeed2, otherColumnVars;
       list<SimCodeVar.SimVar> columnVarsKn;
-      list<SimCodeVar.SimVar> seedVars, indexVars, seedIndexVars;
+      list<SimCodeVar.SimVar> seedVars, seedVars1, seedVars2, indexVars, seedIndexVars;
 
       Integer uniqueEqIndex; //, nRows;
       String nameFirstSeed, nameSecondSeed, dummyVar1, dummyVar2; //dummyVar
@@ -5031,10 +5031,62 @@ algorithm
 
     case (SOME((BackendDAE.DAE(eqs={syst as BackendDAE.EQSYSTEM(matching=BackendDAE.MATCHING(comps=comps))},shared=shared),nameFirstSeed,diffVars,diffedVars,alldiffedVars))::rest, _::restnames)
       algorithm
+        nameSecondSeed := (nameFirstSeed+"1");
+
         // generate also discrete equations, they might be introduced by wrapFunctionCalls
         (columnEquations, _, uniqueEqIndex, _) := createEquations(false, false, true, false, syst, shared, comps, iuniqueEqIndex, {});
 
+        emptyVars :=  BackendVariable.emptyVars();
+        ((columnVars, _)) :=  BackendVariable.traverseBackendDAEVars(syst.orderedVars, traversingdlowvarToSimvar, ({}, emptyVars));
+        columnVars := List.map1(columnVars, setSimVarKind, BackendDAE.HESS_DIFF_VAR());
+        columnVars := List.map1(columnVars, setSimVarMatrixName, SOME(nameFirstSeed));
+        columnVars := rewriteIndex(columnVars, 0);
+
+        diffCompRefs := list(v.varName for v in diffVars);
+        diffedCompRefs := list(v.varName for v in diffedVars);
+        seedVars := getSimVars2Crefs(diffCompRefs, inSimVarHT);
+        seedVars := List.sort(seedVars, compareVarIndexGt);
+
+        indexVars := getSimVars2Crefs(diffedCompRefs, inSimVarHT);
+        indexVars := List.sort(indexVars, compareVarIndexGt);
+
+        seedVars := rewriteIndex(seedVars, 0);
+        indexVars := rewriteIndex(indexVars, 0);
+        seedIndexVars := listAppend(seedVars, indexVars);
+
+        nRows :=  listLength(diffedVars); // listLength(columnEquations) ?
+
+        // create seed vars first seed
+        seedVars1 := replaceSeedVarsName(seedVars, nameFirstSeed);
+        seedVars1 := List.map1(seedVars1, setSimVarKind, BackendDAE.SEED_VAR());
+        seedVars1 := List.map1(seedVars1, setSimVarMatrixName, SOME(nameFirstSeed));
+
+        // create seed vars second seed
+        seedVars2 := replaceSeedVarsName(seedVars, nameSecondSeed);
+        seedVars2 := List.map1(seedVars2, setSimVarKind, BackendDAE.SEED_VAR());
+        seedVars2 := List.map1(seedVars2, setSimVarMatrixName, SOME(nameFirstSeed)); // matrix name does not change
+
+        // concenate seed vars
+        seedVars := listAppend(seedVars1, seedVars2);
+
+        print("\n\n seedVars\n");
+        for simvar in seedVars loop
+          print("var: " + HpcOmMemory.dumpSimCodeVar(simvar) + "\n");
+        end for;
+
+        // create hash table for this Hessians
+        crefToSimVarHTHessian := HashTableCrefSimVar.emptyHashTableSized(listLength(seedVars)+ listLength(columnVars));
+        crefToSimVarHTHessian := List.fold(seedVars, HashTableCrefSimVar.addSimVarToHashTable, crefToSimVarHTHessian);
+        crefToSimVarHTHessian := List.fold(columnVars, HashTableCrefSimVar.addSimVarToHashTable, crefToSimVarHTHessian);
+
+        tmpHess := SimCode.HESS_MATRIX({SimCode.JAC_COLUMN(columnEquations, columnVars, nRows)}, seedVars, nameFirstSeed, iuniqueEqIndex, 0, SOME(crefToSimVarHTHessian));
+        hessianMatrixLst := tmpHess::inHessianMatrixes;
+        uniqueEqIndex := iuniqueEqIndex + 1;
+
+        (hessianMatrixLst, uniqueEqIndex) := createSymbolicHessiansSimCode(rest, inSimVarHT, uniqueEqIndex, restnames, hessianMatrixLst);
+
         // create SimCodeVar.SimVars from hessian vars
+        /*
         nameSecondSeed := (nameFirstSeed+"1");
         dummyVar1 := ("dummyVar" + nameFirstSeed);
         x1 := DAE.CREF_IDENT(dummyVar1, DAE.T_REAL_DEFAULT, {});
@@ -5080,7 +5132,7 @@ algorithm
         for simvar in columnVars loop
           print("var: " + HpcOmMemory.dumpSimCodeVar(simvar) + "\n");
         end for;
-
+        */
 /*
         seedVars = getSimVars2Crefs(diffCompRefs, inSimVarHT);
         seedVars = List.sort(seedVars, compareVarIndexGt);
@@ -5108,8 +5160,6 @@ algorithm
         linearModelMatrices = tmpHess::inHessianMatrixes;
         (linearModelMatrices, uniqueEqIndex) = createSymbolicHessiansSimCode(rest, inSimVarHT, uniqueEqIndex, restnames, linearModelMatrices);
         */
-        hessianMatrixLst := SimCode.emptyHessian :: inHessianMatrixes;
-        uniqueEqIndex := iuniqueEqIndex + 1;
      then
         (hessianMatrixLst, uniqueEqIndex);
     else
@@ -8751,6 +8801,32 @@ algorithm
   end match;
 end dumpJacobianMatrix;
 
+protected function dumpHessianMatrix
+  input Option<SimCode.HessianMatrix> hessOpt;
+algorithm
+  _ := match(hessOpt)
+    local
+      Integer idx;
+      String s;
+      SimCode.HessianMatrix hess;
+      list<SimCode.JacobianColumn> cols;
+      list<SimCode.SimEqSystem> colEqs;
+      list<SimCodeVar.SimVar> colVars;
+    case(SOME(hess))
+      equation
+        SimCode.HESS_MATRIX(columns=cols, hessianIndex=idx) = hess;
+        colEqs  = List.flatten(list(a.columnEqns for a in cols));
+        colVars = List.flatten(list(a.columnVars for a in cols));
+        print("\tHessian idx: "+intString(idx)+"\n\t");
+        dumpSimEqSystemLst(colEqs,"\n\t");
+        print("\n");
+        dumpVarLst(colVars,"columnVars("+intString(listLength(colVars))+")");
+      then ();
+    case(NONE())
+      then ();
+  end match;
+end dumpHessianMatrix;
+
 protected function extObjInfoString
   input SimCode.ExtObjInfo info;
 protected
@@ -8841,7 +8917,8 @@ end dumpSimCodeDAEmodeDataString;
 public function dumpSimCodeDebug"prints the simcode debug output to std out."
   input SimCode.SimCode simCode;
 protected
-  list<Option<SimCode.JacobianMatrix>> jacObs;
+  list<Option<SimCode.JacobianMatrix>> jacOpts;
+  list<Option<SimCode.HessianMatrix>> hessOpts;
 algorithm
   print("\n\n*********************\n* SimCode Equations *\n*********************\n\n");
   print("\nallEquations: \n" + UNDERLINE + "\n\n");
@@ -8887,8 +8964,11 @@ algorithm
   dumpSimEqSystemLst(simCode.jacobianEquations,"\n");
   extObjInfoString(simCode.extObjInfo);
   print("\njacobianMatrices: \n" + UNDERLINE + "\n");
-  jacObs := List.map(simCode.jacobianMatrixes,Util.makeOption);
-  List.map_0(jacObs,dumpJacobianMatrix);
+  jacOpts := List.map(simCode.jacobianMatrixes,Util.makeOption);
+  List.map_0(jacOpts,dumpJacobianMatrix);
+  print("\nhessianMatrices: \n" + UNDERLINE + "\n");
+  hessOpts := List.map(simCode.hessianMatrixes,Util.makeOption);
+  List.map_0(hessOpts,dumpHessianMatrix);
   print("\nmodelInfo: \n" + UNDERLINE + "\n");
   dumpModelInfo(simCode.modelInfo);
   dumpSimCodeDAEmodeDataString(simCode.daeModeData);
