@@ -106,17 +106,10 @@ algorithm
     local
     BackendDAE.BackendDAE dae;
     String nameMatrix;
-    list< BackendDAE.Var > var1 ,var2, var3;
+    list< BackendDAE.Var > diffVars ,diffedVars, allDiffedVars;
     BackendDAE.SymbolicJacobian symjac;
-    case (dae,nameMatrix,var1,var2,var3,_) guard stringEqual(nameMatrix,"A") or stringEqual(nameMatrix,"B") or stringEqual(nameMatrix,"C")
-    algorithm
-      print("First Vars");
-      BackendDump.printVarList(var1);
-      print("Second Vars");
-      BackendDump.printVarList(var2);
-      print("Third Vars");
-      BackendDump.printVarList(var3);
-    then SOME((multiplyLambdas(dae, nameMatrix), nameMatrix,var1,var2,var3)); //multiple the lagrange factors and add the equations
+    case (dae,nameMatrix,diffVars,diffedVars,allDiffedVars,_) guard stringEqual(nameMatrix,"A") or stringEqual(nameMatrix,"B") or stringEqual(nameMatrix,"C")
+      then SOME((multiplyLambdas(dae, nameMatrix), nameMatrix,diffVars,diffedVars,allDiffedVars)); //multiple the lagrange factors and add the equations
     else NONE();
   end match;
 end createSymbolicHessian;
