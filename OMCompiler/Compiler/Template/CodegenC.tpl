@@ -172,6 +172,12 @@ end translateModel;
     extern int <%symbolName(modelNamePrefixStr,"functionJacC_column")%>(void* data, threadData_t *threadData, ANALYTIC_JACOBIAN *thisJacobian, ANALYTIC_JACOBIAN *parentJacobian);
     extern int <%symbolName(modelNamePrefixStr,"functionJacD_column")%>(void* data, threadData_t *threadData, ANALYTIC_JACOBIAN *thisJacobian, ANALYTIC_JACOBIAN *parentJacobian);
     extern int <%symbolName(modelNamePrefixStr,"functionJacF_column")%>(void* data, threadData_t *threadData, ANALYTIC_JACOBIAN *thisJacobian, ANALYTIC_JACOBIAN *parentJacobian);
+    extern int <%symbolName(modelNamePrefixStr,"initialAnalyticHessianA")%>(void* data, threadData_t *threadData, ANALYTIC_HESSIAN *hessian);
+    extern int <%symbolName(modelNamePrefixStr,"initialAnalyticHessianB")%>(void* data, threadData_t *threadData, ANALYTIC_HESSIAN *hessian);
+    extern int <%symbolName(modelNamePrefixStr,"initialAnalyticHessianC")%>(void* data, threadData_t *threadData, ANALYTIC_HESSIAN *hessian);
+    extern int <%symbolName(modelNamePrefixStr,"functionHessA_column")%>(void* data, threadData_t *threadData, ANALYTIC_HESSIAN *thisHessian, ANALYTIC_HESSIAN *parentHessian);
+    extern int <%symbolName(modelNamePrefixStr,"functionHessB_column")%>(void* data, threadData_t *threadData, ANALYTIC_HESSIAN *thisHessian, ANALYTIC_HESSIAN *parentHessian);
+    extern int <%symbolName(modelNamePrefixStr,"functionHessC_column")%>(void* data, threadData_t *threadData, ANALYTIC_HESSIAN *thisHessian, ANALYTIC_HESSIAN *parentHessian);
     extern const char* <%symbolName(modelNamePrefixStr,"linear_model_frame")%>(void);
     extern const char* <%symbolName(modelNamePrefixStr,"linear_model_datarecovery_frame")%>(void);
     extern int <%symbolName(modelNamePrefixStr,"mayer")%>(DATA* data, modelica_real** res, short *);
@@ -785,7 +791,7 @@ template simulationFile_hes(SimCode simCode)
     /* Hessians <%listLength(hessianMatrices)%> */
     <%simulationFileHeader(simCode.fileNamePrefix)%>
     #include "<%fileNamePrefix%>_18hes.h"
-    <%functionAnalyticJacobians(hessianMatrices, modelNamePrefix(simCode))%>
+    <%functionAnalyticHessians(hessianMatrices, modelNamePrefix(simCode))%>
 
     <%\n%>
     >>
@@ -801,7 +807,7 @@ template simulationFile_hes_header(SimCode simCode)
     <<
     /* Hessians */
     static const REAL_ATTRIBUTE dummyREAL_ATTRIBUTE = omc_dummyRealAttribute;
-    <%symJacDefinition(hessianMatrices, modelNamePrefix(simCode))%>
+    <%symHessDefinition(hessianMatrices, modelNamePrefix(simCode))%>
     <%\n%>
     >>
     /* adrpo: leave a newline at the end of file to get rid of the warning */
@@ -1099,7 +1105,7 @@ template simulationFile(SimCode simCode, String guid, String isModelExchangeFMU)
     const VAR_INFO dummyVAR_INFO = omc_dummyVarInfo;
 
     <%functionInput(simCode, modelInfo, modelNamePrefixStr)%>
-    
+
     <%functionDataInput(modelInfo, modelNamePrefixStr)%>
 
     <%functionOutput(modelInfo, modelNamePrefixStr)%>
@@ -1613,6 +1619,30 @@ template symJacDefinition(list<JacobianMatrix> JacobianMatrixes, String modelNam
 
   >>
 end symJacDefinition;
+
+template symHessDefinition(list<HessianMatrix> HessianMatrices, String modelNamePrefix) "template variableDefinitionsHessians
+  Generates defines for hessian vars."
+::=
+  let symbolicHesssDefine = (HessianMatrices |> HESS_MATRIX(columns=jacColumn, seedVars=seedVars, matrixName=name, hessianIndex=indexHessian)  =>
+    <<
+    #if defined(__cplusplus)
+    extern "C" {
+    #endif
+      #define <%symbolName(modelNamePrefix,"INDEX_HESS_")%><%name%> <%indexHessian%>
+      int <%symbolName(modelNamePrefix,"functionHess")%><%name%>_column(void* data, threadData_t *threadData, ANALYTIC_HESSIAN *thisHessian, ANALYTIC_HESSIAN *parentHessian);
+      int <%symbolName(modelNamePrefix,"initialAnalyticHessian")%><%name%>(void* data, threadData_t *threadData, ANALYTIC_HESSIAN *hessian);
+    #if defined(__cplusplus)
+    }
+    #endif
+    >>
+    ;separator="\n";empty)
+
+  <<
+  /* Hessian Variables */
+  <%symbolicHesssDefine%>
+
+  >>
+end symHessDefinition;
 
 template aliasVarNameType(AliasVariable var)
   "Generates type of alias."
@@ -4960,6 +4990,21 @@ template functionAnalyticJacobians(list<JacobianMatrix> JacobianMatrixes,String 
   >>
 end functionAnalyticJacobians;
 
+template functionAnalyticHessians(list<HessianMatrix> HessianMatrices,String modelNamePrefix) "template functionAnalyticHessians
+  This template generates source code for all given hessians."
+::=
+  let initialhessMats = (HessianMatrices |> HESS_MATRIX(columns=mat, seedVars=vars, matrixName=name, hessianIndex=indexHessian) =>
+    initialAnalyticHessians(mat, vars, name, modelNamePrefix); separator="\n")
+  let hessMats = (HessianMatrices |> HESS_MATRIX(columns=mat, seedVars=vars, matrixName=name, partitionIndex=partIdx, crefsHT=crefsHT) =>
+    generateMatrix(mat, vars, name, partIdx, crefsHT, modelNamePrefix) ;separator="\n")
+
+  <<
+  <%initialhessMats%>
+
+  <%hessMats%>
+  >>
+end functionAnalyticHessians;
+
 template initialAnalyticJacobians(list<JacobianColumn> jacobianColumn, list<SimVar> seedVars, String matrixname, SparsityPattern sparsepattern, list<list<Integer>> colorList, Integer maxColor, String modelNamePrefix)
 "template initialAnalyticJacobians
   This template generates source code for functions that initialize the sparse-pattern for a single jacobian.
@@ -5026,8 +5071,23 @@ match sparsepattern
 end match
 end initialAnalyticJacobians;
 
+template initialAnalyticHessians(list<JacobianColumn> jacobianColumn, list<SimVar> seedVars, String matrixname, String modelNamePrefix)
+"template initialAnalyticHessians
+  This template generates source code for functions that initialize a single hessian.
+  This is a helper of template functionAnalyticHessians"
+::=
+    <<
+    int <%symbolName(modelNamePrefix,"initialAnalyticHessian")%><%matrixname%>(void* inData, threadData_t *threadData, ANALYTIC_HESSIAN *hessian)
+    {
+      TRACE_PUSH
+      TRACE_POP
+      return 1;
+    }
+    >>
+end initialAnalyticHessians;
+
 template generateMatrix(list<JacobianColumn> jacobianColumn, list<SimVar> seedVars, String matrixname, Integer partIdx, Option<HashTableCrefSimVar.HashTable> jacHT, String modelNamePrefix)
-  "This template generates source code for a single jacobian in dense format and sparse format.
+  "This template generates source code for a single jacobian or hessian in dense format and also in sparse format for a single jacobian.
   This is a helper of template functionAnalyticJacobians"
 ::=
   let nRows = (jacobianColumn |> JAC_COLUMN(numberOfResultVars=nRows) => '<%nRows%>')

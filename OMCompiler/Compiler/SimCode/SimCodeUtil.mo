@@ -8967,7 +8967,7 @@ algorithm
   jacOpts := List.map(simCode.jacobianMatrixes,Util.makeOption);
   List.map_0(jacOpts,dumpJacobianMatrix);
   print("\nhessianMatrices: \n" + UNDERLINE + "\n");
-  hessOpts := List.map(simCode.hessianMatrixes,Util.makeOption);
+  hessOpts := List.map(simCode.hessianMatrices,Util.makeOption);
   List.map_0(hessOpts,dumpHessianMatrix);
   print("\nmodelInfo: \n" + UNDERLINE + "\n");
   dumpModelInfo(simCode.modelInfo);

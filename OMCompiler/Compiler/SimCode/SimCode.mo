@@ -146,7 +146,7 @@ uniontype SimCode
     SimCodeFunction.MakefileParams makefileParams;
     DelayedExpression delayedExps;
     list<JacobianMatrix> jacobianMatrixes;
-    list<HessianMatrix> hessianMatrixes;
+    list<HessianMatrix> hessianMatrices;
     Option<SimulationSettings> simulationSettingsOpt;
     String fileNamePrefix, fullPathPrefix "Used in FMI where files are generated in a special directory";
     String fmuTargetName;
