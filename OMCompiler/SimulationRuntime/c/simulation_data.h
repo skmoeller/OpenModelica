@@ -134,7 +134,6 @@ typedef struct SPARSE_PATTERN
 /* ANALYTIC_JACOBIAN
  *
  * analytic jacobian struct used for dassl and linearization.
- * jacobianName contain "A" || "B" etc.
  * sizeCols contain size of column
  * sizeRows contain size of rows
  * sparsePattern contain the sparse pattern include colors
@@ -153,6 +152,26 @@ typedef struct ANALYTIC_JACOBIAN
   modelica_real* tmpVars;
   modelica_real* resultVars;
 }ANALYTIC_JACOBIAN;
+
+/* ANALYTIC_HESSIAN
+ *
+ * analytic hessian struct used for dassl and linearization.
+ * sizeCols contain size of column
+ * sizeRows contain size of rows
+ * seedVars contain seed vector to the corresponding hessian
+ * resultVars contain result of one column to the corresponding hessian
+ * hessian contains dense hessian elements
+ *
+ */
+typedef struct ANALYTIC_HESSIAN
+{
+  unsigned int sizeCols;
+  unsigned int sizeRows;
+  unsigned int sizeTmpVars;
+  modelica_real* seedVars;
+  modelica_real* tmpVars;
+  modelica_real* resultVars;
+}ANALYTIC_HESSIAN;
 
 /* EXTERNAL_INPUT
  *

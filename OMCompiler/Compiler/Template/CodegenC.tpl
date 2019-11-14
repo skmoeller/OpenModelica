@@ -806,7 +806,7 @@ template simulationFile_hes_header(SimCode simCode)
     case simCode as SIMCODE(__) then
     <<
     /* Hessians */
-    static const REAL_ATTRIBUTE dummyREAL_ATTRIBUTE = omc_dummyRealAttribute;
+    static const REAL_ATTRIBUTE dummy_HESS_REAL_ATTRIBUTE = omc_dummyRealAttribute;
     <%symHessDefinition(hessianMatrices, modelNamePrefix(simCode))%>
     <%\n%>
     >>
@@ -4981,7 +4981,7 @@ template functionAnalyticJacobians(list<JacobianMatrix> JacobianMatrixes,String 
   let initialjacMats = (JacobianMatrixes |> JAC_MATRIX(columns=mat, seedVars=vars, matrixName=name, sparsity=sparsepattern, coloredCols=colorList, maxColorCols=maxColor, jacobianIndex=indexJacobian) =>
     initialAnalyticJacobians(mat, vars, name, sparsepattern, colorList, maxColor, modelNamePrefix); separator="\n")
   let jacMats = (JacobianMatrixes |> JAC_MATRIX(columns=mat, seedVars=vars, matrixName=name, partitionIndex=partIdx, crefsHT=crefsHT) =>
-    generateMatrix(mat, vars, name, partIdx, crefsHT, modelNamePrefix) ;separator="\n")
+    generateMatrix(mat, vars, name, partIdx, crefsHT, modelNamePrefix, false) ;separator="\n")
 
   <<
   <%initialjacMats%>
@@ -4996,7 +4996,7 @@ template functionAnalyticHessians(list<HessianMatrix> HessianMatrices,String mod
   let initialhessMats = (HessianMatrices |> HESS_MATRIX(columns=mat, seedVars=vars, matrixName=name, hessianIndex=indexHessian) =>
     initialAnalyticHessians(mat, vars, name, modelNamePrefix); separator="\n")
   let hessMats = (HessianMatrices |> HESS_MATRIX(columns=mat, seedVars=vars, matrixName=name, partitionIndex=partIdx, crefsHT=crefsHT) =>
-    generateMatrix(mat, vars, name, partIdx, crefsHT, modelNamePrefix) ;separator="\n")
+    generateMatrix(mat, vars, name, partIdx, crefsHT, modelNamePrefix, true) ;separator="\n")
 
   <<
   <%initialhessMats%>
@@ -5086,15 +5086,17 @@ template initialAnalyticHessians(list<JacobianColumn> jacobianColumn, list<SimVa
     >>
 end initialAnalyticHessians;
 
-template generateMatrix(list<JacobianColumn> jacobianColumn, list<SimVar> seedVars, String matrixname, Integer partIdx, Option<HashTableCrefSimVar.HashTable> jacHT, String modelNamePrefix)
+template generateMatrix(list<JacobianColumn> jacobianColumn, list<SimVar> seedVars, String matrixname, Integer partIdx, Option<HashTableCrefSimVar.HashTable> jacHT, String modelNamePrefix, Boolean hess)
   "This template generates source code for a single jacobian or hessian in dense format and also in sparse format for a single jacobian.
   This is a helper of template functionAnalyticJacobians"
 ::=
+  let STRUCT_NAME = (if hess then <<HESSIAN>> else <<JACOBIAN>>)
+  let struct_name = (if hess then <<hessian>> else <<jacobian>>)
   let nRows = (jacobianColumn |> JAC_COLUMN(numberOfResultVars=nRows) => '<%nRows%>')
   match nRows
   case "0" then
     <<
-    int <%symbolName(modelNamePrefix,"functionJac")%><%matrixname%>_column(void* data, threadData_t *threadData, ANALYTIC_JACOBIAN *jacobian, ANALYTIC_JACOBIAN *parentJacobian)
+    int <%symbolName(modelNamePrefix,"functionJac")%><%matrixname%>_column(void* data, threadData_t *threadData, ANALYTIC_<%STRUCT_NAME%> *<%struct_name%>, ANALYTIC_JACOBIAN *parentJacobian)
     {
       TRACE_PUSH
       TRACE_POP
@@ -5105,7 +5107,7 @@ template generateMatrix(list<JacobianColumn> jacobianColumn, list<SimVar> seedVa
     match seedVars
      case {} then
         <<
-        int <%symbolName(modelNamePrefix,"functionJac")%><%matrixname%>_column(void* data, threadData_t *threadData, ANALYTIC_JACOBIAN *jacobian, ANALYTIC_JACOBIAN *parentJacobian)
+        int <%symbolName(modelNamePrefix,"functionJac")%><%matrixname%>_column(void* data, threadData_t *threadData, ANALYTIC_<%STRUCT_NAME%> *<%struct_name%>, ANALYTIC_JACOBIAN *parentJacobian)
         {
           TRACE_PUSH
           TRACE_POP

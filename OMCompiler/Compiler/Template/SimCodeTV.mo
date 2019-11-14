@@ -355,6 +355,17 @@ package SimCode
     end JAC_MATRIX;
   end JacobianMatrix;
 
+  uniontype HessianMatrix
+    record HESS_MATRIX
+      list<JacobianColumn> columns;
+      list<SimCodeVar.SimVar> seedVars;
+      String matrixName;
+      Integer hessianIndex;
+      Integer partitionIndex;
+      Option<HashTableCrefSimVar.HashTable> crefsHT;
+    end HESS_MATRIX;
+  end HessianMatrix;
+
   uniontype SimCode
     record SIMCODE
       ModelInfo modelInfo;
@@ -392,6 +403,7 @@ package SimCode
       SimCodeFunction.MakefileParams makefileParams;
       DelayedExpression delayedExps;
       list<JacobianMatrix> jacobianMatrixes;
+      list<HessianMatrix> hessianMatrices;
       Option<SimulationSettings> simulationSettingsOpt;
       String fileNamePrefix;
       String fullPathPrefix; // Used for FMI where code is not generated in the same directory
