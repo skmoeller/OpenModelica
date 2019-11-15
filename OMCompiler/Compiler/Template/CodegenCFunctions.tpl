@@ -3826,6 +3826,8 @@ template crefOMSI(ComponentRef cref, Context context)
         '<%crefToOMSICStr(cref, hashTable)%>'
     case jacobianContext as JACOBIAN_CONTEXT(jacHT=SOME(hashTable)) then
         '<%crefToOMSICStr(cref, hashTable)%>'
+    case hessianContext as HESSIAN_CONTEXT(hessHT=SOME(hashTable)) then
+        '<%crefToOMSICStr(cref, hashTable)%>'
     // error case
     else "ERROR in crefOMSI: No valid SimCodeFunction.Context"
     end match
@@ -4399,10 +4401,16 @@ template contextCref(ComponentRef cr, Context context, Text &auxFunction)
     // get the current cref prefix that is set in the context.
     let cur_pref = getCurrentCrefPrefix(context)
     functionContextCref(cr, context, cur_pref, auxFunction)
+
   case JACOBIAN_CONTEXT(jacHT=SOME(_))
     then (match Config.simCodeTarget()
           case "omsic" then crefOMSI(cr, context)
           else jacCrefs(cr, context, 0))
+
+  case HESSIAN_CONTEXT(hessHT=SOME(_))
+    then (match Config.simCodeTarget()
+          case "omsic" then crefOMSI(cr, context)
+          else hessCrefs(cr, context, 0))
 
   case OMSI_CONTEXT(__) then crefOMSI(cr, context)
   else cref(cr)
@@ -4469,6 +4477,7 @@ template contextCrefOld(ComponentRef cr, Context context, Text &auxFunction, Int
     else "_" + System.unquoteIdentifier(crefStr(cr))
     )
   case JACOBIAN_CONTEXT(jacHT=SOME(_)) then jacCrefs(cr, context, ix)
+  case HESSIAN_CONTEXT(hessHT=SOME(_)) then hessCrefs(cr, context, ix)
   else crefOld(cr, ix)
 end contextCrefOld;
 
@@ -4483,6 +4492,18 @@ template jacCrefs(ComponentRef cr, Context context, Integer ix)
      case SIMVAR(varKind=BackendDAE.SEED_VAR()) then 'jacobian->seedVars[<%index%>] /* <%escapeCComments(crefStrNoUnderscore(name))%> <%variabilityString(varKind)%> */'
      case SIMVAR(index=-2) then crefOld(cr, ix)
 end jacCrefs;
+
+template hessCrefs(ComponentRef cr, Context context, Integer ix)
+  "Generates code for hessian variables."
+::=
+ match context
+   case HESSIAN_CONTEXT(hessHT=SOME(hessHT)) then
+     match simVarFromHT(cr, hessHT)
+     case SIMVAR(varKind=BackendDAE.HESS_VAR()) then 'hessian->resultVars[<%index%>] /* <%escapeCComments(crefStrNoUnderscore(name))%> <%variabilityString(varKind)%> */'
+     case SIMVAR(varKind=BackendDAE.HESS_DIFF_VAR()) then 'hessian->tmpVars[<%index%>] /* <%escapeCComments(crefStrNoUnderscore(name))%> <%variabilityString(varKind)%> */'
+     case SIMVAR(varKind=BackendDAE.SEED_VAR()) then 'hessian->seedVars[<%index%>] /* <%escapeCComments(crefStrNoUnderscore(name))%> <%variabilityString(varKind)%> */'
+     case SIMVAR(index=-2) then crefOld(cr, ix)
+end hessCrefs;
 
 template contextCrefIsPre(ComponentRef cr, Context context, Text &auxFunction, Boolean isPre)
   "Generates code for a component reference depending on which context we're in."
@@ -5730,6 +5751,7 @@ case rel as RELATION(__) then
             'getCondition(<%rel.index%>)'
         end match
   case JACOBIAN_CONTEXT(__)
+  case HESSIAN_CONTEXT(__)
   case DAE_MODE_CONTEXT(__)
   case SIMULATION_CONTEXT(__) then
     match rel.optionExpisASUB

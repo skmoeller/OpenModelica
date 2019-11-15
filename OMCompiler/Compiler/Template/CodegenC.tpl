@@ -466,7 +466,7 @@ end functionSystemsSynchronous;
 template functionEquationsSynchronous(Integer i, list<tuple<SimCodeVar.SimVar, Boolean>> vars, list<SimEqSystem> equations, String modelNamePrefix)
 ::=
   <<
-  <%equations |> eq => equation_impl(i, eq, contextOther, modelNamePrefix, false) ; separator="\n"%>
+  <%equations |> eq => equation_impl(i, eq, contextOther, modelNamePrefix) ; separator="\n"%>
 
   int <%symbolName(modelNamePrefix, 'functionEquationsSynchronous_system<%i%>')%>(DATA *data, threadData_t *threadData)
   {
@@ -1029,7 +1029,7 @@ template simulationFile_inl(SimCode simCode)
       #endif
 
       <%(inlineEquations |> eq hasindex i0 =>
-          equation_impl(-1, eq, contextSimulationNonDiscrete, modelNamePrefixStr, false)
+          equation_impl(-1, eq, contextSimulationNonDiscrete, modelNamePrefixStr)
           ;separator="\n")%>
 
       /* inline equations*/
@@ -2640,7 +2640,7 @@ template functionExtraResidualsPreBody(SimEqSystem eq, Text &eqs, String modelNa
   case e as SES_RESIDUAL(__)
    then ""
   else
-    let &eqs += equation_impl(-1, eq, contextSimulationDiscrete, modelNamePrefixStr, false)
+    let &eqs += equation_impl(-1, eq, contextSimulationDiscrete, modelNamePrefixStr)
     <<
     /* local constraints */
     <%createLocalConstraints(eq)%>
@@ -2657,7 +2657,7 @@ template functionExtraResidualsPreBodyJacobian(SimEqSystem eq, Text &eqs, String
   case e as SES_RESIDUAL(__)
    then ""
   else
-    let &eqs += equation_impl(-1, eq, contextJacobian, modelNamePrefixStr, false)
+    let &eqs += equation_impl(-1, eq, contextJacobian, modelNamePrefixStr)
     <<
     /* local constraints */
     <%createLocalConstraints(eq)%>
@@ -3247,7 +3247,7 @@ template functionInitialEquations_lambda0(list<SimEqSystem> initalEquations_lamb
                     ;separator="\n")
               else
                 let &eqfuncs += (initalEquations_lambda0 |> eq hasindex i0 =>
-                    equation_impl(-1, eq, contextSimulationDiscrete, modelNamePrefix, false)
+                    equation_impl(-1, eq, contextSimulationDiscrete, modelNamePrefix)
                     ;separator="\n")
                 (initalEquations_lambda0 |> eq hasindex i0 => equation_call(eq, modelNamePrefix) ;separator="\n")
 
@@ -3303,7 +3303,7 @@ template functionRemovedInitialEquationsBody(SimEqSystem eq, Text &varDecls, Tex
       >>
     end match
   else
-    let &eqs += equation_impl(-1, eq, contextSimulationDiscrete, modelNamePrefix, false)
+    let &eqs += equation_impl(-1, eq, contextSimulationDiscrete, modelNamePrefix)
     equation_call(eq, modelNamePrefix)
   end match
 end functionRemovedInitialEquationsBody;
@@ -4027,7 +4027,7 @@ template createEquationsAndCalls(list<list<SimEqSystem>> systems, String name, C
 ::=
   let _ = (systems |> equations => (
           equations |> eq => (
-            let &eqFuncs += equation_impl(-1, eq, context, modelNamePrefixStr, false)
+            let &eqFuncs += equation_impl(-1, eq, context, modelNamePrefixStr)
             let &eqCalls += equationNames_(eq, context, modelNamePrefixStr)
             <<>>
           )
@@ -4313,7 +4313,7 @@ template functionDAE(list<SimEqSystem> allEquationsPlusWhen, String modelNamePre
                     ;separator="\n")
               else
                 (allEquationsPlusWhen |> eq hasindex i0 =>
-                    let &eqfuncs += equation_impl(-1, eq, contextSimulationDiscrete, modelNamePrefix, false)
+                    let &eqfuncs += equation_impl(-1, eq, contextSimulationDiscrete, modelNamePrefix)
                     equation_call(eq, modelNamePrefix)
                     ;separator="\n")
 
@@ -4364,7 +4364,7 @@ template functionLocalKnownVars(list<SimEqSystem> localKnownVars, String modelNa
 ::=
   <<
   <%(localKnownVars |> eq =>
-                    equation_impl(-1, eq, contextSimulationDiscrete, modelNamePrefix, false)
+                    equation_impl(-1, eq, contextSimulationDiscrete, modelNamePrefix)
                     ;separator="\n")%>
 
   int <%symbolName(modelNamePrefix,"functionLocalKnownVars")%>(DATA *data, threadData_t *threadData)
@@ -4656,7 +4656,7 @@ template functionAssertsforCheck(list<SimEqSystem> algAndEqAssertsEquations, Str
 ::=
   <<
   <%(algAndEqAssertsEquations |> eq =>
-    equation_impl(-1, eq, contextSimulationDiscrete, modelNamePrefix, false)
+    equation_impl(-1, eq, contextSimulationDiscrete, modelNamePrefix)
     ;separator="\n")%>
   /* function to check assert after a step is done */
   OMC_DISABLE_OPT
@@ -5107,12 +5107,13 @@ template generateMatrix(list<JacobianColumn> jacobianColumn, list<SimVar> seedVa
 ::=
   let STRUCT_NAME = (if hess then <<HESSIAN>> else <<JACOBIAN>>)
   let struct_name = (if hess then <<hessian>> else <<jacobian>>)
+  let struct_Name = (if hess then <<Hessian>> else <<Jacobian>>)
   let short_name = (if hess then <<Hess>> else <<Jac>>)
   let nRows = (jacobianColumn |> JAC_COLUMN(numberOfResultVars=nRows) => '<%nRows%>')
   match nRows
   case "0" then
     <<
-    int <%symbolName(modelNamePrefix,'function<%short_name%>')%><%matrixname%>_column(void* data, threadData_t *threadData, ANALYTIC_<%STRUCT_NAME%> *<%struct_name%>, ANALYTIC_<%STRUCT_NAME%> *parent<%struct_name%>)
+    int <%symbolName(modelNamePrefix,'function<%short_name%>')%><%matrixname%>_column(void* data, threadData_t *threadData, ANALYTIC_<%STRUCT_NAME%> *<%struct_name%>, ANALYTIC_<%STRUCT_NAME%> *parent<%struct_Name%>)
     {
       TRACE_PUSH
       TRACE_POP
@@ -5123,7 +5124,7 @@ template generateMatrix(list<JacobianColumn> jacobianColumn, list<SimVar> seedVa
     match seedVars
      case {} then
         <<
-        int <%symbolName(modelNamePrefix,'function<%short_name%>')%><%matrixname%>_column(void* data, threadData_t *threadData, ANALYTIC_<%STRUCT_NAME%> *<%struct_name%>, ANALYTIC_<%STRUCT_NAME%> *parent<%struct_name%>)
+        int <%symbolName(modelNamePrefix,'function<%short_name%>')%><%matrixname%>_column(void* data, threadData_t *threadData, ANALYTIC_<%STRUCT_NAME%> *<%struct_name%>, ANALYTIC_<%STRUCT_NAME%> *parent<%struct_Name%>)
         {
           TRACE_PUSH
           TRACE_POP
@@ -5150,24 +5151,44 @@ template functionJac(list<SimEqSystem> jacEquations, Integer partIdx, String mat
 ::=
 let STRUCT_NAME = (if hess then <<HESSIAN>> else <<JACOBIAN>>)
 let struct_name = (if hess then <<hessian>> else <<jacobian>>)
+let struct_Name = (if hess then <<Hessian>> else <<Jacobian>>)
 let SHORT_NAME = (if hess then <<HESS>> else <<JAC>>)
 let short_name = (if hess then <<Hess>> else <<Jac>>)
-  <<
-  <%(jacEquations |> eq =>
-    equation_impl(partIdx, eq, createJacContext(jacHT), modelNamePrefix, hess); separator="\n")%>
-  int <%symbolName(modelNamePrefix,'function<%short_name%>')%><%matrixName%>_column(void* inData, threadData_t *threadData, ANALYTIC_<%STRUCT_NAME%> *<%struct_name%>, ANALYTIC_<%STRUCT_NAME%> *parent<%struct_name%>)
-  {
-    TRACE_PUSH
-
-    DATA* data = ((DATA*)inData);
-    int index = <%symbolName(modelNamePrefix,'INDEX_<%SHORT_NAME%>_')%><%matrixName%>;
+  match hess
+  case true then
+    <<
     <%(jacEquations |> eq =>
-    equation_callJacobian(eq, modelNamePrefix, hess); separator="\n")%>
+      equation_impl(partIdx, eq, createHessContext(jacHT), modelNamePrefix); separator="\n")%>
+      int <%symbolName(modelNamePrefix,'function<%short_name%>')%><%matrixName%>_column(void* inData, threadData_t *threadData, ANALYTIC_<%STRUCT_NAME%> *<%struct_name%>, ANALYTIC_<%STRUCT_NAME%> *parent<%struct_Name%>)
+      {
+        TRACE_PUSH
 
-    TRACE_POP
-    return 0;
-  }
-  >>
+        DATA* data = ((DATA*)inData);
+        int index = <%symbolName(modelNamePrefix,'INDEX_<%SHORT_NAME%>_')%><%matrixName%>;
+        <%(jacEquations |> eq =>
+        equation_callJacobian(eq, modelNamePrefix, hess); separator="\n")%>
+
+        TRACE_POP
+        return 0;
+      }
+      >>
+  else
+    <<
+    <%(jacEquations |> eq =>
+      equation_impl(partIdx, eq, createJacContext(jacHT), modelNamePrefix); separator="\n")%>
+      int <%symbolName(modelNamePrefix,'function<%short_name%>')%><%matrixName%>_column(void* inData, threadData_t *threadData, ANALYTIC_<%STRUCT_NAME%> *<%struct_name%>, ANALYTIC_<%STRUCT_NAME%> *parent<%struct_Name%>)
+      {
+        TRACE_PUSH
+
+        DATA* data = ((DATA*)inData);
+        int index = <%symbolName(modelNamePrefix,'INDEX_<%SHORT_NAME%>_')%><%matrixName%>;
+        <%(jacEquations |> eq =>
+        equation_callJacobian(eq, modelNamePrefix, hess); separator="\n")%>
+
+        TRACE_POP
+        return 0;
+      }
+    >>
 end functionJac;
 
 // function for sparsity pattern generation
@@ -5291,12 +5312,12 @@ template equation_arrayFormat(SimEqSystem eq, String name, Context context, Inte
   )
 end equation_arrayFormat;
 
-template equation_impl(Integer clockIndex, SimEqSystem eq, Context context, String modelNamePrefix, Boolean hess)
+template equation_impl(Integer clockIndex, SimEqSystem eq, Context context, String modelNamePrefix)
  "Generates an equation.
   This template should not be used for a SES_RESIDUAL.
   Residual equations are handled differently."
 ::=
-  equation_impl2(clockIndex, eq, context, modelNamePrefix, false, false, hess)
+  equation_impl2(clockIndex, eq, context, modelNamePrefix, false, false)
 end equation_impl;
 
 template equation_impl_options(Integer clockIndex, SimEqSystem eq, Context context, String modelNamePrefix, Boolean static, Boolean noOpt)
@@ -5304,10 +5325,10 @@ template equation_impl_options(Integer clockIndex, SimEqSystem eq, Context conte
   This template should not be used for a SES_RESIDUAL.
   Residual equations are handled differently."
 ::=
-  equation_impl2(clockIndex, eq, context, modelNamePrefix, static, noOpt, false)
+  equation_impl2(clockIndex, eq, context, modelNamePrefix, static, noOpt)
 end equation_impl_options;
 
-template equation_impl2(Integer clockIndex, SimEqSystem eq, Context context, String modelNamePrefix, Boolean static, Boolean noOpt, Boolean hess)
+template equation_impl2(Integer clockIndex, SimEqSystem eq, Context context, String modelNamePrefix, Boolean static, Boolean noOpt)
  "Generates an equation.
   This template should not be used for a SES_RESIDUAL.
   Residual equations are handled differently."
@@ -5424,8 +5445,6 @@ template equation_impl2(Integer clockIndex, SimEqSystem eq, Context context, Str
 
         // no dynamic tearing
         else
-        let STRUCT_NAME = (if hess then <<HESSIAN>> else <<JACOBIAN>>)
-        let struct_name = (if hess then <<hessian>> else <<jacobian>>)
         match context
         case JACOBIAN_CONTEXT()
         then
@@ -5435,7 +5454,25 @@ template equation_impl2(Integer clockIndex, SimEqSystem eq, Context context, Str
         /*
         <%dumpEqs(fill(eq,1))%>
         */
-        <%OMC_NO_OPT%><% if static then "static "%>void <%symbolName(modelNamePrefix,"eqFunction")%>_<%ix%>(DATA *data, threadData_t *threadData, ANALYTIC_<%STRUCT_NAME%> *<%struct_name%>, ANALYTIC_<%STRUCT_NAME%> *parent<%struct_name%>)
+        <%OMC_NO_OPT%><% if static then "static "%>void <%symbolName(modelNamePrefix,"eqFunction")%>_<%ix%>(DATA *data, threadData_t *threadData, ANALYTIC_JACOBIAN *jacobian, ANALYTIC_JACOBIAN *parentJacobian)
+        {
+          TRACE_PUSH
+          <%clockIndex_%>
+          const int equationIndexes[2] = {1,<%ix%>};
+          <%&varD%>
+          <%x%>
+          TRACE_POP
+        }
+        >>
+        case HESSIAN_CONTEXT()
+        then
+        <<
+
+        <%tempeqns%>
+        /*
+        <%dumpEqs(fill(eq,1))%>
+        */
+        <%OMC_NO_OPT%><% if static then "static "%>void <%symbolName(modelNamePrefix,"eqFunction")%>_<%ix%>(DATA *data, threadData_t *threadData, ANALYTIC_HESSIAN *hessian, ANALYTIC_HESSIAN *parentHessian)
         {
           TRACE_PUSH
           <%clockIndex_%>
@@ -5770,7 +5807,7 @@ template equationMixed(SimEqSystem eq, Context context, Text &tmp, String modelN
 ::=
 match eq
 case eqn as SES_MIXED(__) then
-  let &tmp += equation_impl(-1, cont, context, modelNamePrefixStr, false)
+  let &tmp += equation_impl(-1, cont, context, modelNamePrefixStr)
   let numDiscVarsStr = listLength(discVars)
   <<
   /* Continuous equation part */
@@ -6059,7 +6096,7 @@ case SES_IFEQUATION(ifbranches=ifbranches, elsebranch=elsebranch) then
   let &preExp = buffer ""
   let IfEquation = (ifbranches |> (e, eqns) hasindex index0 =>
     let condition = daeExp(e, context, &preExp, &varDecls, &eqnsDecls)
-    let &eqnsDecls += ( eqns |> eqn => equation_impl(-1, eqn, context, modelNamePrefixStr, false) ; separator="\n" )
+    let &eqnsDecls += ( eqns |> eqn => equation_impl(-1, eqn, context, modelNamePrefixStr) ; separator="\n" )
    let conditionline = if index0 then 'else if(<%condition%>)' else 'if(<%condition%>)'
     <<
     <%conditionline%>
@@ -6068,7 +6105,7 @@ case SES_IFEQUATION(ifbranches=ifbranches, elsebranch=elsebranch) then
     }
     >>
     ;separator="\n")
-  let &eqnsDecls += ( elsebranch |> eqn => equation_impl(-1, eqn, context, modelNamePrefixStr, false) ; separator="\n" )
+  let &eqnsDecls += ( elsebranch |> eqn => equation_impl(-1, eqn, context, modelNamePrefixStr) ; separator="\n" )
   <<
   <%preExp%>
   <%IfEquation%>else

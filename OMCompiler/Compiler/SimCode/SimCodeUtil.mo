@@ -5069,11 +5069,6 @@ algorithm
         // concenate seed vars
         seedVars := listAppend(seedVars1, seedVars2);
 
-        print("\n\n seedVars\n");
-        for simvar in seedVars loop
-          print("var: " + HpcOmMemory.dumpSimCodeVar(simvar) + "\n");
-        end for;
-
         // create hash table for this Hessians
         crefToSimVarHTHessian := HashTableCrefSimVar.emptyHashTableSized(listLength(seedVars)+ listLength(columnVars));
         crefToSimVarHTHessian := List.fold(seedVars, HashTableCrefSimVar.addSimVarToHashTable, crefToSimVarHTHessian);
@@ -13950,6 +13945,12 @@ algorithm
   outContext := SimCodeFunction.JACOBIAN_CONTEXT(jacHT);
 end createJacContext;
 
+public function createHessContext
+  input Option<HashTableCrefSimVar.HashTable> hessHT;
+  output SimCodeFunction.Context outContext;
+algorithm
+  outContext := SimCodeFunction.HESSIAN_CONTEXT(hessHT);
+end createHessContext;
 
 public function localCref2SimVar
 "Used by templates to find SIMVAR in given hashTable for given cref

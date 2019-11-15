@@ -933,6 +933,9 @@ package SimCodeFunction
     record JACOBIAN_CONTEXT
       Option<HashTableCrefSimVar.HashTable> jacHT;
     end JACOBIAN_CONTEXT;
+    record HESSIAN_CONTEXT
+      Option<HashTableCrefSimVar.HashTable> hessHT;
+    end HESSIAN_CONTEXT;
     record ALGLOOP_CONTEXT
       Boolean genInitialisation;
       Boolean genJacobian;
@@ -1163,6 +1166,11 @@ package SimCodeUtil
     output SimCodeFunction.Context outContext;
   end createJacContext;
 
+  function createHessContext
+    input Option<HashTableCrefSimVar.HashTable> hessHT;
+    output SimCodeFunction.Context outContext;
+  end createHessContext;
+
   function localCref2SimVar
     input DAE.ComponentRef inCref;
     input HashTableCrefSimVar.HashTable inCrefToSimVarHT;
@@ -1391,6 +1399,8 @@ package BackendDAE
     record EXTOBJ Absyn.Path fullClassName; end EXTOBJ;
     record JAC_VAR end JAC_VAR;
     record JAC_DIFF_VAR end JAC_DIFF_VAR;
+    record HESS_VAR end HESS_VAR;
+    record HESS_DIFF_VAR end HESS_DIFF_VAR;
     record SEED_VAR end SEED_VAR;
     record OPT_CONSTR end OPT_CONSTR;
     record OPT_FCONSTR end OPT_FCONSTR;
