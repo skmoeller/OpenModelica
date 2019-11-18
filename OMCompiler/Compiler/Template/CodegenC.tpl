@@ -1623,7 +1623,7 @@ end symJacDefinition;
 template symHessDefinition(list<HessianMatrix> HessianMatrices, String modelNamePrefix) "template variableDefinitionsHessians
   Generates defines for hessian vars."
 ::=
-  let symbolicHesssDefine = (HessianMatrices |> HESS_MATRIX(columns=jacColumn, seedVars=seedVars, matrixName=name, hessianIndex=indexHessian)  =>
+  let symbolicHesssDefine = (HessianMatrices |> HESS_MATRIX(columns=jacColumn, seedVars=seedVars, lambdaVars=lambdas, matrixName=name, hessianIndex=indexHessian)  =>
     <<
     #if defined(__cplusplus)
     extern "C" {
@@ -4993,9 +4993,9 @@ end functionAnalyticJacobians;
 template functionAnalyticHessians(list<HessianMatrix> HessianMatrices,String modelNamePrefix) "template functionAnalyticHessians
   This template generates source code for all given hessians."
 ::=
-  let initialhessMats = (HessianMatrices |> HESS_MATRIX(columns=mat, seedVars=vars, matrixName=name, hessianIndex=indexHessian) =>
-    initialAnalyticHessians(mat, vars, name, modelNamePrefix); separator="\n")
-  let hessMats = (HessianMatrices |> HESS_MATRIX(columns=mat, seedVars=vars, matrixName=name, partitionIndex=partIdx, crefsHT=crefsHT) =>
+  let initialhessMats = (HessianMatrices |> HESS_MATRIX(columns=mat, seedVars=vars, lambdaVars=lambdas, matrixName=name, hessianIndex=indexHessian) =>
+    initialAnalyticHessians(mat, vars, lambdas, name, modelNamePrefix); separator="\n")
+  let hessMats = (HessianMatrices |> HESS_MATRIX(columns=mat, seedVars=vars, lambdaVars=lambdas, matrixName=name, partitionIndex=partIdx, crefsHT=crefsHT) =>
     generateMatrix(mat, vars, name, partIdx, crefsHT, modelNamePrefix, true) ;separator="\n")
 
   <<
@@ -5071,7 +5071,7 @@ match sparsepattern
 end match
 end initialAnalyticJacobians;
 
-template initialAnalyticHessians(list<JacobianColumn> jacobianColumn, list<SimVar> seedVars, String matrixname, String modelNamePrefix)
+template initialAnalyticHessians(list<JacobianColumn> jacobianColumn, list<SimVar> seedVars, list<SimVar> lambdaVars, String matrixname, String modelNamePrefix)
 "template initialAnalyticHessians
   This template generates source code for functions that initialize a single hessian.
   This is a helper of template functionAnalyticHessians"
@@ -5081,6 +5081,7 @@ template initialAnalyticHessians(list<JacobianColumn> jacobianColumn, list<SimVa
     let indexColumn = (jacobianColumn |> JAC_COLUMN(numberOfResultVars=n) => '<%n%>';separator="\n")
     let tmpvarsSize = (jacobianColumn |> JAC_COLUMN(columnVars=vars) => listLength(vars);separator="\n")
     let index_ = listLength(seedVars)
+    let lambdaSize = listLength(lambdaVars)
     <<
     OMC_DISABLE_OPT
     int <%symbolName(modelNamePrefix,"initialAnalyticHessian")%><%matrixname%>(void* inData, threadData_t *threadData, ANALYTIC_HESSIAN *hessian)
@@ -5094,6 +5095,7 @@ template initialAnalyticHessians(list<JacobianColumn> jacobianColumn, list<SimVa
       hessian->seedVars = (modelica_real*) calloc(<%index_%>,sizeof(modelica_real));
       hessian->resultVars = (modelica_real*) calloc(<%indexColumn%>,sizeof(modelica_real));
       hessian->tmpVars = (modelica_real*) calloc(<%tmpvarsSize%>,sizeof(modelica_real));
+      hessian->lambdas = (modelica_real*) calloc(<%lambdaSize%>,sizeof(modelica_real));
 
       TRACE_POP
       return 0;

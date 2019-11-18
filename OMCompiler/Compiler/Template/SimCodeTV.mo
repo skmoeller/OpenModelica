@@ -359,6 +359,7 @@ package SimCode
     record HESS_MATRIX
       list<JacobianColumn> columns;
       list<SimCodeVar.SimVar> seedVars;
+      list<SimCodeVar.SimVar> lambdaVars;
       String matrixName;
       Integer hessianIndex;
       Integer partitionIndex;

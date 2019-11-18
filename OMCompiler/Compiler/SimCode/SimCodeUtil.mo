@@ -5001,15 +5001,15 @@ algorithm
       BackendDAE.Variables vars, globalKnownVars, empty, systvars, emptyVars, diffedVarsHelp;
 
       DAE.ComponentRef x1, x2;
-      list<BackendDAE.Var>  diffVars, diffedVars, alldiffedVars, seedVarLst, allVars;
-      list<DAE.ComponentRef> diffCompRefs, diffedCompRefs, allCrefs;
+      list<BackendDAE.Var>  diffVars, diffedVars, alldiffedVars, seedVarLst, allVars, lambdaVars;
+      list<DAE.ComponentRef> diffCompRefs, diffedCompRefs, allCrefs, lambdaCompRefs;
 
       Integer uniqueEqIndex, nRows;
 
       SimCodeVar.SimVars simvars;
       list<SimCode.SimEqSystem> columnEquations;
       list<SimCodeVar.SimVar> columnVars, columnVarsSeed1, columnVarsSeed2, otherColumnVars;
-      list<SimCodeVar.SimVar> columnVarsKn;
+      list<SimCodeVar.SimVar> lambdaSimVars;
       list<SimCodeVar.SimVar> seedVars, seedVars1, seedVars2, indexVars, seedIndexVars;
 
       Integer uniqueEqIndex; //, nRows;
@@ -5029,7 +5029,7 @@ algorithm
         (outHessianMatrixes, ouniqueEqIndex) := createSymbolicHessiansSimCode(rest, inSimVarHT, iuniqueEqIndex, restnames, inHessianMatrixes);
     then (outHessianMatrixes, ouniqueEqIndex);
 
-    case (SOME((BackendDAE.DAE(eqs={syst as BackendDAE.EQSYSTEM(matching=BackendDAE.MATCHING(comps=comps))},shared=shared),nameFirstSeed,diffVars,diffedVars,alldiffedVars))::rest, _::restnames)
+    case (SOME((BackendDAE.DAE(eqs={syst as BackendDAE.EQSYSTEM(matching=BackendDAE.MATCHING(comps=comps))},shared=shared),nameFirstSeed,diffVars,diffedVars,alldiffedVars,lambdaVars))::rest, _::restnames)
       algorithm
         nameSecondSeed := (nameFirstSeed+"1");
 
@@ -5038,12 +5038,13 @@ algorithm
 
         emptyVars :=  BackendVariable.emptyVars();
         ((columnVars, _)) :=  BackendVariable.traverseBackendDAEVars(syst.orderedVars, traversingdlowvarToSimvar, ({}, emptyVars));
-        columnVars := List.map1(columnVars, setSimVarKind, BackendDAE.HESS_DIFF_VAR());
+        columnVars := List.map1(columnVars, setSimVarKind, BackendDAE.HESS_VAR());
         columnVars := List.map1(columnVars, setSimVarMatrixName, SOME(nameFirstSeed));
         columnVars := rewriteIndex(columnVars, 0);
 
         diffCompRefs := list(v.varName for v in diffVars); // is this right?
         diffedCompRefs := list(v.varName for v in diffedVars); // is this right?
+
         seedVars := getSimVars2Crefs(diffCompRefs, inSimVarHT);
         seedVars := List.sort(seedVars, compareVarIndexGt);
 
@@ -5069,12 +5070,18 @@ algorithm
         // concenate seed vars
         seedVars := listAppend(seedVars1, seedVars2);
 
+        // create the lambda variable
+        lambdaCompRefs := list(v.varName for v in lambdaVars);
+        lambdaSimVars := list(makeTmpRealSimCodeVar(cr, BackendDAE.PARAM()) for cr in lambdaCompRefs);
+        rewriteIndex(lambdaSimVars, 0);
+
         // create hash table for this Hessians
-        crefToSimVarHTHessian := HashTableCrefSimVar.emptyHashTableSized(listLength(seedVars)+ listLength(columnVars));
+        crefToSimVarHTHessian := HashTableCrefSimVar.emptyHashTableSized(listLength(seedVars)+ listLength(columnVars)+ listLength(lambdaSimVars));
         crefToSimVarHTHessian := List.fold(seedVars, HashTableCrefSimVar.addSimVarToHashTable, crefToSimVarHTHessian);
         crefToSimVarHTHessian := List.fold(columnVars, HashTableCrefSimVar.addSimVarToHashTable, crefToSimVarHTHessian);
+        crefToSimVarHTHessian := List.fold(lambdaSimVars, HashTableCrefSimVar.addSimVarToHashTable, crefToSimVarHTHessian);
 
-        tmpHess := SimCode.HESS_MATRIX({SimCode.JAC_COLUMN(columnEquations, columnVars, nRows)}, seedVars, nameFirstSeed, iuniqueEqIndex, 0, SOME(crefToSimVarHTHessian));
+        tmpHess := SimCode.HESS_MATRIX({SimCode.JAC_COLUMN(columnEquations, columnVars, nRows)}, seedVars, lambdaSimVars, nameFirstSeed, iuniqueEqIndex, 0, SOME(crefToSimVarHTHessian));
         hessianMatrixLst := tmpHess::inHessianMatrixes;
         uniqueEqIndex := iuniqueEqIndex + 1;
 

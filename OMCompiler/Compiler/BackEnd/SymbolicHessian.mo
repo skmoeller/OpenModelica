@@ -101,6 +101,9 @@ protected function createSymbolicHessian
   "Function creates the symbolic Hessians for the Jacobians A, B and C"
   input BackendDAE.SymbolicJacobian InSymJac "Symbolic Jacobian Matrix";
   output Option< BackendDAE.SymbolicHessian > Hessian "Symbolic Hessian Matrix";
+protected
+  BackendDAE.BackendDAE hessDae;
+  list<BackendDAE.Var> lambdaVars;
 algorithm
   Hessian := match InSymJac
     local
@@ -109,7 +112,9 @@ algorithm
     list< BackendDAE.Var > diffVars ,diffedVars, allDiffedVars;
     BackendDAE.SymbolicJacobian symjac;
     case (dae,nameMatrix,diffVars,diffedVars,allDiffedVars,_) guard stringEqual(nameMatrix,"A") or stringEqual(nameMatrix,"B") or stringEqual(nameMatrix,"C")
-      then SOME((multiplyLambdas(dae, nameMatrix), nameMatrix,diffVars,diffedVars,allDiffedVars)); //multiple the lagrange factors and add the equations
+    algorithm
+      (hessDae,lambdaVars) := multiplyLambdas(dae, nameMatrix); //multiple the lagrange factors and add the equations
+    then SOME((hessDae,nameMatrix,diffVars,diffedVars,allDiffedVars,lambdaVars));
     else NONE();
   end match;
 end createSymbolicHessian;
@@ -119,12 +124,13 @@ protected function multiplyLambdas
   input BackendDAE.BackendDAE jac; //Jacobi Matrix
   input String matrixName; //Name of the jacobian (A,B,C,D)
   output BackendDAE.BackendDAE lambdaJac; //Equationsystem with only one equation -> that is the hessian!
-
+  output list<BackendDAE.Var> lambdaVars = {}; //All the lambda variables
 protected
   Option< list< DAE.ComponentRef > > lambdasOption;//Lambdas with option
   list<DAE.ComponentRef> lambdas; //Lambdas without option typ!
   BackendDAE.EquationArray eqns, jacEqns; //Array for the hessian!
   BackendDAE.EqSystem eqs;
+  BackendDAE.Shared shared;
   BackendDAE.Variables vars;
   BackendDAE.Equation eq;
   DAE.Exp eqExpr;
@@ -132,9 +138,13 @@ protected
   list<BackendDAE.Equation> innerEqns = {}, residualEqns = {};
 algorithm
   lambdaJac := jac;
+
   {eqs} := lambdaJac.eqs;
   BackendDAE.EQSYSTEM(orderedVars = vars, orderedEqs = eqns) := eqs;
   jacEqns := eqns;
+
+  shared := lambdaJac.shared;
+
   (innerEqns,residualEqns) := BackendEquation.traverseEquationArray(eqns, assignEqnToInnerOrResidual, (innerEqns, residualEqns));
   //BackendDump.dumpEquationArray(eqns, "filtered eqns");
   lambdasOption := if Flags.getConfigBool(Flags.GENERATE_SYMBOLIC_HESSIAN) and (listLength(residualEqns)<>0) then SOME(getLambdaList(listLength(residualEqns))) else NONE();
@@ -152,20 +162,27 @@ algorithm
       eqExpr := BackendEquation.getEquationRHS(eq);
       eqExpr := multiplyLambda2Expression(eqExpr, lambdaList);
       hessExpr := eqExpr::hessExpr;
+      /*Create the lambda Vars*/
+      lambdaVars := createLambdaVar(lambdaList)::lambdaVars;
     end for;
+
     (vars, eqns) := addEquations(hessExpr, eq, matrixName, vars);
     vars := removeStateVars(vars);
     eqns := BackendEquation.addList(innerEqns, eqns);
+
+
     /*Updating the DAE*/
     eqs.orderedEqs := eqns;
     eqs.orderedVars := vars;
     eqs.matching := BackendDAE.NO_MATCHING();
     lambdaJac.eqs := {eqs};
+
+    shared.globalKnownVars := BackendVariable.addVars(lambdaVars,shared.globalKnownVars);
+    lambdaJac.shared := shared;
   else
     print("\n***Error***\n NO RESIDUAL EQUATIONS GIVEN!\n\n");
     fail();
   end if;
-
   lambdaJac :=  BackendDAEUtil.transformBackendDAE(lambdaJac,SOME((BackendDAE.NO_INDEX_REDUCTION(),BackendDAE.EXACT())),NONE(),NONE());
 end multiplyLambdas;
 
@@ -191,6 +208,14 @@ algorithm
   expLambda := Expression.crefToExp(crefLambda);
   outExp := Expression.expMul(inExp, expLambda);
 end multiplyLambda2Expression;
+
+protected function createLambdaVar
+  input DAE.ComponentRef lambdaCref;
+  output BackendDAE.Var lambdaVar;
+algorithm
+  lambdaVar := BackendVariable.makeVar(lambdaCref);
+  lambdaVar := BackendVariable.setVarKind(lambdaVar,BackendDAE.PARAM());
+end createLambdaVar;
 
 protected function addEquations
   "Helper Function for adding up all the Equations."
@@ -218,6 +243,7 @@ protected function setHessian
   output BackendDAE.Equation outEq;
 protected
   DAE.ComponentRef hessCref = ComponentReference.makeCrefIdent(Util.hessianIdent + matrixName, DAE.T_REAL_DEFAULT, {});
+  BackendDAE.Var hessVar;
 algorithm
   outEq := match (inEq)
     local
@@ -253,7 +279,9 @@ algorithm
         localEq = inEq;
       then localEq;
   end match;
-  vars := BackendVariable.addVar(BackendVariable.makeVar(hessCref), vars);
+  hessVar := BackendVariable.makeVar(hessCref);
+  hessVar := BackendVariable.setVarKind(hessVar,BackendDAE.HESS_VAR());
+  vars := BackendVariable.addVar(hessVar, vars);
 end setHessian;
 
 protected function assignEqnToInnerOrResidual
@@ -339,7 +367,7 @@ algorithm
             String matrixName;
       case SOME(symHe)
       equation
-        (dae,matrixName,_,_,_) = symHe;
+        (dae,matrixName,_,_,_,_) = symHe;
         print("\n\n########################################\nHessian for "+matrixName+"\n########################################\n\n");
         BackendDump.dumpDAE(dae);
       then "";

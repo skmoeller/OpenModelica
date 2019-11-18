@@ -96,6 +96,7 @@ uniontype HessianMatrix
   record HESS_MATRIX
     list<JacobianColumn> columns;       // columns equations and variables
     list<SimCodeVar.SimVar> seedVars;   // corresponds to the number of columns
+    list<SimCodeVar.SimVar> lambdaVars;  // the lagrange multipliers
     String matrixName;                  // unique matrix name
     Integer hessianIndex;
     Integer partitionIndex;
@@ -104,7 +105,7 @@ uniontype HessianMatrix
 end HessianMatrix;
 
 constant JacobianMatrix emptyJacobian = JAC_MATRIX({}, {}, "", {}, {}, {}, 0, -1, 0, NONE());
-constant HessianMatrix emptyHessian = HESS_MATRIX({}, {}, "", -1, 0, NONE());
+constant HessianMatrix emptyHessian = HESS_MATRIX({}, {}, {}, "", -1, 0, NONE());
 
 constant PartitionData emptyPartitionData = PARTITIONDATA(-1,{},{},{});
 

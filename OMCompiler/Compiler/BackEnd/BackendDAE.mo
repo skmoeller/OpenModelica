@@ -801,7 +801,8 @@ type SymbolicHessian = tuple<  BackendDAE,              // symbolic equation sys
                                String,                  // Name of the Hessian Matrix
                                list<Var>,               // diff Variables
                                list<Var>,               // diffed Variables
-                               list<Var>                // all diffed Variables
+                               list<Var>,               // all diffed Variables
+                               list<Var>                // lambda Variables
                                >;
 
 public
