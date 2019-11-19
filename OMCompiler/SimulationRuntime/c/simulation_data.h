@@ -171,7 +171,7 @@ typedef struct ANALYTIC_HESSIAN
   modelica_real* seedVars;
   modelica_real* tmpVars;
   modelica_real* resultVars;
-  modelica_real* lambdas;
+  modelica_real* lambdaVars;
 }ANALYTIC_HESSIAN;
 
 /* EXTERNAL_INPUT

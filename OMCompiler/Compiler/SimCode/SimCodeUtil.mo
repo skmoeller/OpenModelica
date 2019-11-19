@@ -5072,8 +5072,8 @@ algorithm
 
         // create the lambda variable
         lambdaCompRefs := list(v.varName for v in lambdaVars);
-        lambdaSimVars := list(makeTmpRealSimCodeVar(cr, BackendDAE.PARAM()) for cr in lambdaCompRefs);
-        rewriteIndex(lambdaSimVars, 0);
+        lambdaSimVars := list(makeSimCodeLambdaVar(cr) for cr in lambdaCompRefs);
+        lambdaSimVars := rewriteIndex(lambdaSimVars, 0);
 
         // create hash table for this Hessians
         crefToSimVarHTHessian := HashTableCrefSimVar.emptyHashTableSized(listLength(seedVars)+ listLength(columnVars)+ listLength(lambdaSimVars));
@@ -5365,6 +5365,17 @@ algorithm
         false, NONE(), SimCodeVar.NOALIAS(), DAE.emptyElementSource,
         SimCodeVar.NONECAUS(), NONE(), {}, false, false, false, NONE(), NONE());
 end makeTmpRealSimCodeVar;
+
+protected function makeSimCodeLambdaVar
+  "Generate the Simvars for the lambdaVars in the Hessian Matrices"
+  input DAE.ComponentRef inName;
+  output SimCodeVar.SimVar outSimVar;
+algorithm
+  outSimVar := SimCodeVar.SIMVAR(inName, BackendDAE.PARAM(), "", "", "", -1,
+        NONE(), NONE(), NONE(), NONE(), false, DAE.T_ARRAY_REAL_NODIM,
+        false, NONE(), SimCodeVar.NOALIAS(), DAE.emptyElementSource,
+        SimCodeVar.NONECAUS(), NONE(), {}, false, false, false, NONE(), NONE());
+end makeSimCodeLambdaVar;
 
 protected function sortSparsePattern
   input list<SimCodeVar.SimVar> inSimVars;

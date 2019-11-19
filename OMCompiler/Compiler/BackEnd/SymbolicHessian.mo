@@ -213,8 +213,7 @@ protected function createLambdaVar
   input DAE.ComponentRef lambdaCref;
   output BackendDAE.Var lambdaVar;
 algorithm
-  lambdaVar := BackendVariable.makeVar(lambdaCref);
-  lambdaVar := BackendVariable.setVarKind(lambdaVar,BackendDAE.PARAM());
+  lambdaVar := BackendDAE.VAR(lambdaCref, BackendDAE.PARAM(), DAE.INPUT(), DAE.NON_PARALLEL(), ComponentReference.crefLastType(lambdaCref), NONE(), NONE(), {}, DAE.emptyElementSource, NONE(), NONE(), DAE.BCONST(false), NONE(),DAE.NON_CONNECTOR(), DAE.NOT_INNER_OUTER(), true);
 end createLambdaVar;
 
 protected function addEquations
