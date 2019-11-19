@@ -210,6 +210,7 @@ algorithm
 end multiplyLambda2Expression;
 
 protected function createLambdaVar
+  "Creates for given cref 'lambda[i]' a BackendDAE.Var, with kind: PARAM()"
   input DAE.ComponentRef lambdaCref;
   output BackendDAE.Var lambdaVar;
 algorithm
