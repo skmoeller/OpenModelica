@@ -5093,6 +5093,7 @@ template initialAnalyticHessians(list<JacobianColumn> jacobianColumn, list<SimVa
       hessian->sizeRows = <%indexColumn%>;
       hessian->sizeTmpVars = <%tmpvarsSize%>;
       hessian->seedVars = (modelica_real*) calloc(<%index_%>,sizeof(modelica_real));
+      /* only first index of result vars is used right now. update with new sparsity pattern! */
       hessian->resultVars = (modelica_real*) calloc(<%indexColumn%>,sizeof(modelica_real));
       hessian->tmpVars = (modelica_real*) calloc(<%tmpvarsSize%>,sizeof(modelica_real));
       hessian->lambdaVars = (modelica_real*) calloc(<%lambdaSize%>,sizeof(modelica_real));

@@ -576,7 +576,8 @@ algorithm
                           collect symbolic hessians
       ###################################################################
     */
-    (SymbolicHesss, _) := createHessianCode(symHesss, modelInfo, uniqueEqIndex);
+    (SymbolicHesss, uniqueEqIndex) := createHessianCode(symHesss, modelInfo, uniqueEqIndex);
+    (SymbolicHesss, modelInfo) := addAlgebraicLoopsModelInfoSymHesss(SymbolicHesss, modelInfo);
 
     // map index also odeEquations and algebraicEquations
     systemIndexMap := List.fold(allEquations, getSystemIndexMap, arrayCreate(uniqueEqIndex, -1));
@@ -1333,8 +1334,7 @@ algorithm
 end updateLinearSyst;
 
 public function addAlgebraicLoopsModelInfoSymJacs "
-Adds algebraic loops from list of SimEqSystem into ModelInfo
-and SimEqSystem equation algebraic system index."
+Adds symbolic jacobians into ModelInfo."
   input output list<SimCode.JacobianMatrix> symjacs;
   input output SimCode.ModelInfo modelInfo;
   output list<SimCode.JacobianMatrix> outSymJacsInSymJacs = {};
@@ -1371,6 +1371,29 @@ algorithm
   symjacs := listReverse(outSymJacs);
   outSymJacsInSymJacs := listReverse(outSymJacsInSymJacs);
 end addAlgebraicLoopsModelInfoSymJacs;
+
+public function addAlgebraicLoopsModelInfoSymHesss "
+Adds symbolic hessians to model info."
+  input output list<SimCode.HessianMatrix> symhesss;
+  input output SimCode.ModelInfo modelInfo;
+protected
+  SimCode.JacobianColumn column;
+  SimCode.VarInfo varInfo;
+  list<SimCode.HessianMatrix> outSymHesss = {};
+  constant Boolean debug = false;
+algorithm
+  varInfo := modelInfo.varInfo;
+  for symhess in symhesss loop
+    symhess.hessianIndex := varInfo.numHessians;
+    varInfo.numHessians := varInfo.numHessians + 1;
+    outSymHesss := symhess :: outSymHesss;
+    if debug then
+      print("Collect Hessian " + symhess.matrixName + " and set index to: " + intString(symhess.hessianIndex) + "\n");
+    end if;
+  end for;
+  modelInfo.varInfo := varInfo;
+  symhesss := listReverse(outSymHesss);
+end addAlgebraicLoopsModelInfoSymHesss;
 
 public function addAlgebraicLoopsModelInfoStateSets
 " function to collect jacobians for statesets"
@@ -5035,7 +5058,7 @@ algorithm
 
         emptyVars :=  BackendVariable.emptyVars();
         ((columnVars, _)) :=  BackendVariable.traverseBackendDAEVars(syst.orderedVars, traversingdlowvarToSimvar, ({}, emptyVars));
-        columnVars := List.map1(columnVars, setSimVarKind, BackendDAE.HESS_VAR());
+        columnVars := List.map1(columnVars, choseSimVarKind, (BackendDAE.HESS_DIFF_VAR(), BackendDAE.HESS_VAR()));
         columnVars := List.map1(columnVars, setSimVarMatrixName, SOME(nameFirstMatrix));
         columnVars := rewriteIndex(columnVars, 0);
 
@@ -5078,9 +5101,11 @@ algorithm
         crefToSimVarHTHessian := List.fold(columnVars, HashTableCrefSimVar.addSimVarToHashTable, crefToSimVarHTHessian);
         crefToSimVarHTHessian := List.fold(lambdaSimVars, HashTableCrefSimVar.addSimVarToHashTable, crefToSimVarHTHessian);
 
-        tmpHess := SimCode.HESS_MATRIX({SimCode.JAC_COLUMN(columnEquations, columnVars, nRows)}, allSeedVars, lambdaSimVars, nameFirstMatrix, iuniqueEqIndex, 0, SOME(crefToSimVarHTHessian));
+        tmpHess := SimCode.HESS_MATRIX({SimCode.JAC_COLUMN(columnEquations, columnVars, nRows)}, allSeedVars, lambdaSimVars, nameFirstMatrix, 0, 0, SOME(crefToSimVarHTHessian));
         hessianMatrixLst := tmpHess::inHessianMatrixes;
-        uniqueEqIndex := iuniqueEqIndex + 1;
+
+        // bump equation index
+        uniqueEqIndex := iuniqueEqIndex + listLength(columnEquations);
 
         (hessianMatrixLst, uniqueEqIndex) := createSymbolicHessiansSimCode(rest, inSimVarHT, uniqueEqIndex, restnames, hessianMatrixLst);
 
@@ -5345,6 +5370,16 @@ algorithm
   simVar.varKind := varKind;
 end setSimVarKind;
 
+protected function choseSimVarKind
+  input output SimCodeVar.SimVar simVar;
+  input tuple<BackendDAE.VarKind, BackendDAE.VarKind> varKindTpl;
+protected
+  BackendDAE.VarKind hessDiffVar, hessVar;
+algorithm
+  (hessDiffVar, hessVar) := varKindTpl;
+  simVar.varKind := if isHessianResultVar(simVar) then hessVar else hessDiffVar;
+end choseSimVarKind;
+
 protected function setSimVarMatrixName
   input output SimCodeVar.SimVar simVar;
   input Option<String> optName;
@@ -5369,7 +5404,7 @@ protected function makeSimCodeLambdaVar
   output SimCodeVar.SimVar outSimVar;
 algorithm
   outSimVar := SimCodeVar.SIMVAR(inName, BackendDAE.PARAM(), "", "", "", -1,
-        NONE(), NONE(), NONE(), NONE(), false, DAE.T_ARRAY_REAL_NODIM,
+        NONE(), NONE(), NONE(), NONE(), false, DAE.T_REAL_DEFAULT,
         false, NONE(), SimCodeVar.NOALIAS(), DAE.emptyElementSource,
         SimCodeVar.NONECAUS(), NONE(), {}, false, false, false, NONE(), NONE());
 end makeSimCodeLambdaVar;
@@ -7492,7 +7527,7 @@ algorithm
   numTimeEvents := numTimeEvents;
   numRelations := numRelations;
   varInfo := SimCode.VARINFO(numZeroCrossings, numTimeEvents, numRelations, numMathEventFunctions, nx, ny, ndy, ny_int, ny_bool, na, na_int, na_bool, np, np_int, np_bool, numOutVars, numInVars,
-          next, ny_string, np_string, na_string, 0, 0, 0, 0, numStateSets,0,numOptimizeConstraints, numOptimizeFinalConstraints, 0,0,0);
+          next, ny_string, np_string, na_string, 0, 0, 0, 0, numStateSets,0,0,numOptimizeConstraints, numOptimizeFinalConstraints, 0,0,0);
 end createVarInfo;
 
 protected function evaluateStartValues"evaluates functions in the start values in the variableAttributes"
@@ -8816,7 +8851,7 @@ protected function dumpHessianMatrix
 algorithm
   _ := match(hessOpt)
     local
-      Integer idx;
+      Integer idx, pIdx;
       String s;
       SimCode.HessianMatrix hess;
       list<SimCode.JacobianColumn> cols;
@@ -8824,13 +8859,16 @@ algorithm
       list<SimCodeVar.SimVar> colVars;
     case(SOME(hess))
       equation
-        SimCode.HESS_MATRIX(columns=cols, hessianIndex=idx) = hess;
+        SimCode.HESS_MATRIX(columns=cols, hessianIndex=idx, partitionIndex=pIdx) = hess;
         colEqs  = List.flatten(list(a.columnEqns for a in cols));
         colVars = List.flatten(list(a.columnVars for a in cols));
-        print("\tHessian idx: "+intString(idx)+"\n\t");
-        dumpSimEqSystemLst(colEqs,"\n\t");
+        print("********************************************\n"
+            + "Hessian idx: " + intString(idx) + " Partition idx: " + intString(pIdx) + "\n"
+            + "********************************************\n");
+        dumpSimEqSystemLst(colEqs,"\n");
         print("\n");
         dumpVarLst(colVars,"columnVars("+intString(listLength(colVars))+")");
+        print("\n");
       then ();
     case(NONE())
       then ();
@@ -8996,6 +9034,20 @@ algorithm
     then true;
   end match;
 end isAliasVar;
+
+protected function isHessianResultVar
+  input SimCodeVar.SimVar var;
+  output Boolean b;
+algorithm
+  b := match var
+    local
+      DAE.ComponentRef cr;
+    case SimCodeVar.SIMVAR(name = cr)
+      guard(Util.stringStartsWith("$Hessian", ComponentReference.crefFirstIdent(cr)))
+    then true;
+    else false;
+  end match;
+end isHessianResultVar;
 
 protected function sortSimvars
   input array<list<SimCodeVar.SimVar>> simvars;
