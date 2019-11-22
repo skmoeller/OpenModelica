@@ -129,6 +129,7 @@ typedef struct OptDataIpopt{
 
 typedef struct OptDataStructure{
   modelica_boolean matrix[5];
+  modelica_boolean matrix_Hess[5];
   modelica_boolean ***J;
   modelica_boolean **Jf;
   modelica_boolean **H0;
@@ -152,6 +153,7 @@ typedef struct OptDataStructure{
   int * indexJ2;
   int * indexJ3;
   int indexABCD[5];
+  int indexABCD_Hess[5];
 }OptDataStructure;
 
 

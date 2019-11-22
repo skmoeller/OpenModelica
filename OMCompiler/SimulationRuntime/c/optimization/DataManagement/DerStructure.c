@@ -73,11 +73,23 @@ inline void allocate_der_struct(OptDataStructure *s, OptDataDim * dim, DATA* dat
   s->indexABCD[2] = data->callback->INDEX_JAC_B;
   s->indexABCD[3] = data->callback->INDEX_JAC_C;
   s->indexABCD[4] = data->callback->INDEX_JAC_D;
+
   s->matrix[0] = (modelica_boolean)0;
   s->matrix[1] = (modelica_boolean)(data->callback->initialAnalyticJacobianA((void*) data, threadData, &(data->simulationInfo->analyticJacobians[s->indexABCD[1]])) == 0);
   s->matrix[2] = (modelica_boolean)(data->callback->initialAnalyticJacobianB((void*) data, threadData, &(data->simulationInfo->analyticJacobians[s->indexABCD[2]])) == 0);
   s->matrix[3] = (modelica_boolean)(data->callback->initialAnalyticJacobianC((void*) data, threadData, &(data->simulationInfo->analyticJacobians[s->indexABCD[3]])) == 0);
   s->matrix[4] = (modelica_boolean)(data->callback->initialAnalyticJacobianD((void*) data, threadData, &(data->simulationInfo->analyticJacobians[s->indexABCD[4]])) == 0);
+
+  s->indexABCD_Hess[0] = -1;
+  s->indexABCD_Hess[1] = data->callback->INDEX_HESS_A;
+  s->indexABCD_Hess[2] = data->callback->INDEX_HESS_B;
+  s->indexABCD_Hess[3] = data->callback->INDEX_HESS_C;
+
+// TODO
+  s->matrix_Hess[0] = (modelica_boolean)0;
+  s->matrix_Hess[1] = (modelica_boolean)(data->callback->initialAnalyticHessianA((void*) data, threadData, &(data->simulationInfo->analyticHessians[s->indexABCD_Hess[1]])) == 0);
+  s->matrix_Hess[2] = (modelica_boolean)(data->callback->initialAnalyticHessianB((void*) data, threadData, &(data->simulationInfo->analyticHessians[s->indexABCD_Hess[2]])) == 0);
+  s->matrix_Hess[3] = (modelica_boolean)(data->callback->initialAnalyticHessianC((void*) data, threadData, &(data->simulationInfo->analyticHessians[s->indexABCD_Hess[3]])) == 0);
 
   dim->nJderx = 0;
   dim->nJfderx = 0;

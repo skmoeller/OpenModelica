@@ -243,10 +243,18 @@ static inline void num_hessian0(double * v, const double * const lambda,
     /*data->callback->functionDAE(data);*/
     updateDiscreteSystem(data, threadData);
     /********************/
+    /* ---------------------- REPLACE WITH HESSIAN ---------------*/
     diffSynColoredOptimizerSystem(optData, optData->tmpJ, i,j,2);
-    /********************/
+
+    for(l = 0; l < nJ; ++l){
+      const int h_index = optData->s.indexABCD_Hess[2];
+      optData->data->simulationInfo->analyticHessians[h_index].lambdaVars[l] = 1;
+      getHessianMatrix(optData, optData->H[l], i,j,2);
+      optData->data->simulationInfo->analyticHessians[h_index].lambdaVars[l] = 0;
+    }
+    /*******************
     v[ii] = (double)v_save;
-    /********************/
+    /*******************
     for(jj = 0; jj <ii+1; ++jj){
       if(optData->s.H0[ii][jj]){
         for(l = 0; l < nJ; ++l){
@@ -255,6 +263,7 @@ static inline void num_hessian0(double * v, const double * const lambda,
         }
       }
     }
+    /* -------------------------------------------------------- */
     /********************/
     if(upCost){
       h = objFactor/h;

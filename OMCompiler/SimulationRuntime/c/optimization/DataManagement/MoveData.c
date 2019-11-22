@@ -879,62 +879,50 @@ void diffSynColoredOptimizerSystem(OptData *optData, modelica_real **J, const in
  *  function calculates a symbolic colored jacobian matrix of the optimization system
  *  authors: Willi Braun, Vitalij Ruge
  * NEW HESSIAN MODULE
- */
-void getHessianMatrix(OptData *optData, modelica_real **J, const int m, const int n, const int index){
+*/
+void getHessianMatrix(OptData *optData, long double **H, const int m, const int n, const int index){
   DATA * data = optData->data;
   threadData_t *threadData = optData->threadData;
-  int i,j,l,ii, ll;
+  int i,j,k;
 
-  const int h_index = optData->s.indexABCD[index];
+  const int h_index = optData->s.indexABCD_Hess[index];
   ANALYTIC_HESSIAN* hessian = &(data->simulationInfo->analyticHessians[h_index]);
   const long double * scaldt = optData->bounds.scaldt[m];
   const int nx = hessian->sizeCols;
   const int dnx = optData->dim.nx;
   const int dnxnc = optData->dim.nJ;
-  const modelica_real * const resultVars = jacobian->resultVars;
-  const unsigned int * const sPindex = jacobian->sparsePattern->index;
+  const modelica_real * const resultVars = hessian->resultVars;
   long double  scalb = optData->bounds.scalb[m][n];
 
-  const int * index_J = (index == 3)? optData->s.indexJ3 : optData->s.indexJ2;
   const int nJ1 = optData->dim.nJ + 1;
 
-  modelica_real **sV = optData->s.seedVec[index];
-
-  /* set symbolic jacobian context to reuse the matrix and the factorization in every column */
   setContext(data, &(data->localData[0]->timeValue), CONTEXT_SYM_JACOBIAN);
 
-  for(i = 1; i < Cmax; ++i){
-    jacobian->seedVars = sV[i];
+  for(i = 0; i < hessian->sizeRows; ++i){
+    hessian->seedVars[i] = 1;
+    for(k = 0; k < i + 1; ++k){
+      hessian->seedVars1[k] = 1;
 
     if(index == 2){
-      data->callback->functionJacB_column(data, threadData, jacobian, NULL);
+      data->callback->functionHessB_column(data, threadData, hessian, NULL);
     }else if(index == 3){
-      data->callback->functionJacC_column(data, threadData, jacobian, NULL);
+      data->callback->functionHessC_column(data, threadData, hessian, NULL);
     }else
       assert(0);
 
     increaseJacContext(data);
-
-    for(ii = 0; ii < nx; ++ii){
-      if(cC[ii] == i){
-        for(j = lindex[ii]; j < lindex[ii + 1]; ++j){
-          ll = sPindex[j];
-          l = index_J[ll];
-          if(l < dnx){
-            J[l][ii] = (modelica_real) resultVars[ll] * scaldt[l];
-          }else if(l < dnxnc){
-            J[l][ii] = (modelica_real) resultVars[ll];
-          }else if(l == optData->dim.nJ && optData->s.lagrange){
-            J[l][ii] = (modelica_real) resultVars[ll]* scalb;
-          }else if(l == nJ1 && optData->s.mayer){
-            J[l][ii] = (modelica_real) resultVars[ll];
-          }
-        }
-      }
-
-    }
+    /*
+    printf("indices: %i, %i\n", i, k);
+    fflush(stdout);
+    printf("result var: %f\n", hessian->resultVars[0]);
+    fflush(stdout);
+    printf("matrix elem: %Lf\n", H[i][k]);
+    */
+    H[i][k] = (modelica_real) hessian->resultVars[0];
+    hessian->seedVars1[k] = 0;
   }
-  /* set context for the start values extrapolation of non-linear algebraic loops */
+  hessian->seedVars[i] = 0;
+  }
   unsetContext(data);
 }
 
