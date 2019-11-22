@@ -1041,6 +1041,9 @@ void initializeDataStruc(DATA *data, threadData_t *threadData)
   /* buffer for analytical jacobians */
   data->simulationInfo->analyticJacobians = (ANALYTIC_JACOBIAN*) omc_alloc_interface.malloc_uncollectable(data->modelData->nJacobians*sizeof(ANALYTIC_JACOBIAN));
 
+  /* buffer for analytic Hessians */                                                                      /* ToDo: data->modelData->nHessians */
+  data->simulationInfo->analyticHessians = (ANALYTIC_HESSIAN*) omc_alloc_interface.malloc_uncollectable(1*sizeof(ANALYTIC_HESSIAN));
+
   data->modelData->modelDataXml.functionNames = NULL;
   data->modelData->modelDataXml.equationInfo = NULL;
 
@@ -1210,6 +1213,9 @@ void deInitializeDataStruc(DATA *data)
 
   /* free buffer jacobians */
   omc_alloc_interface.free_uncollectable(data->simulationInfo->analyticJacobians);
+
+  /* free buffer hessians */
+  omc_alloc_interface.free_uncollectable(data->simulationInfo->analyticHessians);
 
   /* free buffer for state sets */
   omc_alloc_interface.free_uncollectable(data->simulationInfo->daeModeData);

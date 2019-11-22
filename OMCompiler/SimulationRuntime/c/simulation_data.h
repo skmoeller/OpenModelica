@@ -680,8 +680,8 @@ typedef struct SIMULATION_INFO
   modelica_real* sensitivityMatrix;    /* used by integrator for sensitivity mode  */
   int* sensitivityParList;             /* used by integrator for sensitivity mode  */
 
-  ANALYTIC_JACOBIAN* analyticJacobians;
-  ANALYTIC_HESSIAN* analyticHessians;
+  ANALYTIC_JACOBIAN* analyticJacobians;   /* Array of symbolic Jacobians */
+  ANALYTIC_HESSIAN* analyticHessians;     /* Array of symbolic Hessians */
 
   NONLINEAR_SYSTEM_DATA* nonlinearSystemData;
   int currentNonlinearSystemIndex;
