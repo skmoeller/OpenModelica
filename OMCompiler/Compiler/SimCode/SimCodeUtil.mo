@@ -4562,7 +4562,7 @@ algorithm
           print("create sparse pattern for algebraic loop time: " + realString(clock()) + "\n");
           BackendDump.dumpSparsityPattern(pattern, "---+++ SparsePattern +++---");
         end if;
-        seedVars = list(makeTmpRealSimCodeVar(cr, BackendDAE.SEED_VAR()) for cr in independentComRefs);
+        seedVars = list(makeTmpRealSimCodeVar(cr, BackendDAE.SEED_VAR(b=false)) for cr in independentComRefs);
         indexVars = list(makeTmpRealSimCodeVar(cr, BackendDAE.VARIABLE()) for cr in dependentVarsComRefs);
 
         seedVars = rewriteIndex(seedVars, 0);
@@ -4651,7 +4651,7 @@ algorithm
 
         // create seed vars
         seedVars = replaceSeedVarsName(seedVars, name);
-        seedVars = List.map1(seedVars, setSimVarKind, BackendDAE.SEED_VAR());
+        seedVars = List.map1(seedVars, setSimVarKind, BackendDAE.SEED_VAR(b=false));
         seedVars = List.map1(seedVars, setSimVarMatrixName, SOME(name));
 
         if Flags.isSet(Flags.JAC_DUMP2) then
@@ -4861,7 +4861,7 @@ algorithm
 
         // create seed vars
         seedVars = replaceSeedVarsName(seedVars, name);
-        seedVars = List.map1(seedVars, setSimVarKind, BackendDAE.SEED_VAR());
+        seedVars = List.map1(seedVars, setSimVarKind, BackendDAE.SEED_VAR(b=false));
         seedVars = List.map1(seedVars, setSimVarMatrixName, SOME(name));
 
         tmpJac = SimCode.JAC_MATRIX({SimCode.JAC_COLUMN({},{},nRows)}, seedVars, name, sparseInts, sparseIntsT, coloring, maxColor, -1, 0, NONE());
@@ -4962,7 +4962,7 @@ algorithm
 
         // create seed vars
         seedVars = replaceSeedVarsName(seedVars, name);
-        seedVars = List.map1(seedVars, setSimVarKind, BackendDAE.SEED_VAR());
+        seedVars = List.map1(seedVars, setSimVarKind, BackendDAE.SEED_VAR(b=false));
         seedVars = List.map1(seedVars, setSimVarMatrixName, SOME(name));
 
         // create hash table for this jacobians
@@ -5079,12 +5079,12 @@ algorithm
 
         // create seed vars first seed
         seedVarsMatrix := replaceSeedVarsName(allSeedVars, nameFirstMatrix);
-        seedVarsMatrix := List.map1(seedVarsMatrix, setSimVarKind, BackendDAE.SEED_VAR());
+        seedVarsMatrix := List.map1(seedVarsMatrix, setSimVarKind, BackendDAE.SEED_VAR(b=false));
         seedVarsMatrix := List.map1(seedVarsMatrix, setSimVarMatrixName, SOME(nameFirstMatrix));
 
         // create seed vars second seed
         seedVarsMatrix1 := replaceSeedVarsName(allSeedVars, nameSecondMatrix);
-        seedVarsMatrix1 := List.map1(seedVarsMatrix1, setSimVarKind, BackendDAE.SEED_VAR());
+        seedVarsMatrix1 := List.map1(seedVarsMatrix1, setSimVarKind, BackendDAE.SEED_VAR(b=true));
         seedVarsMatrix1 := List.map1(seedVarsMatrix1, setSimVarMatrixName, SOME(nameFirstMatrix)); // matrix name does not change
 
         // concenate seed vars
@@ -5172,7 +5172,7 @@ algorithm
 
         // create seed vars
         seedVars = replaceSeedVarsName(seedVars, nameFirstSeed);
-        seedVars = List.map1(seedVars, setSimVarKind, BackendDAE.SEED_VAR());
+        seedVars = List.map1(seedVars, setSimVarKind, BackendDAE.SEED_VAR(b=false));
         seedVars = List.map1(seedVars, setSimVarMatrixName, SOME(nameFirstSeed));
 
         // create hash table for this Hessians
@@ -5360,7 +5360,7 @@ algorithm
     SimCode.JAC_MATRIX(seedVars=seedVars) := m;
     outVars := listAppend(seedVars, outVars);
   end for;
-  outVars := List.map1(outVars, setSimVarKind, BackendDAE.SEED_VAR());
+  outVars := List.map1(outVars, setSimVarKind, BackendDAE.SEED_VAR(b=false));
 end collectAllSeedVars;
 
 protected function setSimVarKind
@@ -5573,7 +5573,7 @@ algorithm
         print("create sparse pattern for algebraic loop time: " + realString(clock()) + "\n");
         BackendDump.dumpSparsityPattern(pattern, "---+++ SparsePattern +++---");
       end if;
-      seedVars = list(makeTmpRealSimCodeVar(cr, BackendDAE.SEED_VAR()) for cr in independentComRefs);
+      seedVars = list(makeTmpRealSimCodeVar(cr, BackendDAE.SEED_VAR(b=false)) for cr in independentComRefs);
       indexVars = list(makeTmpRealSimCodeVar(cr, BackendDAE.VARIABLE()) for cr in dependentVarsComRefs);
 
       (seedVars, index) = rewriteIndex(seedVars, 0);   // ToDo: why start twice at zero?
@@ -5665,7 +5665,7 @@ algorithm
 
       // create seed vars
       seedVars = replaceSeedVarsName(seedVars, name);
-      seedVars = List.map1(seedVars, setSimVarKind, BackendDAE.SEED_VAR());
+      seedVars = List.map1(seedVars, setSimVarKind, BackendDAE.SEED_VAR(b=false));
       seedVars = List.map1(seedVars, setSimVarMatrixName, SOME(name));
 
       if Flags.isSet(Flags.JAC_DUMP2) then

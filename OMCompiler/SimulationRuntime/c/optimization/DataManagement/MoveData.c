@@ -811,6 +811,7 @@ static inline void setLocalVars(OptData * optData, DATA * data, const double * c
 /*
  *  function calculates a symbolic colored jacobian matrix of the optimization system
  *  authors: Willi Braun, Vitalij Ruge
+ * NEW HESSIAN MODULE
  */
 void diffSynColoredOptimizerSystem(OptData *optData, modelica_real **J, const int m, const int n, const int index){
   DATA * data = optData->data;
@@ -872,6 +873,71 @@ void diffSynColoredOptimizerSystem(OptData *optData, modelica_real **J, const in
   /* set context for the start values extrapolation of non-linear algebraic loops */
   unsetContext(data);
 }
+
+
+/*
+ *  function calculates a symbolic colored jacobian matrix of the optimization system
+ *  authors: Willi Braun, Vitalij Ruge
+ * NEW HESSIAN MODULE
+ */
+void getHessianMatrix(OptData *optData, modelica_real **J, const int m, const int n, const int index){
+  DATA * data = optData->data;
+  threadData_t *threadData = optData->threadData;
+  int i,j,l,ii, ll;
+
+  const int h_index = optData->s.indexABCD[index];
+  ANALYTIC_HESSIAN* hessian = &(data->simulationInfo->analyticHessians[h_index]);
+  const long double * scaldt = optData->bounds.scaldt[m];
+  const int nx = hessian->sizeCols;
+  const int dnx = optData->dim.nx;
+  const int dnxnc = optData->dim.nJ;
+  const modelica_real * const resultVars = jacobian->resultVars;
+  const unsigned int * const sPindex = jacobian->sparsePattern->index;
+  long double  scalb = optData->bounds.scalb[m][n];
+
+  const int * index_J = (index == 3)? optData->s.indexJ3 : optData->s.indexJ2;
+  const int nJ1 = optData->dim.nJ + 1;
+
+  modelica_real **sV = optData->s.seedVec[index];
+
+  /* set symbolic jacobian context to reuse the matrix and the factorization in every column */
+  setContext(data, &(data->localData[0]->timeValue), CONTEXT_SYM_JACOBIAN);
+
+  for(i = 1; i < Cmax; ++i){
+    jacobian->seedVars = sV[i];
+
+    if(index == 2){
+      data->callback->functionJacB_column(data, threadData, jacobian, NULL);
+    }else if(index == 3){
+      data->callback->functionJacC_column(data, threadData, jacobian, NULL);
+    }else
+      assert(0);
+
+    increaseJacContext(data);
+
+    for(ii = 0; ii < nx; ++ii){
+      if(cC[ii] == i){
+        for(j = lindex[ii]; j < lindex[ii + 1]; ++j){
+          ll = sPindex[j];
+          l = index_J[ll];
+          if(l < dnx){
+            J[l][ii] = (modelica_real) resultVars[ll] * scaldt[l];
+          }else if(l < dnxnc){
+            J[l][ii] = (modelica_real) resultVars[ll];
+          }else if(l == optData->dim.nJ && optData->s.lagrange){
+            J[l][ii] = (modelica_real) resultVars[ll]* scalb;
+          }else if(l == nJ1 && optData->s.mayer){
+            J[l][ii] = (modelica_real) resultVars[ll];
+          }
+        }
+      }
+
+    }
+  }
+  /* set context for the start values extrapolation of non-linear algebraic loops */
+  unsetContext(data);
+}
+
 
 void diffSynColoredOptimizerSystemF(OptData *optData, modelica_real **J){
   if(optData->dim.ncf > 0){

@@ -4501,7 +4501,9 @@ template hessCrefs(ComponentRef cr, Context context, Integer ix)
      match simVarFromHT(cr, hessHT)
      case SIMVAR(varKind=BackendDAE.HESS_VAR()) then 'hessian->resultVars[<%index%>] /* <%escapeCComments(crefStrNoUnderscore(name))%> <%variabilityString(varKind)%> */'
      case SIMVAR(varKind=BackendDAE.HESS_DIFF_VAR()) then 'hessian->tmpVars[<%index%>] /* <%escapeCComments(crefStrNoUnderscore(name))%> <%variabilityString(varKind)%> */'
-     case SIMVAR(varKind=BackendDAE.SEED_VAR()) then 'hessian->seedVars[<%index%>] /* <%escapeCComments(crefStrNoUnderscore(name))%> <%variabilityString(varKind)%> */'
+     case SIMVAR(varKind=BackendDAE.SEED_VAR(b=b)) then
+       let seedName = if b then 'seedVars1' else 'seedVars'
+       <<hessian-><%seedName%>[<%index%>] /* <%escapeCComments(crefStrNoUnderscore(name))%> <%variabilityString(varKind)%> */>>
      case SIMVAR(varKind=BackendDAE.PARAM()) then 'hessian->lambdaVars[<%index%>] /* <%escapeCComments(crefStrNoUnderscore(name))%> <%variabilityString(varKind)%> */'
      case SIMVAR(index=-2) then crefOld(cr, ix)
 end hessCrefs;

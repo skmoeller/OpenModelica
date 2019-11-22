@@ -169,6 +169,7 @@ typedef struct ANALYTIC_HESSIAN
   unsigned int sizeRows;
   unsigned int sizeTmpVars;
   modelica_real* seedVars;
+  modelica_real* seedVars1;
   modelica_real* tmpVars;
   modelica_real* resultVars;
   modelica_real* lambdaVars;
@@ -680,6 +681,7 @@ typedef struct SIMULATION_INFO
   int* sensitivityParList;             /* used by integrator for sensitivity mode  */
 
   ANALYTIC_JACOBIAN* analyticJacobians;
+  ANALYTIC_HESSIAN* analyticHessians;
 
   NONLINEAR_SYSTEM_DATA* nonlinearSystemData;
   int currentNonlinearSystemIndex;
