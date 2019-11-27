@@ -132,7 +132,7 @@ algorithm
 
       hessDae = BackendDAEUtil.setFunctionTree(hessDae, functionTree);
       hessDae = setHessianMatrix(hessDae,nameMatrix); //add up the equations
-    then SOME((hessDae,nameMatrix,diffVars,diffedVars,allDiffedVars,lambdaVars));
+    then SOME((hessDae,nameMatrix,InSymJac,diffVars,diffedVars,allDiffedVars,lambdaVars));
 
     case (backendDAE,nameMatrix,_,_,_,_) guard stringEqual(nameMatrix,"B")
     equation
@@ -169,7 +169,7 @@ algorithm
 
       hessDae = BackendDAEUtil.setFunctionTree(hessDae, functionTree);
       hessDae = setHessianMatrix(hessDae,nameMatrix);
-    then SOME((hessDae,nameMatrix,diffVars,diffedVars,allDiffedVars,lambdaVars));
+    then SOME((hessDae,nameMatrix,InSymJac,diffVars,diffedVars,allDiffedVars,lambdaVars));
 
     case (backendDAE,nameMatrix,_,_,_,_) guard stringEqual(nameMatrix,"C")
     equation
@@ -208,7 +208,7 @@ algorithm
 
       hessDae = BackendDAEUtil.setFunctionTree(hessDae, functionTree);
       hessDae = setHessianMatrix(hessDae,nameMatrix);
-    then SOME((hessDae,nameMatrix,diffVars,diffedVars,allDiffedVars,lambdaVars));
+    then SOME((hessDae,nameMatrix,InSymJac,diffVars,diffedVars,allDiffedVars,lambdaVars));
 
     else NONE();
   end match;
@@ -523,7 +523,7 @@ algorithm
             String matrixName;
       case SOME(symHe)
       equation
-        (dae,matrixName,_,_,_,_) = symHe;
+        (dae,matrixName,_,_,_,_,_) = symHe;
         print("\n\n########################################\nHessian for "+matrixName+"\n########################################\n\n");
         BackendDump.dumpDAE(dae);
       then "";

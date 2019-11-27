@@ -172,12 +172,12 @@ end translateModel;
     extern int <%symbolName(modelNamePrefixStr,"functionJacC_column")%>(void* data, threadData_t *threadData, ANALYTIC_JACOBIAN *thisJacobian, ANALYTIC_JACOBIAN *parentJacobian);
     extern int <%symbolName(modelNamePrefixStr,"functionJacD_column")%>(void* data, threadData_t *threadData, ANALYTIC_JACOBIAN *thisJacobian, ANALYTIC_JACOBIAN *parentJacobian);
     extern int <%symbolName(modelNamePrefixStr,"functionJacF_column")%>(void* data, threadData_t *threadData, ANALYTIC_JACOBIAN *thisJacobian, ANALYTIC_JACOBIAN *parentJacobian);
-    extern int <%symbolName(modelNamePrefixStr,"initialAnalyticHessianA")%>(void* data, threadData_t *threadData, ANALYTIC_HESSIAN *hessian);
-    extern int <%symbolName(modelNamePrefixStr,"initialAnalyticHessianB")%>(void* data, threadData_t *threadData, ANALYTIC_HESSIAN *hessian);
-    extern int <%symbolName(modelNamePrefixStr,"initialAnalyticHessianC")%>(void* data, threadData_t *threadData, ANALYTIC_HESSIAN *hessian);
-    extern int <%symbolName(modelNamePrefixStr,"functionHessA_column")%>(void* data, threadData_t *threadData, ANALYTIC_HESSIAN *thisHessian, ANALYTIC_HESSIAN *parentHessian);
-    extern int <%symbolName(modelNamePrefixStr,"functionHessB_column")%>(void* data, threadData_t *threadData, ANALYTIC_HESSIAN *thisHessian, ANALYTIC_HESSIAN *parentHessian);
-    extern int <%symbolName(modelNamePrefixStr,"functionHessC_column")%>(void* data, threadData_t *threadData, ANALYTIC_HESSIAN *thisHessian, ANALYTIC_HESSIAN *parentHessian);
+    extern int <%symbolName(modelNamePrefixStr,"initialAnalyticHessianA")%>(void* data, threadData_t *threadData, ANALYTIC_HESSIAN *hessian, ANALYTIC_JACOBIAN *parentJacobian);
+    extern int <%symbolName(modelNamePrefixStr,"initialAnalyticHessianB")%>(void* data, threadData_t *threadData, ANALYTIC_HESSIAN *hessian, ANALYTIC_JACOBIAN *parentJacobian);
+    extern int <%symbolName(modelNamePrefixStr,"initialAnalyticHessianC")%>(void* data, threadData_t *threadData, ANALYTIC_HESSIAN *hessian, ANALYTIC_JACOBIAN *parentJacobian);
+    extern int <%symbolName(modelNamePrefixStr,"functionHessA_column")%>(void* data, threadData_t *threadData, ANALYTIC_HESSIAN *thisHessian, ANALYTIC_HESSIAN *parentHessian, ANALYTIC_JACOBIAN *parentJacobian);
+    extern int <%symbolName(modelNamePrefixStr,"functionHessB_column")%>(void* data, threadData_t *threadData, ANALYTIC_HESSIAN *thisHessian, ANALYTIC_HESSIAN *parentHessian, ANALYTIC_JACOBIAN *parentJacobian);
+    extern int <%symbolName(modelNamePrefixStr,"functionHessC_column")%>(void* data, threadData_t *threadData, ANALYTIC_HESSIAN *thisHessian, ANALYTIC_HESSIAN *parentHessian, ANALYTIC_JACOBIAN *parentJacobian);
     extern const char* <%symbolName(modelNamePrefixStr,"linear_model_frame")%>(void);
     extern const char* <%symbolName(modelNamePrefixStr,"linear_model_datarecovery_frame")%>(void);
     extern int <%symbolName(modelNamePrefixStr,"mayer")%>(DATA* data, modelica_real** res, short *);
@@ -1638,8 +1638,8 @@ template symHessDefinition(list<HessianMatrix> HessianMatrices, String modelName
     extern "C" {
     #endif
       #define <%symbolName(modelNamePrefix,"INDEX_HESS_")%><%name%> <%indexHessian%>
-      int <%symbolName(modelNamePrefix,"functionHess")%><%name%>_column(void* data, threadData_t *threadData, ANALYTIC_HESSIAN *thisHessian, ANALYTIC_HESSIAN *parentHessian);
-      int <%symbolName(modelNamePrefix,"initialAnalyticHessian")%><%name%>(void* data, threadData_t *threadData, ANALYTIC_HESSIAN *hessian);
+      int <%symbolName(modelNamePrefix,"functionHess")%><%name%>_column(void* data, threadData_t *threadData, ANALYTIC_HESSIAN *thisHessian, ANALYTIC_HESSIAN *parentHessian, ANALYTIC_JACOBIAN *parentJacobian);
+      int <%symbolName(modelNamePrefix,"initialAnalyticHessian")%><%name%>(void* data, threadData_t *threadData, ANALYTIC_HESSIAN *hessian, ANALYTIC_JACOBIAN *parentJacobian);
     #if defined(__cplusplus)
     }
     #endif
@@ -5088,18 +5088,18 @@ template initialAnalyticHessians(list<JacobianColumn> jacobianColumn, list<SimVa
 
     let &eachCrefParts = buffer ""
     let indexColumn = (jacobianColumn |> JAC_COLUMN(numberOfResultVars=n) => '<%n%>';separator="\n")
-    let tmpvarsSize = (jacobianColumn |> JAC_COLUMN(columnVars=vars) => listLength(vars);separator="\n")
-    let index_ = listLength(seedVars)
+    let tmpvarsSize = (jacobianColumn |> JAC_COLUMN(columnVars=vars) => intSub(listLength(vars), 1) ;separator="\n")
+    let index_ = intDiv(listLength(seedVars),2)
     let lambdaSize = listLength(lambdaVars)
     <<
     OMC_DISABLE_OPT
-    int <%symbolName(modelNamePrefix,"initialAnalyticHessian")%><%matrixname%>(void* inData, threadData_t *threadData, ANALYTIC_HESSIAN *hessian)
+    int <%symbolName(modelNamePrefix,"initialAnalyticHessian")%><%matrixname%>(void* inData, threadData_t *threadData, ANALYTIC_HESSIAN *hessian, ANALYTIC_JACOBIAN *parentJacobian)
     {
       TRACE_PUSH
       DATA* data = ((DATA*)inData);
 
       hessian->sizeCols = <%index_%>;
-      hessian->sizeRows = <%indexColumn%>;
+      hessian->sizeRows = <%index_%>;
       hessian->sizeTmpVars = <%tmpvarsSize%>;
       hessian->seedVars = (modelica_real*) calloc(<%index_%>,sizeof(modelica_real));
       hessian->seedVars1 = (modelica_real*) calloc(<%index_%>,sizeof(modelica_real));
@@ -5122,11 +5122,12 @@ template generateMatrix(list<JacobianColumn> jacobianColumn, list<SimVar> seedVa
   let struct_name = (if hess then <<hessian>> else <<jacobian>>)
   let struct_Name = (if hess then <<Hessian>> else <<Jacobian>>)
   let short_name = (if hess then <<Hess>> else <<Jac>>)
+  let parent_jacobian = (if hess then <<, ANALYTIC_JACOBIAN *parentJacobian>> else <<>>)
   let nRows = (jacobianColumn |> JAC_COLUMN(numberOfResultVars=nRows) => '<%nRows%>')
   match nRows
   case "0" then
     <<
-    int <%symbolName(modelNamePrefix,'function<%short_name%>')%><%matrixname%>_column(void* data, threadData_t *threadData, ANALYTIC_<%STRUCT_NAME%> *<%struct_name%>, ANALYTIC_<%STRUCT_NAME%> *parent<%struct_Name%>)
+    int <%symbolName(modelNamePrefix,'function<%short_name%>')%><%matrixname%>_column(void* data, threadData_t *threadData, ANALYTIC_<%STRUCT_NAME%> *<%struct_name%>, ANALYTIC_<%STRUCT_NAME%> *parent<%struct_Name%><%parent_jacobian%>)
     {
       TRACE_PUSH
       TRACE_POP
@@ -5137,7 +5138,7 @@ template generateMatrix(list<JacobianColumn> jacobianColumn, list<SimVar> seedVa
     match seedVars
      case {} then
         <<
-        int <%symbolName(modelNamePrefix,'function<%short_name%>')%><%matrixname%>_column(void* data, threadData_t *threadData, ANALYTIC_<%STRUCT_NAME%> *<%struct_name%>, ANALYTIC_<%STRUCT_NAME%> *parent<%struct_Name%>)
+        int <%symbolName(modelNamePrefix,'function<%short_name%>')%><%matrixname%>_column(void* data, threadData_t *threadData, ANALYTIC_<%STRUCT_NAME%> *<%struct_name%>, ANALYTIC_<%STRUCT_NAME%> *parent<%struct_Name%><%parent_jacobian%>)
         {
           TRACE_PUSH
           TRACE_POP
@@ -5167,12 +5168,13 @@ let struct_name = (if hess then <<hessian>> else <<jacobian>>)
 let struct_Name = (if hess then <<Hessian>> else <<Jacobian>>)
 let SHORT_NAME = (if hess then <<HESS>> else <<JAC>>)
 let short_name = (if hess then <<Hess>> else <<Jac>>)
+let parent_jacobian = (if hess then <<, ANALYTIC_JACOBIAN *parentJacobian>> else <<>>)
   match hess
   case true then
     <<
     <%(jacEquations |> eq =>
       equation_impl(partIdx, eq, createHessContext(jacHT), modelNamePrefix); separator="\n")%>
-      int <%symbolName(modelNamePrefix,'function<%short_name%>')%><%matrixName%>_column(void* inData, threadData_t *threadData, ANALYTIC_<%STRUCT_NAME%> *<%struct_name%>, ANALYTIC_<%STRUCT_NAME%> *parent<%struct_Name%>)
+      int <%symbolName(modelNamePrefix,'function<%short_name%>')%><%matrixName%>_column(void* inData, threadData_t *threadData, ANALYTIC_<%STRUCT_NAME%> *<%struct_name%>, ANALYTIC_<%STRUCT_NAME%> *parent<%struct_Name%><%parent_jacobian%>)
       {
         TRACE_PUSH
 
@@ -5189,7 +5191,7 @@ let short_name = (if hess then <<Hess>> else <<Jac>>)
     <<
     <%(jacEquations |> eq =>
       equation_impl(partIdx, eq, createJacContext(jacHT), modelNamePrefix); separator="\n")%>
-      int <%symbolName(modelNamePrefix,'function<%short_name%>')%><%matrixName%>_column(void* inData, threadData_t *threadData, ANALYTIC_<%STRUCT_NAME%> *<%struct_name%>, ANALYTIC_<%STRUCT_NAME%> *parent<%struct_Name%>)
+      int <%symbolName(modelNamePrefix,'function<%short_name%>')%><%matrixName%>_column(void* inData, threadData_t *threadData, ANALYTIC_<%STRUCT_NAME%> *<%struct_name%>, ANALYTIC_<%STRUCT_NAME%> *parent<%struct_Name%><%parent_jacobian%>)
       {
         TRACE_PUSH
 
@@ -5485,7 +5487,7 @@ template equation_impl2(Integer clockIndex, SimEqSystem eq, Context context, Str
         /*
         <%dumpEqs(fill(eq,1))%>
         */
-        <%OMC_NO_OPT%><% if static then "static "%>void <%symbolName(modelNamePrefix,"eqFunction")%>_<%ix%>(DATA *data, threadData_t *threadData, ANALYTIC_HESSIAN *hessian, ANALYTIC_HESSIAN *parentHessian)
+        <%OMC_NO_OPT%><% if static then "static "%>void <%symbolName(modelNamePrefix,"eqFunction")%>_<%ix%>(DATA *data, threadData_t *threadData, ANALYTIC_HESSIAN *hessian, ANALYTIC_HESSIAN *parentHessian, ANALYTIC_JACOBIAN *parentJacobian)
         {
           TRACE_PUSH
           <%clockIndex_%>
@@ -5545,6 +5547,7 @@ template equation_callJacobian(SimEqSystem eq, String modelNamePrefix, Boolean h
 ::=
   let MATRIX_NAME = (if hess then <<Hessian>> else <<Jacobian>>)
   let matrix_name = (if hess then <<hessian>> else <<jacobian>>)
+  let jacobian_parent = (if hess then <<, parentJacobian>> else <<>>)
   match eq
   case e as SES_ALGORITHM(statements={})
   then ""
@@ -5559,7 +5562,7 @@ template equation_callJacobian(SimEqSystem eq, String modelNamePrefix, Boolean h
   end match
   <<
   <% if profileAll() then 'SIM_PROF_TICK_EQ(<%ix%>);' %>
-  <%symbolName(modelNamePrefix,"eqFunction")%>_<%ix%>(data, threadData, <%matrix_name%>, parent<%MATRIX_NAME%>);
+  <%symbolName(modelNamePrefix,"eqFunction")%>_<%ix%>(data, threadData, <%matrix_name%>, parent<%MATRIX_NAME%><%jacobian_parent%>);
   <% if profileAll() then 'SIM_PROF_ACC_EQ(<%ix%>);' %>
   >>
   )

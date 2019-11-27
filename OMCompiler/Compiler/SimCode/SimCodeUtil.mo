@@ -5038,6 +5038,7 @@ algorithm
       BackendDAE.SymbolicHessians rest;
       list<SimCode.HessianMatrix> hessianMatrixLst;
       BackendDAE.SymbolicHessian hess;
+      BackendDAE.SymbolicJacobian jac;
 
       SimCode.HessianMatrix tmpHess;
       HashTableCrefSimVar.HashTable crefToSimVarHTHessian;
@@ -5049,7 +5050,7 @@ algorithm
         (outHessianMatrixes, ouniqueEqIndex) := createSymbolicHessiansSimCode(rest, inSimVarHT, iuniqueEqIndex, restnames, inHessianMatrixes);
     then (outHessianMatrixes, ouniqueEqIndex);
 
-    case (SOME((BackendDAE.DAE(eqs={syst as BackendDAE.EQSYSTEM(matching=BackendDAE.MATCHING(comps=comps))},shared=shared),nameFirstMatrix,diffVars,diffedVars,alldiffedVars,lambdaVars))::rest, _::restnames)
+    case (SOME((BackendDAE.DAE(eqs={syst as BackendDAE.EQSYSTEM(matching=BackendDAE.MATCHING(comps=comps))},shared=shared),nameFirstMatrix,jac,diffVars,diffedVars,alldiffedVars,lambdaVars))::rest, _::restnames)
       algorithm
         nameSecondMatrix := (nameFirstMatrix+"1");
 
@@ -5101,7 +5102,7 @@ algorithm
         crefToSimVarHTHessian := List.fold(columnVars, HashTableCrefSimVar.addSimVarToHashTable, crefToSimVarHTHessian);
         crefToSimVarHTHessian := List.fold(lambdaSimVars, HashTableCrefSimVar.addSimVarToHashTable, crefToSimVarHTHessian);
 
-        tmpHess := SimCode.HESS_MATRIX({SimCode.JAC_COLUMN(columnEquations, columnVars, nRows)}, allSeedVars, lambdaSimVars, nameFirstMatrix, 0, 0, SOME(crefToSimVarHTHessian));
+        tmpHess := SimCode.HESS_MATRIX({SimCode.JAC_COLUMN(columnEquations, columnVars, 1)}, allSeedVars, lambdaSimVars, nameFirstMatrix, 0, 0, SOME(crefToSimVarHTHessian));
         hessianMatrixLst := tmpHess::inHessianMatrixes;
 
         // bump equation index

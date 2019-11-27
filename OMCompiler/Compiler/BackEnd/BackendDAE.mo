@@ -801,6 +801,7 @@ type SymbolicHessians = list< Option<SymbolicHessian> >;
 public
 type SymbolicHessian = tuple<  BackendDAE,              // symbolic equation system
                                String,                  // Name of the Hessian Matrix
+                               SymbolicJacobian,        // parent jacobian
                                list<Var>,               // diff Variables
                                list<Var>,               // diffed Variables
                                list<Var>,               // all diffed Variables

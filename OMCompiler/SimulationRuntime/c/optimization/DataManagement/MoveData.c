@@ -886,7 +886,9 @@ void getHessianMatrix(OptData *optData, long double **H, const int m, const int 
   int i,j,k;
 
   const int h_index = optData->s.indexABCD_Hess[index];
+  const int j_index = optData->s.indexABCD[index];
   ANALYTIC_HESSIAN* hessian = &(data->simulationInfo->analyticHessians[h_index]);
+  ANALYTIC_JACOBIAN* parentJacobian = &(data->simulationInfo->analyticJacobians[j_index]);
   const long double * scaldt = optData->bounds.scaldt[m];
   const int nx = hessian->sizeCols;
   const int dnx = optData->dim.nx;
@@ -904,9 +906,9 @@ void getHessianMatrix(OptData *optData, long double **H, const int m, const int 
       hessian->seedVars1[k] = 1;
 
     if(index == 2){
-      data->callback->functionHessB_column(data, threadData, hessian, NULL);
+      data->callback->functionHessB_column(data, threadData, hessian, NULL, parentJacobian);
     }else if(index == 3){
-      data->callback->functionHessC_column(data, threadData, hessian, NULL);
+      data->callback->functionHessC_column(data, threadData, hessian, NULL, parentJacobian);
     }else
       assert(0);
 
