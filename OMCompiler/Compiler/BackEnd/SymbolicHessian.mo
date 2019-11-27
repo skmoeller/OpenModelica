@@ -46,10 +46,11 @@
  import BackendVariable;
  import ComponentReference;
  import DynamicOptimization;
- import SymbolicJacobian;
  import ExpandableArray;
  import Expression;
+ import ExpressionDump;
  import Flags;
+ import SymbolicJacobian;
  import List;
  import Util;
 
@@ -59,70 +60,164 @@
 
 public function generateSymbolicHessian
   "Function to generate the symbolic hessian with respect to the stats of an dynamic optimization problem."
-  input BackendDAE.BackendDAE inBackendDAE "Input BackendDAE";
-  output BackendDAE.BackendDAE outHessian "second derivates-> this is the hessian";
+  input BackendDAE.BackendDAE inBackendDAE;
+  output BackendDAE.BackendDAE outBackendDAE;
 protected
-  BackendDAE.SymbolicJacobians linearModelMatrixes; //All Matrices A,B,C,D
-  BackendDAE.SymbolicHessians symHesss = {};
-  Option< list< DAE.ComponentRef > > lambdas; //Lagrange factors
-  /*Stuff for the Jacobian*/
   BackendDAE.EqSystems eqs;
   BackendDAE.Shared shared;
-  DAE.FunctionTree funcs, functionTree;
+  BackendDAE.SymbolicJacobians symJacs;
+  BackendDAE.SymbolicHessians symHesss = {};
 algorithm
   BackendDAE.DAE(eqs=eqs,shared=shared) := inBackendDAE;
-  (linearModelMatrixes, funcs) := SymbolicJacobian.createLinearModelMatrixes(inBackendDAE, true ,true);
-
-  for jacobian in linearModelMatrixes loop
+  symJacs := shared.symjacs;
+  for jacobian in symJacs loop
     _ := match jacobian
     local
       BackendDAE.SymbolicJacobian symJac;
     case ((SOME(symJac),_,_))
-    equation
-      symHesss = createSymbolicHessian(symJac)::symHesss;//Generate the Hessians by adding the lambdas and add up all equations -> write in list!!!
+    algorithm
+      symHesss := createSymbolicHessian(symJac)::symHesss; //multiply lambdas then derive second time
     then "";
-    else then "";
+  else then "";
     end match;
   end for;
+  /*Set list to correct order*/
   symHesss := listReverse(symHesss);
-
+  /*Dump the dae of the hessian*/
   if Flags.isSet(Flags.DUMP_HESSIAN) then
     printHessian(symHesss);
   end if;
-
+  /*Update shared*/
   shared := BackendDAEUtil.setSharedSymHesss(shared, symHesss);
-  functionTree := BackendDAEUtil.getFunctions(shared);
-  functionTree := DAE.AvlTreePathFunction.join(functionTree, funcs);
-  shared := BackendDAEUtil.setSharedFunctionTree(shared, functionTree);
-  outHessian := BackendDAE.DAE(eqs,shared);
+  outBackendDAE := BackendDAE.DAE(eqs,shared);
 end generateSymbolicHessian;
 
 protected function createSymbolicHessian
-  "Function creates the symbolic Hessians for the Jacobians A, B and C"
+  "Function creates the symbolic Hessians for the Jacobians A, B and C (D is not needed)"
   input BackendDAE.SymbolicJacobian InSymJac "Symbolic Jacobian Matrix";
-  output Option< BackendDAE.SymbolicHessian > Hessian "Symbolic Hessian Matrix";
-protected
-  BackendDAE.BackendDAE hessDae;
-  list<BackendDAE.Var> lambdaVars;
+  output Option<BackendDAE.SymbolicHessian> Hessian "Symbolic Hessian Matrix";
 algorithm
   Hessian := match InSymJac
     local
-    BackendDAE.BackendDAE dae;
-    String nameMatrix;
-    list< BackendDAE.Var > diffVars ,diffedVars, allDiffedVars;
-    BackendDAE.SymbolicJacobian symjac;
-    case (dae,nameMatrix,diffVars,diffedVars,allDiffedVars,_) guard stringEqual(nameMatrix,"A") or stringEqual(nameMatrix,"B") or stringEqual(nameMatrix,"C")
-    algorithm
-      (hessDae,lambdaVars) := multiplyLambdas(dae, nameMatrix); //multiple the lagrange factors and add the equations
+      BackendDAE.BackendDAE backendDAE, hessDae;
+      BackendDAE.SymbolicJacobian symjac;
+      list< BackendDAE.Var > diffVars ,diffedVars, allDiffedVars;
+      BackendDAE.Variables v,globalKnownVars,statesarr,inputvarsarr,paramvarsarr,outputvarsarr, optimizer_vars, conVars;
+      list<BackendDAE.Var> lambdaVars, varlst, knvarlst,  states, inputvars, inputvars2, outputvars, paramvars, states_inputs, conVarsList, object;
+      DAE.FunctionTree funcs, functionTree;
+      String nameMatrix;
+
+    case (backendDAE,nameMatrix,diffVars,diffedVars,allDiffedVars,_) guard stringEqual(nameMatrix,"A")
+    equation
+      hessDae = BackendDAEUtil.copyBackendDAE(backendDAE);
+      hessDae = BackendDAEOptimize.collapseIndependentBlocks(hessDae);
+      (hessDae,lambdaVars) = multiplyLambdas(hessDae, nameMatrix); //multiple the lagrange factors
+      hessDae = BackendDAEUtil.transformBackendDAE(hessDae,SOME((BackendDAE.NO_INDEX_REDUCTION(),BackendDAE.EXACT())),NONE(),NONE());
+      BackendDAE.DAE({BackendDAE.EQSYSTEM(orderedVars = v)}, BackendDAE.SHARED(globalKnownVars = globalKnownVars)) = hessDae;
+
+      // Prepare all needed variables
+      //varlst = BackendVariable.varList(v);
+      varlst = allDiffedVars;
+      knvarlst = BackendVariable.varList(globalKnownVars);
+      states = diffVars;
+      inputvars = List.select(knvarlst,BackendVariable.isInput);
+      paramvars = List.select(knvarlst, BackendVariable.isParam);
+
+      statesarr = BackendVariable.listVar1(states);
+      inputvarsarr = BackendVariable.listVar1(inputvars);
+      paramvarsarr = BackendVariable.listVar1(paramvars);
+
+      (SOME(symjac), functionTree,_,_) = SymbolicJacobian.generateGenericJacobian(hessDae,states,statesarr,inputvarsarr,paramvarsarr,statesarr,varlst,"A",false,true); //generate second derivates
+      (hessDae,_,diffVars,diffedVars,allDiffedVars,_) = symjac;
+
+      hessDae = BackendDAEUtil.setFunctionTree(hessDae, functionTree);
+      hessDae = setHessianMatrix(hessDae,nameMatrix); //add up the equations
     then SOME((hessDae,nameMatrix,diffVars,diffedVars,allDiffedVars,lambdaVars));
+
+    case (backendDAE,nameMatrix,_,_,_,_) guard stringEqual(nameMatrix,"B")
+    equation
+      hessDae = BackendDAEUtil.copyBackendDAE(backendDAE);
+      hessDae = BackendDAEOptimize.collapseIndependentBlocks(hessDae);
+      hessDae = BackendDAEUtil.transformBackendDAE(hessDae,SOME((BackendDAE.NO_INDEX_REDUCTION(),BackendDAE.EXACT())),NONE(),NONE());
+      BackendDAE.DAE({BackendDAE.EQSYSTEM(orderedVars = v)}, BackendDAE.SHARED(globalKnownVars = globalKnownVars)) = hessDae;
+
+      // Prepare all needed variables
+      varlst = BackendVariable.varList(v);
+      knvarlst = BackendVariable.varList(globalKnownVars);
+      states = BackendVariable.getAllStateVarFromVariables(v);
+      inputvars = List.select(knvarlst,BackendVariable.isInput);
+      paramvars = List.select(knvarlst, BackendVariable.isParam);
+      inputvars2 = List.select(knvarlst,BackendVariable.isVarOnTopLevelAndInputNoDerInput); // without der(u)
+      outputvars = List.select(varlst, BackendVariable.isVarOnTopLevelAndOutput);
+      conVarsList = List.select(varlst, BackendVariable.isRealOptimizeConstraintsVars);
+
+      states_inputs = listAppend(states, inputvars2);
+      statesarr = BackendVariable.listVar1(states);
+      inputvarsarr = BackendVariable.listVar1(inputvars);
+      paramvarsarr = BackendVariable.listVar1(paramvars);
+      outputvarsarr = BackendVariable.listVar1(outputvars);
+      conVars = BackendVariable.listVar1(conVarsList);
+
+      optimizer_vars = BackendVariable.addVariables(statesarr, BackendVariable.copyVariables(conVars));
+      object = DynamicOptimization.checkObjectIsSet(outputvarsarr, BackendDAE.optimizationLagrangeTermName);
+      optimizer_vars = BackendVariable.addVars(object, optimizer_vars);
+
+      (hessDae,lambdaVars) = multiplyLambdas(hessDae, nameMatrix);
+
+      (SOME(symjac), functionTree,_,_) = SymbolicJacobian.generateGenericJacobian(hessDae,states_inputs,statesarr,inputvarsarr,paramvarsarr,optimizer_vars,varlst,"B",false,true);
+      (hessDae,_,diffVars,diffedVars,allDiffedVars,_) = symjac;
+
+      hessDae = BackendDAEUtil.setFunctionTree(hessDae, functionTree);
+      hessDae = setHessianMatrix(hessDae,nameMatrix);
+    then SOME((hessDae,nameMatrix,diffVars,diffedVars,allDiffedVars,lambdaVars));
+
+    case (backendDAE,nameMatrix,_,_,_,_) guard stringEqual(nameMatrix,"C")
+    equation
+      hessDae = BackendDAEUtil.copyBackendDAE(backendDAE);
+      hessDae = BackendDAEOptimize.collapseIndependentBlocks(hessDae);
+      hessDae = BackendDAEUtil.transformBackendDAE(hessDae,SOME((BackendDAE.NO_INDEX_REDUCTION(),BackendDAE.EXACT())),NONE(),NONE());
+      BackendDAE.DAE({BackendDAE.EQSYSTEM(orderedVars = v)}, BackendDAE.SHARED(globalKnownVars = globalKnownVars)) = hessDae;
+
+      // Prepare all needed variables
+      varlst = BackendVariable.varList(v);
+      knvarlst = BackendVariable.varList(globalKnownVars);
+      states = BackendVariable.getAllStateVarFromVariables(v);
+      inputvars = List.select(knvarlst,BackendVariable.isInput);
+      paramvars = List.select(knvarlst, BackendVariable.isParam);
+      inputvars2 = List.select(knvarlst,BackendVariable.isVarOnTopLevelAndInputNoDerInput); // without der(u)
+      outputvars = List.select(varlst, BackendVariable.isVarOnTopLevelAndOutput);
+      conVarsList = List.select(varlst, BackendVariable.isRealOptimizeConstraintsVars);
+
+      states_inputs = listAppend(states, inputvars2);
+      statesarr = BackendVariable.listVar1(states);
+      inputvarsarr = BackendVariable.listVar1(inputvars);
+      paramvarsarr = BackendVariable.listVar1(paramvars);
+      outputvarsarr = BackendVariable.listVar1(outputvars);
+      conVars = BackendVariable.listVar1(conVarsList);
+
+      optimizer_vars = BackendVariable.addVariables(statesarr, BackendVariable.copyVariables(conVars));
+      object = DynamicOptimization.checkObjectIsSet(outputvarsarr, BackendDAE.optimizationLagrangeTermName);
+      optimizer_vars = BackendVariable.addVars(object, optimizer_vars);
+      object = DynamicOptimization.checkObjectIsSet(outputvarsarr, BackendDAE.optimizationMayerTermName);
+      optimizer_vars = BackendVariable.addVars(object, optimizer_vars);
+
+      (hessDae,lambdaVars) = multiplyLambdas(hessDae, nameMatrix);
+
+      (SOME(symjac), functionTree,_,_) = SymbolicJacobian.generateGenericJacobian(hessDae,states_inputs,statesarr,inputvarsarr,paramvarsarr,optimizer_vars,varlst,"C",false,true);
+      (hessDae,_,diffVars,diffedVars,allDiffedVars,_) = symjac;
+
+      hessDae = BackendDAEUtil.setFunctionTree(hessDae, functionTree);
+      hessDae = setHessianMatrix(hessDae,nameMatrix);
+    then SOME((hessDae,nameMatrix,diffVars,diffedVars,allDiffedVars,lambdaVars));
+
     else NONE();
   end match;
 end createSymbolicHessian;
 
 protected function multiplyLambdas
-  "Function calculates '(lambda)^T*Jacobian' -> First multiply the lambdas, then add the equation up to one."
+  "Function calculates '(lambda)^T*Jacobian'-> multiply lambda[i] to the equation i."
   input BackendDAE.BackendDAE jac; //Jacobi Matrix
-  input String matrixName; //Name of the jacobian (A,B,C,D)
+  input String matrixName; //Name of the jacobian (A,B,C)
   output BackendDAE.BackendDAE lambdaJac; //Equationsystem with only one equation -> that is the hessian!
   output list<BackendDAE.Var> lambdaVars = {}; //All the lambda variables
 protected
@@ -131,21 +226,21 @@ protected
   BackendDAE.EquationArray eqns, jacEqns; //Array for the hessian!
   BackendDAE.EqSystem eqs;
   BackendDAE.Shared shared;
-  BackendDAE.Variables vars;
   BackendDAE.Equation eq;
   DAE.Exp eqExpr;
-  list<DAE.Exp> hessExpr = {};
-  list<BackendDAE.Equation> innerEqns = {}, residualEqns = {};
+  list<BackendDAE.Equation> innerEqns = {}, residualEqns = {}, lambdaEqns ={};
 algorithm
+  /*more or less the dae's should be the same, just multiple a lambda*/
   lambdaJac := jac;
-
+  BackendDump.dumpDAE(jac);
+  /*get the ordered equations*/
   {eqs} := lambdaJac.eqs;
-  BackendDAE.EQSYSTEM(orderedVars = vars, orderedEqs = eqns) := eqs;
+  BackendDAE.EQSYSTEM(orderedEqs = eqns) := eqs;
   jacEqns := eqns;
 
   shared := lambdaJac.shared;
 
-  (innerEqns,residualEqns) := BackendEquation.traverseEquationArray(eqns, assignEqnToInnerOrResidual, (innerEqns, residualEqns));
+  (innerEqns,residualEqns) := BackendEquation.traverseEquationArray(eqns, assignEqnToInnerOrResidualFirstDerivatives, (innerEqns, residualEqns));
   //BackendDump.dumpEquationArray(eqns, "filtered eqns");
   lambdasOption := if Flags.getConfigBool(Flags.GENERATE_SYMBOLIC_HESSIAN) and (listLength(residualEqns)<>0) then SOME(getLambdaList(listLength(residualEqns))) else NONE();
 
@@ -158,32 +253,26 @@ algorithm
     traverse and multiply each lambda on rhs
     e1.rhs -> e1.rhs * lambda[1]*/
     for lambdaList in lambdas loop
-      eq :: residualEqns := residualEqns;
+      eq::residualEqns := residualEqns;
       eqExpr := BackendEquation.getEquationRHS(eq);
       eqExpr := multiplyLambda2Expression(eqExpr, lambdaList);
-      hessExpr := eqExpr::hessExpr;
+      eq := BackendEquation.setEquationRHS(eq, eqExpr);
+      lambdaEqns := eq::lambdaEqns;
       /*Create the lambda Vars*/
       lambdaVars := createLambdaVar(lambdaList)::lambdaVars;
     end for;
 
-    (vars, eqns) := addEquations(hessExpr, eq, matrixName, vars);
-    vars := removeStateVars(vars);
-    eqns := BackendEquation.addList(innerEqns, eqns);
-
-
+    lambdaEqns := listAppend(lambdaEqns,innerEqns);
+    eqns := BackendEquation.listEquation(lambdaEqns);
     /*Updating the DAE*/
     eqs.orderedEqs := eqns;
-    eqs.orderedVars := vars;
-    eqs.matching := BackendDAE.NO_MATCHING();
     lambdaJac.eqs := {eqs};
-
     shared.globalKnownVars := BackendVariable.addVars(lambdaVars,shared.globalKnownVars);
     lambdaJac.shared := shared;
   else
     print("\n***Error***\n NO RESIDUAL EQUATIONS GIVEN!\n\n");
     fail();
   end if;
-  lambdaJac :=  BackendDAEUtil.transformBackendDAE(lambdaJac,SOME((BackendDAE.NO_INDEX_REDUCTION(),BackendDAE.EXACT())),NONE(),NONE());
 end multiplyLambdas;
 
 protected function getLambdaList
@@ -217,6 +306,55 @@ algorithm
   lambdaVar := BackendDAE.VAR(lambdaCref, BackendDAE.PARAM(), DAE.INPUT(), DAE.NON_PARALLEL(), ComponentReference.crefLastType(lambdaCref), NONE(), NONE(), {}, DAE.emptyElementSource, NONE(), NONE(), DAE.BCONST(false), NONE(),DAE.NON_CONNECTOR(), DAE.NOT_INNER_OUTER(), true);
 end createLambdaVar;
 
+protected function setHessianMatrix
+  "Function add all equations for the the new Variable for the LHS -> '$HessA = lambda[i]*eq[i]+...'."
+  input BackendDAE.BackendDAE inHessDae;
+  input String matrixName;
+  output BackendDAE.BackendDAE outHessDae;
+protected
+  BackendDAE.EquationArray eqns, hessEqns; //Array for the hessian!
+  BackendDAE.EqSystem eqs;
+  BackendDAE.Shared shared;
+  BackendDAE.Variables vars;
+  BackendDAE.Equation eq;
+  DAE.Exp eqExpr;
+  list<DAE.Exp> hessExpr = {};
+  list<BackendDAE.Equation> innerEqns = {}, residualEqns = {};
+algorithm
+  outHessDae := inHessDae;
+
+  {eqs} := outHessDae.eqs;
+  BackendDAE.EQSYSTEM(orderedVars = vars, orderedEqs = eqns) := eqs;
+  hessEqns := eqns;
+
+  shared := outHessDae.shared;
+
+  (innerEqns,residualEqns) := BackendEquation.traverseEquationArray(eqns, assignEqnToInnerOrResidualSecondDerivatives, (innerEqns, residualEqns));
+  //BackendDump.dumpEquationArray(eqns, "filtered eqns");
+  //BackendDump.dumpEquationList(innerEqns, "inner Equations");
+  //BackendDump.dumpEquationList(residualEqns, "residualEqns");
+
+  /*get ordered equations from the given dae
+  traverse and sum up in one variable*/
+  for equ in residualEqns loop
+    eqExpr := BackendEquation.getEquationRHS(equ);
+    hessExpr := eqExpr::hessExpr;
+    eq := equ;
+  end for;
+  (vars, eqns) := addEquations(hessExpr, eq, matrixName, vars);
+  vars := removeStateVars(vars);
+  eqns := BackendEquation.addList(innerEqns, eqns);
+
+  /*Updating the DAE*/
+  eqs.orderedEqs := eqns;
+  eqs.orderedVars := vars;
+  eqs.matching := BackendDAE.NO_MATCHING();
+  outHessDae.eqs := {eqs};
+
+  /*Reset of the dae*/
+  outHessDae :=  BackendDAEUtil.transformBackendDAE(outHessDae,SOME((BackendDAE.NO_INDEX_REDUCTION(),BackendDAE.EXACT())),NONE(),NONE());
+end setHessianMatrix;
+
 protected function addEquations
   "Helper Function for adding up all the Equations."
   input list<DAE.Exp> hessExpr;
@@ -229,15 +367,17 @@ protected
   BackendDAE.Equation eq;
 algorithm
   EqSum := Expression.makeSum(hessExpr);
+  //print("Hessian: "+ExpressionDump.printExpStr(EqSum)+"\n");
+  //BackendDump.dumpVariables(vars,"Given Vars");
   eqns := ExpandableArray.new(1, inEq);
-  (vars, eq) := setHessian(inEq, EqSum, matrixName, vars);
+  (vars, eq) := setHessianElement(inEq, EqSum, matrixName, vars);
   eqns := ExpandableArray.set(1, eq, eqns);
 end addEquations;
 
-protected function setHessian
+protected function setHessianElement
   "Function sets the new Equation for the Hessian on the RHS and creates a new Variable for the LHS -> '$HessA = lambda[i]*eq[i]+...'."
   input BackendDAE.Equation inEq;
-  input DAE.Exp rhsWithLambda;
+  input DAE.Exp rhs;
   input String matrixName;
   input output BackendDAE.Variables vars;
   output BackendDAE.Equation outEq;
@@ -253,26 +393,26 @@ algorithm
       equation
         // maybe wrong check with compiled code
         localEq.exp = Expression.crefToExp(hessCref);
-        localEq.scalar = rhsWithLambda;
+        localEq.scalar = rhs;
       then localEq;
     case localEq as (BackendDAE.COMPLEX_EQUATION())
       equation
         localEq.left = Expression.crefToExp(hessCref);
-        localEq.right = rhsWithLambda;
+        localEq.right = rhs;
       then localEq;
     case localEq as (BackendDAE.ARRAY_EQUATION())
       equation
         localEq.left = Expression.crefToExp(hessCref);
-        localEq.right = rhsWithLambda;
+        localEq.right = rhs;
       then localEq;
     case localEq as (BackendDAE.SOLVED_EQUATION())
       equation
         localEq.componentRef = hessCref;
-        localEq.exp = rhsWithLambda;
+        localEq.exp = rhs;
       then localEq;
     case localEq as (BackendDAE.RESIDUAL_EQUATION())
       equation
-        localEq.exp = rhsWithLambda;
+        localEq.exp = rhs;
       then localEq;
     else
       equation
@@ -282,9 +422,25 @@ algorithm
   hessVar := BackendVariable.makeVar(hessCref);
   hessVar := BackendVariable.setVarKind(hessVar,BackendDAE.HESS_VAR());
   vars := BackendVariable.addVar(hessVar, vars);
-end setHessian;
+end setHessianElement;
 
-protected function assignEqnToInnerOrResidual
+protected function assignEqnToInnerOrResidualFirstDerivatives
+  "Functions splits the equation in a list of residual and inner equations (For multiply the lambdas to it -> just need $DER..)"
+  input output BackendDAE.Equation eqn;
+  input output tuple<list<BackendDAE.Equation>, list<BackendDAE.Equation>> eqnTpl;
+protected
+  list<BackendDAE.Equation> innerEqns, residualEqns;
+algorithm
+  (innerEqns, residualEqns) := eqnTpl;
+  if not isInnerEqn(eqn) then
+    residualEqns := eqn :: residualEqns;
+  else
+    innerEqns := eqn :: innerEqns;
+  end if;
+  eqnTpl := (innerEqns, residualEqns);
+end assignEqnToInnerOrResidualFirstDerivatives;
+
+protected function assignEqnToInnerOrResidualSecondDerivatives
   "Functions splits the equation in a list of residual and inner equations (needed for the second derivatives)"
   input output BackendDAE.Equation eqn;
   input output tuple<list<BackendDAE.Equation>, list<BackendDAE.Equation>> eqnTpl;
@@ -298,7 +454,7 @@ algorithm
     innerEqns := eqn :: innerEqns;
   end if;
   eqnTpl := (innerEqns, residualEqns);
-end assignEqnToInnerOrResidual;
+end assignEqnToInnerOrResidualSecondDerivatives;
 
 protected function isResidualEqn
   "Function checks if a given Equation is a normal derivativ"

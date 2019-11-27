@@ -52,7 +52,6 @@ protected import ComponentReference;
 protected import Config;
 
 protected import SymbolicJacobian;
-protected import SymbolicHessian;
 protected import Differentiate;
 
 protected import Expression;
@@ -78,10 +77,6 @@ algorithm
   syst.orderedEqs := eqns;
   dae.eqs := {syst};
   dae.shared := shared;
-    /*Calculate the Hessian*/
-  if Flags.getConfigBool(Flags.GENERATE_SYMBOLIC_HESSIAN) then
-    dae := SymbolicHessian.generateSymbolicHessian(dae);
-  end if;
 end createDynamicOptimization;
 
 public function addOptimizationVarsEqns
