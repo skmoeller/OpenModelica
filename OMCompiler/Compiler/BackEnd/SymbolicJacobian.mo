@@ -1990,7 +1990,7 @@ algorithm
     end if;
     // generate sparse pattern
     if not SymbolicHessian then
-    (outSparsePattern,outSparseColoring) := generateSparsePattern(inBackendDAE, inDiffVars, BackendVariable.varList(inDifferentiatedVars));
+      (outSparsePattern,outSparseColoring) := generateSparsePattern(inBackendDAE, inDiffVars, BackendVariable.varList(inDifferentiatedVars));
     end if;
   else
     fail();
@@ -2028,10 +2028,10 @@ algorithm
         diffedVars = BackendVariable.varList(inDifferentiatedVars);
         comref_differentiatedVars = List.map(diffedVars, BackendVariable.varCref);
 
-        if not SymbolicHessian then
-          reducedDAE = BackendDAEUtil.reduceEqSystemsInDAE(inBackendDAE, diffedVars);
+        if SymbolicHessian then
+          reducedDAE = inBackendDAE;
         else
-           reducedDAE = inBackendDAE;
+        reducedDAE = BackendDAEUtil.reduceEqSystemsInDAE(inBackendDAE, diffedVars);
         end if;
 
         comref_vars = List.map(inDiffVars, BackendVariable.varCref);
@@ -2049,7 +2049,7 @@ algorithm
         end if;
 
         // Differentiate the eqns system in reducedDAE w.r.t. independents
-        (backendDAE as BackendDAE.DAE(shared=_), funcs) = generateSymbolicJacobian(reducedDAE, indepVars, inDifferentiatedVars, BackendVariable.listVar1(seedlst), inStateVars, inInputVars, inParameterVars, inName, SymbolicHessian);
+        (backendDAE as BackendDAE.DAE(shared=_), funcs) = generateSymbolicJacobian(reducedDAE, indepVars, inDifferentiatedVars, BackendVariable.listVar1(seedlst), inStateVars, inInputVars, inParameterVars, inName);
         if Flags.isSet(Flags.JAC_DUMP2) then
           print("analytical Jacobians -> generated equations for Jacobian " + inName + " time: " + realString(clock()) + "\n");
         end if;
@@ -2147,7 +2147,6 @@ protected function generateSymbolicJacobian "author: lochel"
   input BackendDAE.Variables inInputVars;
   input BackendDAE.Variables inParamVars "globalKnownVars";
   input String inMatrixName;
-  input Boolean SymbolicHessian = false;
   output BackendDAE.BackendDAE outJacobian;
   output DAE.FunctionTree outFunctions;
 algorithm
@@ -2204,14 +2203,6 @@ algorithm
       dummyVarName = ("dummyVar" + matrixName);
       x = DAE.CREF_IDENT(dummyVarName,DAE.T_REAL_DEFAULT,{});
 
-      if SymbolicHessian then
-        matrixNameForHessian = (matrixName+"1");
-        dummyVarName = ("dummyVar" + matrixNameForHessian);
-        x = DAE.CREF_IDENT(dummyVarName,DAE.T_REAL_DEFAULT,{});
-        /*!!!!RESET OF THE MATRIXNAME -> DO IT HERE OTHERWISE NEED TO CHANGE A LOT OF THINGS FOR A SMALL IMPACT IN THE CODE!!!!*/
-        matrixName = matrixNameForHessian;
-      end if;
-
       // differentiate the equation system
       if Flags.isSet(Flags.JAC_DUMP2) then
         print("*** analytical Jacobians -> derived all algorithms time: " + realString(clock()) + "\n");
@@ -2231,11 +2222,17 @@ algorithm
         print("*** analytical Jacobians -> before derive all equation: " + realString(clock()) + "\n");
       end if;
       (derivedEquations, functions) = deriveAll(eqns, arrayList(ass2), x, diffData, functions);
+
       if Flags.isSet(Flags.JAC_DUMP2) then
         print("*** analytical Jacobians -> after derive all equation: " + realString(clock()) + "\n");
       end if;
       // replace all der(x), since ExpressionSolve can't handle der(x) proper
       derivedEquations = BackendEquation.replaceDerOpInEquationList(derivedEquations);
+
+      //print("----------------------------------------\n");
+      //BackendDump.printEquationList(derivedEquations);
+      //print("----------------------------------------\n");
+
       if Flags.isSet(Flags.JAC_DUMP2) then
         print("*** analytical Jacobians -> created all derived equation time: " + realString(clock()) + "\n");
       end if;
@@ -2246,6 +2243,10 @@ algorithm
       // d(ordered vars)/d(dummyVar)
       diffVars = BackendVariable.varList(orderedVars);
       derivedVariables = createAllDiffedVars(diffVars, x, diffedVars, matrixName);
+
+      //print("----------------------------------------\n");
+      //BackendDump.printVarList(derivedVariables);
+      //print("----------------------------------------\n");
 
       jacOrderedVars = BackendVariable.listVar1(derivedVariables);
       // known vars: all variable from original system + seed
