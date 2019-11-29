@@ -93,7 +93,11 @@ algorithm
 end generateSymbolicHessian;
 
 protected function createSymbolicHessian
-  "Function creates the symbolic Hessians for the Jacobians A, B and C (D is not needed)"
+  "Function creates the symbolic Hessians for the Jacobians A, B and C (D is not needed)
+   Matrix A :  Differentiate the eqns system  w.r.t. states
+   Matrix B :  Differentiate the eqns system  w.r.t. states & inputs
+   Matrix C : Differentiate the eqns system including meyer & lagrange term w.r.t. states & inputs
+   "
   input BackendDAE.SymbolicJacobian InSymJac "Symbolic Jacobian Matrix";
   output Option<BackendDAE.SymbolicHessian> Hessian "Symbolic Hessian Matrix";
 algorithm
@@ -165,22 +169,14 @@ algorithm
       inputvars = List.select(allDiffedVars,BackendVariable.isInput);
       paramvars = List.select(knvarlst, BackendVariable.isParam);
       inputvars2 = List.select(diffVars,BackendVariable.isVarOnTopLevelAndInputNoDerInput); // without der(u)
-      outputvars = List.select(allDiffedVars, BackendVariable.isVarOnTopLevelAndOutput);
-      conVarsList = List.select(allDiffedVars, BackendVariable.isRealOptimizeConstraintsVars);
 
       states_inputs = listAppend(states, inputvars2);
 
       statesarr = BackendVariable.listVar1(states);
       inputvarsarr = BackendVariable.listVar1(inputvars);
       paramvarsarr = BackendVariable.listVar1(paramvars);
-      outputvarsarr = BackendVariable.listVar1(outputvars);
-      conVars = BackendVariable.listVar1(conVarsList);
 
-      optimizer_vars = BackendVariable.addVariables(statesarr, BackendVariable.copyVariables(conVars));
-      object = DynamicOptimization.checkObjectIsSet(outputvarsarr, BackendDAE.optimizationLagrangeTermName);
-      optimizer_vars = BackendVariable.addVars(object, optimizer_vars);
-
-      (SOME(symjac), functionTree,_,_) = SymbolicJacobian.generateGenericJacobian(hessDae,states_inputs,statesarr,inputvarsarr,paramvarsarr,optimizer_vars,varlst,"B1",false,true);
+      (SOME(symjac), functionTree,_,_) = SymbolicJacobian.generateGenericJacobian(hessDae,states_inputs,statesarr,inputvarsarr,paramvarsarr,statesarr,varlst,"B1",false,true);
       (hessDae,_,diffVars,diffedVars,allDiffedVars,_) = symjac;
 
       hessDae = BackendDAEUtil.setFunctionTree(hessDae, functionTree);
@@ -204,7 +200,6 @@ algorithm
       paramvars = List.select(knvarlst, BackendVariable.isParam);
       inputvars2 = List.select(diffVars,BackendVariable.isVarOnTopLevelAndInputNoDerInput); // without der(u)
       outputvars = List.select(allDiffedVars, BackendVariable.isVarOnTopLevelAndOutput);
-      conVarsList = List.select(allDiffedVars, BackendVariable.isRealOptimizeConstraintsVars);
 
       states_inputs = listAppend(states, inputvars2);
 
@@ -212,9 +207,8 @@ algorithm
       inputvarsarr = BackendVariable.listVar1(inputvars);
       paramvarsarr = BackendVariable.listVar1(paramvars);
       outputvarsarr = BackendVariable.listVar1(outputvars);
-      conVars = BackendVariable.listVar1(conVarsList);
 
-      optimizer_vars = BackendVariable.addVariables(statesarr, BackendVariable.copyVariables(conVars));
+      optimizer_vars = statesarr;
       object = DynamicOptimization.checkObjectIsSet(outputvarsarr, BackendDAE.optimizationLagrangeTermName);
       optimizer_vars = BackendVariable.addVars(object, optimizer_vars);
       object = DynamicOptimization.checkObjectIsSet(outputvarsarr, BackendDAE.optimizationMayerTermName);
@@ -278,8 +272,9 @@ algorithm
       /*Create the lambda Vars*/
       lambdaVars := createLambdaVar(lambdaList)::lambdaVars;
     end for;
-    //BackendDump.dumpEquationList(lambdaEqns,"lambda Equations");
+    //BackendDump.dumpEquationList(lambdaEqns,"lambda Equations1");
     lambdaEqns := listAppend(lambdaEqns,innerEqns);
+    //BackendDump.dumpEquationList(lambdaEqns,"lambda Equations2");
     eqns := BackendEquation.listEquation(lambdaEqns);
     /*Updating the DAE*/
     eqs.orderedEqs := eqns;
@@ -336,7 +331,7 @@ protected
   BackendDAE.Equation eq;
   DAE.Exp eqExpr;
   list<DAE.Exp> hessExpr = {};
-  list<BackendDAE.Equation> innerEqns = {}, residualEqns = {};
+  list<BackendDAE.Equation> mayerLagrange = {}, residualEqns = {};
   DAE.ComponentRef hessCref = ComponentReference.makeCrefIdent(Util.hessianIdent + matrixName, DAE.T_REAL_DEFAULT, {});
 algorithm
   outHessDae := inHessDae;
@@ -347,10 +342,10 @@ algorithm
 
   shared := outHessDae.shared;
 
-  (innerEqns,residualEqns) := BackendEquation.traverseEquationArray(eqns, assignEqnToInnerOrResidualSecondDerivatives, (innerEqns, residualEqns));
+  (mayerLagrange,residualEqns) := BackendEquation.traverseEquationArray(eqns, assignEqnToInnerOrResidualSecondDerivatives, (mayerLagrange, residualEqns));
   //BackendDump.dumpEquationArray(eqns, "filtered eqns");
-  BackendDump.dumpEquationList(innerEqns, "inner Equations");
-  BackendDump.dumpEquationList(residualEqns, "residualEqns");
+  //BackendDump.dumpEquationList(residualEqns, "residualEqns");
+  //BackendDump.dumpEquationList(mayerLagrange, "mayerLagrange");
 
   /*get ordered equations from the given dae
   traverse and sum up in one variable*/
@@ -365,14 +360,15 @@ algorithm
     eq := BackendDAE.EQUATION(exp= DAE.RCONST(real= 0.0), scalar= DAE.RCONST(real= 0.0) ,source= DAE.emptyElementSource, attr= BackendDAE.EQ_ATTR_DEFAULT_UNKNOWN);
   end if;
   (vars, eqns) := addEquations(hessExpr, eq, matrixName, vars);
-  vars := removeStateVars(vars);
-  eqns := BackendEquation.addList(innerEqns, eqns);
+  vars := removeStateVars(vars, matrixName);
+  if matrixName=="C" then
+    BackendEquation.addList(mayerLagrange, eqns);
+  end if;
   /*Updating the DAE*/
   eqs.orderedEqs := eqns;
   eqs.orderedVars := vars;
   eqs.matching := BackendDAE.NO_MATCHING();
   outHessDae.eqs := {eqs};
-
   /*Reset of the dae*/
   outHessDae :=  BackendDAEUtil.transformBackendDAE(outHessDae,SOME((BackendDAE.NO_INDEX_REDUCTION(),BackendDAE.EXACT())),NONE(),NONE());
 end setHessianMatrix;
@@ -467,15 +463,15 @@ protected function assignEqnToInnerOrResidualSecondDerivatives
   input output BackendDAE.Equation eqn;
   input output tuple<list<BackendDAE.Equation>, list<BackendDAE.Equation>> eqnTpl;
 protected
-  list<BackendDAE.Equation> innerEqns, residualEqns;
+  list<BackendDAE.Equation> mayerLagrange, residualEqns;
 algorithm
-  (innerEqns, residualEqns) := eqnTpl;
-  if isResidualEqn(eqn) then
+  (mayerLagrange, residualEqns) := eqnTpl;
+  if isResidualEqn(eqn) and not isObjectiveFunction(eqn) then
     residualEqns := eqn :: residualEqns;
-  elseif isInnerEqn(eqn) then
-    innerEqns := eqn :: innerEqns;
+  elseif isObjectiveFunction(eqn) then
+    mayerLagrange := eqn :: mayerLagrange;
   end if;
-  eqnTpl := (innerEqns, residualEqns);
+  eqnTpl := (mayerLagrange, residualEqns);
 end assignEqnToInnerOrResidualSecondDerivatives;
 
 protected function isResidualEqn
@@ -488,7 +484,7 @@ algorithm
       DAE.ComponentRef cr;
     /* other eqn types relevant? */
     case BackendDAE.EQUATION(exp = DAE.CREF(componentRef = cr))
-      guard(ComponentReference.isSecondPartialDerivativeHessian(cr) or ComponentReference.isMayerOrLagrange(cr) or ComponentReference.isConstraint(cr))
+      guard(ComponentReference.isSecondPartialDerivativeHessian(cr) or ComponentReference.isMayerOrLagrange(cr))
     then true;
     else false;
   end match;
@@ -510,9 +506,26 @@ algorithm
   end match;
 end isInnerEqn;
 
+protected function isObjectiveFunction
+  "Functions checks if a given Equation is Mayer or Lagrange Term "
+  input BackendDAE.Equation eqn;
+  output Boolean b;
+algorithm
+  b := match eqn
+    local
+      DAE.ComponentRef cr;
+    /* other eqn types relevant? */
+    case BackendDAE.EQUATION(exp = DAE.CREF(componentRef = cr))
+      guard(Util.stringStartsWith("$OMC$",ComponentReference.crefFirstIdent(cr)))
+    then true;
+  else false;
+  end match;
+end isObjectiveFunction;
+
 protected function removeStateVars
   "Functions removes the first derivatives from the variables"
   input output BackendDAE.Variables variables;
+  input String matrixName;
 protected
   BackendDAE.VariableArray varriableArray;
   Integer NumOfVars;
@@ -527,7 +540,11 @@ algorithm
         DAE.ComponentRef cr;
       case SOME(BackendDAE.VAR(varName = cr)) guard(Util.stringStartsWith("$DER",ComponentReference.crefFirstIdent(cr)) or ComponentReference.isConstraint(cr) or ComponentReference.isMayerOrLagrange(cr))
         equation
-          variables = BackendVariable.deleteVar(cr, variables);
+          if not (matrixName=="C") then
+            variables = BackendVariable.deleteVar(cr, variables);
+          elseif not (ComponentReference.isMayerOrLagrange(cr)) then
+            variables = BackendVariable.deleteVar(cr, variables);
+          end if;
         then "";
       else then "";
     end match;
