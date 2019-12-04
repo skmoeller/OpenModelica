@@ -5076,7 +5076,7 @@ algorithm
         indexVars := rewriteIndex(indexVars, 0);
         seedIndexVars := listAppend(allSeedVars, indexVars);
 
-        nRows :=  listLength(diffedVars); // listLength(columnEquations) ?
+        nRows :=  listLength(lambdaVars); // listLength(columnEquations) ?
 
         // create seed vars first seed
         seedVarsMatrix := replaceSeedVarsName(allSeedVars, nameFirstMatrix);
@@ -5102,7 +5102,7 @@ algorithm
         crefToSimVarHTHessian := List.fold(columnVars, HashTableCrefSimVar.addSimVarToHashTable, crefToSimVarHTHessian);
         crefToSimVarHTHessian := List.fold(lambdaSimVars, HashTableCrefSimVar.addSimVarToHashTable, crefToSimVarHTHessian);
 
-        tmpHess := SimCode.HESS_MATRIX({SimCode.JAC_COLUMN(columnEquations, columnVars, 1)}, allSeedVars, lambdaSimVars, nameFirstMatrix, 0, 0, SOME(crefToSimVarHTHessian));
+        tmpHess := SimCode.HESS_MATRIX({SimCode.JAC_COLUMN(columnEquations, columnVars, nRows)}, allSeedVars, lambdaSimVars, nameFirstMatrix, 0, 0, SOME(crefToSimVarHTHessian));
         hessianMatrixLst := tmpHess::inHessianMatrixes;
 
         // bump equation index

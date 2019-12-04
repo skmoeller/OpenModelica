@@ -217,7 +217,6 @@ static inline void num_hessian0(double * v, const double * const lambda,
   long double v_save, h;
   modelica_real * realV[3];
 
-
   for(l = 1; l<3; ++l){
     realV[l] = data->localData[l]->realVars;
     data->localData[l]->realVars = optData->v[i][j];
@@ -246,24 +245,23 @@ static inline void num_hessian0(double * v, const double * const lambda,
     /* ---------------------- REPLACE WITH HESSIAN ---------------*/
     diffSynColoredOptimizerSystem(optData, optData->tmpJ, i,j,2);
 
-    for(l = 0; l < nJ; ++l){
+    for(l = 0; l < nv; ++l){
       const int h_index = optData->s.indexABCD_Hess[2];
       optData->data->simulationInfo->analyticHessians[h_index].lambdaVars[l] = 1;
       getHessianMatrix(optData, optData->H[l], i,j,2);
       optData->data->simulationInfo->analyticHessians[h_index].lambdaVars[l] = 0;
     }
-    /*******************
+    /*******************/
     v[ii] = (double)v_save;
-    /*******************
-    for(jj = 0; jj <ii+1; ++jj){
+    /*******************/
+    for(jj = nv; jj < ii+1; ++jj){
       if(optData->s.H0[ii][jj]){
-        for(l = 0; l < nJ; ++l){
+        for(l = nv; l < nJ; ++l){
           if(optData->s.Hg[l][ii][jj] && lambda[l] != 0)
               optData->H[l][ii][jj] = (long double)(optData->tmpJ[l][jj] - optData->J[i][j][l][jj])*lambda[l]/h;
         }
       }
     }
-    /* -------------------------------------------------------- */
     /********************/
     if(upCost){
       h = objFactor/h;
@@ -277,14 +275,10 @@ static inline void num_hessian0(double * v, const double * const lambda,
     }
     /********************/
   }
-
   for(l = 1; l<3; ++l){
     data->localData[l]->realVars = realV[l];
   }
-
 }
-
-
 
 /* numerical approximation
  *  hessian

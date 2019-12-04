@@ -5090,7 +5090,6 @@ template initialAnalyticHessians(list<JacobianColumn> jacobianColumn, list<SimVa
     let indexColumn = (jacobianColumn |> JAC_COLUMN(numberOfResultVars=n) => '<%n%>';separator="\n")
     let tmpvarsSize = (jacobianColumn |> JAC_COLUMN(columnVars=vars) => intSub(listLength(vars), 1) ;separator="\n")
     let index_ = intDiv(listLength(seedVars),2)
-    let lambdaSize = listLength(lambdaVars)
     <<
     OMC_DISABLE_OPT
     int <%symbolName(modelNamePrefix,"initialAnalyticHessian")%><%matrixname%>(void* inData, threadData_t *threadData, ANALYTIC_HESSIAN *hessian, ANALYTIC_JACOBIAN *parentJacobian)
@@ -5099,14 +5098,14 @@ template initialAnalyticHessians(list<JacobianColumn> jacobianColumn, list<SimVa
       DATA* data = ((DATA*)inData);
 
       hessian->sizeCols = <%index_%>;
-      hessian->sizeRows = <%index_%>;
+      hessian->sizeRows = <%indexColumn%>;
       hessian->sizeTmpVars = <%tmpvarsSize%>;
       hessian->seedVars = (modelica_real*) calloc(<%index_%>,sizeof(modelica_real));
       hessian->seedVars1 = (modelica_real*) calloc(<%index_%>,sizeof(modelica_real));
       /* only first index of result vars is used right now. update with new sparsity pattern! */
-      hessian->resultVars = (modelica_real*) calloc(<%indexColumn%>,sizeof(modelica_real));
+      hessian->resultVars = (modelica_real*) calloc(<%1%>,sizeof(modelica_real));
       hessian->tmpVars = (modelica_real*) calloc(<%tmpvarsSize%>,sizeof(modelica_real));
-      hessian->lambdaVars = (modelica_real*) calloc(<%lambdaSize%>,sizeof(modelica_real));
+      hessian->lambdaVars = (modelica_real*) calloc(<%indexColumn%>,sizeof(modelica_real));
 
       TRACE_POP
       return 0;
