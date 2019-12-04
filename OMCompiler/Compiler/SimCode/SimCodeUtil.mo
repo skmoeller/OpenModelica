@@ -576,7 +576,7 @@ algorithm
                           collect symbolic hessians
       ###################################################################
     */
-    (SymbolicHesss, uniqueEqIndex) := createHessianCode(symHesss, modelInfo, uniqueEqIndex);
+    (SymbolicHesss, uniqueEqIndex) := createHessianCode(symHesss, modelInfo, uniqueEqIndex, SymbolicJacs);
     (SymbolicHesss, modelInfo) := addAlgebraicLoopsModelInfoSymHesss(SymbolicHesss, modelInfo);
 
     // map index also odeEquations and algebraicEquations
@@ -4987,6 +4987,7 @@ public function createHessianCode
   input BackendDAE.SymbolicHessians inSymHesss;
   input SimCode.ModelInfo inModelInfo;
   input Integer iuniqueEqIndex;
+  input list<SimCode.JacobianMatrix> symJacs; //For seed vars
   output list<SimCode.HessianMatrix> res = {};
   output Integer ouniqueEqIndex;
 protected
@@ -5000,7 +5001,7 @@ algorithm
         // dataReconciliation is involved and pass the matrix names
   crefSimVarHT := createCrefToSimVarHT(inModelInfo);
   matrixnames := {"A", "B", "C"};
-  (res, ouniqueEqIndex) := createSymbolicHessiansSimCode(inSymHesss, crefSimVarHT, iuniqueEqIndex, matrixnames, res);
+  (res, ouniqueEqIndex) := createSymbolicHessiansSimCode(inSymHesss, crefSimVarHT, iuniqueEqIndex, matrixnames, symJacs,res);
 end createHessianCode;
 
 public function createSymbolicHessiansSimCode
@@ -5010,6 +5011,7 @@ public function createSymbolicHessiansSimCode
   input SimCode.HashTableCrefToSimVar inSimVarHT;
   input Integer iuniqueEqIndex;
   input list<String> inNames;
+  input list<SimCode.JacobianMatrix> symJacs;
   input list<SimCode.HessianMatrix> inHessianMatrixes;
   output list<SimCode.HessianMatrix> outHessianMatrixes;
   output Integer ouniqueEqIndex;
@@ -5031,7 +5033,9 @@ algorithm
       list<SimCode.SimEqSystem> columnEquations;
       list<SimCodeVar.SimVar> columnVars;
       list<SimCodeVar.SimVar> lambdaSimVars;
-      list<SimCodeVar.SimVar> allSeedVars, seedVarsMatrix, seedVarsMatrix1, indexVars, seedIndexVars;
+      list<SimCodeVar.SimVar> jacSeedVars={};
+      list<SimCodeVar.SimVar> allSeedVars={};
+      list<SimCodeVar.SimVar> seedVarsMatrix, seedVarsMatrix1;
 
       String nameFirstMatrix, nameSecondMatrix;
       list<String> restnames;
@@ -5047,12 +5051,14 @@ algorithm
 
     case (NONE()::rest, _::restnames)
       algorithm
-        (outHessianMatrixes, ouniqueEqIndex) := createSymbolicHessiansSimCode(rest, inSimVarHT, iuniqueEqIndex, restnames, inHessianMatrixes);
+        (outHessianMatrixes, ouniqueEqIndex) := createSymbolicHessiansSimCode(rest, inSimVarHT, iuniqueEqIndex, restnames, symJacs, inHessianMatrixes);
     then (outHessianMatrixes, ouniqueEqIndex);
 
     case (SOME((BackendDAE.DAE(eqs={syst as BackendDAE.EQSYSTEM(matching=BackendDAE.MATCHING(comps=comps))},shared=shared),nameFirstMatrix,jac,diffVars,diffedVars,alldiffedVars,lambdaVars))::rest, _::restnames)
       algorithm
         nameSecondMatrix := (nameFirstMatrix+"1");
+
+        nRows :=  listLength(lambdaVars); // listLength(columnEquations) ?
 
         // generate also discrete equations, they might be introduced by wrapFunctionCalls
         (columnEquations, _, uniqueEqIndex, _) := createEquations(false, false, true, false, syst, shared, comps, iuniqueEqIndex, {});
@@ -5063,33 +5069,38 @@ algorithm
         columnVars := List.map1(columnVars, setSimVarMatrixName, SOME(nameFirstMatrix));
         columnVars := rewriteIndex(columnVars, 0);
 
-        diffCompRefs := list(v.varName for v in diffVars); // is this right?
-        diffedCompRefs := list(v.varName for v in diffedVars); // is this right?
+        for mat in symJacs loop
+          jacSeedVars := match mat
+            local
+              String matrixName;
+              list<SimCodeVar.SimVar> seedVars;
+            case SimCode.JAC_MATRIX(seedVars=seedVars,matrixName=matrixName) guard stringEqual(matrixName,nameFirstMatrix)
+            then seedVars;
+          else then jacSeedVars;
+          end match;
+        end for;
 
-        allSeedVars := getSimVars2Crefs(diffCompRefs, inSimVarHT);
-        allSeedVars := List.sort(allSeedVars, compareVarIndexGt);
-
-        indexVars := getSimVars2Crefs(diffedCompRefs, inSimVarHT);
-        indexVars := List.sort(indexVars, compareVarIndexGt);
-
-        allSeedVars := rewriteIndex(allSeedVars, 0);
-        indexVars := rewriteIndex(indexVars, 0);
-        seedIndexVars := listAppend(allSeedVars, indexVars);
-
-        nRows :=  listLength(lambdaVars); // listLength(columnEquations) ?
+        /*print("\n\n jacSeedVars\n");
+        for simvar in jacSeedVars loop
+          print("var: " + HpcOmMemory.dumpSimCodeVar(simvar) + "\n");
+        end for;*/
 
         // create seed vars first seed
-        seedVarsMatrix := replaceSeedVarsName(allSeedVars, nameFirstMatrix);
-        seedVarsMatrix := List.map1(seedVarsMatrix, setSimVarKind, BackendDAE.SEED_VAR(b=false));
+        seedVarsMatrix := List.map1(jacSeedVars, setSimVarKind, BackendDAE.SEED_VAR(b=false));
         seedVarsMatrix := List.map1(seedVarsMatrix, setSimVarMatrixName, SOME(nameFirstMatrix));
 
         // create seed vars second seed
-        seedVarsMatrix1 := replaceSeedVarsName(allSeedVars, nameSecondMatrix);
+        seedVarsMatrix1 := replaceSeedVarsNameForHessian(jacSeedVars, nameSecondMatrix);
         seedVarsMatrix1 := List.map1(seedVarsMatrix1, setSimVarKind, BackendDAE.SEED_VAR(b=true));
-        seedVarsMatrix1 := List.map1(seedVarsMatrix1, setSimVarMatrixName, SOME(nameFirstMatrix)); // matrix name does not change
+        seedVarsMatrix1 := List.map1(seedVarsMatrix1, setSimVarMatrixName, SOME(nameSecondMatrix)); // matrix name does not change
 
         // concenate seed vars
         allSeedVars := listAppend(seedVarsMatrix, seedVarsMatrix1);
+
+        /*print("\n\n allSeedVars\n");
+        for simvar in allSeedVars loop
+          print("var: " + HpcOmMemory.dumpSimCodeVar(simvar) + "\n");
+        end for;*/
 
         // create the lambda variable
         lambdaCompRefs := list(v.varName for v in lambdaVars);
@@ -5108,83 +5119,7 @@ algorithm
         // bump equation index
         uniqueEqIndex := iuniqueEqIndex + listLength(columnEquations);
 
-        (hessianMatrixLst, uniqueEqIndex) := createSymbolicHessiansSimCode(rest, inSimVarHT, uniqueEqIndex, restnames, hessianMatrixLst);
-
-        // create SimCodeVar.SimVars from hessian vars
-        /*
-        nameSecondSeed := (nameFirstSeed+"1");
-        dummyVar1 := ("dummyVar" + nameFirstSeed);
-        x1 := DAE.CREF_IDENT(dummyVar1, DAE.T_REAL_DEFAULT, {});
-        dummyVar2 := ("dummyVar" + nameSecondSeed);
-        x2 := DAE.CREF_IDENT(dummyVar2, DAE.T_REAL_DEFAULT, {});
-
-        emptyVars :=  BackendVariable.emptyVars();
-        // get cse and other aux vars  > columnVars => for the Hessian it holds just var 'HessianA'
-        ((allVars, _)) := BackendVariable.traverseBackendDAEVars(syst.orderedVars, getFurtherVars , ({}, x1));
-        systvars := BackendVariable.listVar1(allVars);
-        ((otherColumnVars, _)) :=  BackendVariable.traverseBackendDAEVars(systvars, traversingdlowvarToSimvar, ({}, emptyVars));
-        otherColumnVars := List.map1(otherColumnVars, setSimVarKind, BackendDAE.HESS_DIFF_VAR());
-        otherColumnVars := List.map1(otherColumnVars, setSimVarMatrixName, SOME(nameFirstSeed));
-        otherColumnVars := rewriteIndex(otherColumnVars, 0);
-
-        //sort variable for index
-        empty := BackendVariable.listVar1(alldiffedVars);
-        allCrefs := List.map(alldiffedVars, BackendVariable.varCref);
-        columnVarsSeed1 := getSimVars2Crefs(allCrefs, inSimVarHT);
-        columnVarsSeed1 := List.sort(columnVarsSeed1, compareVarIndexGt);
-        (_, (_, alldiffedVars)) := List.mapFoldTuple(columnVarsSeed1, sortBackVarWithSimVarsOrder, (empty, {}));
-        alldiffedVars := listReverse(alldiffedVars);
-        vars := BackendVariable.listVar1(diffedVars);
-
-        columnVarsSeed2 := columnVarsSeed1;
-
-        // dump vars with dumpSimCodeVar
-        columnVars := {};
-        columnVarsSeed1 := createAllDiffedSimVars(alldiffedVars, x1, vars, 0, listLength(columnVarsSeed1), nameFirstSeed, columnVarsSeed1);
-        columnVars := listAppend(columnVarsSeed1,columnVars);
-
-        print("\n\n columnVars1\n");
-        for simvar in columnVars loop
-          print("var: " + HpcOmMemory.dumpSimCodeVar(simvar) + "\n");
-        end for;
-
-        diffedVarsHelp := BackendVariable.listVar(diffedVars);
-        alldiffedVars := SymbolicJacobian.createAllDiffedVars(diffVars, x1, diffedVarsHelp, nameFirstSeed);
-        columnVarsSeed2 := createAllDiffedSimVars(alldiffedVars, x2, vars, 0, listLength(columnVarsSeed1), nameSecondSeed, columnVarsSeed1);
-        columnVars := listAppend(columnVarsSeed2,columnVars);
-
-        print("\n\n columnVars2\n");
-        for simvar in columnVars loop
-          print("var: " + HpcOmMemory.dumpSimCodeVar(simvar) + "\n");
-        end for;
-        */
-/*
-        seedVars = getSimVars2Crefs(diffCompRefs, inSimVarHT);
-        seedVars = List.sort(seedVars, compareVarIndexGt);
-
-        indexVars = getSimVars2Crefs(diffedCompRefs, inSimVarHT);
-        indexVars = List.sort(indexVars, compareVarIndexGt);
-
-        seedVars = rewriteIndex(seedVars, 0);
-        indexVars = rewriteIndex(indexVars, 0);
-        seedIndexVars = listAppend(seedVars, indexVars);
-
-        nRows =  listLength(diffedVars);
-
-        // create seed vars
-        seedVars = replaceSeedVarsName(seedVars, nameFirstSeed);
-        seedVars = List.map1(seedVars, setSimVarKind, BackendDAE.SEED_VAR(b=false));
-        seedVars = List.map1(seedVars, setSimVarMatrixName, SOME(nameFirstSeed));
-
-        // create hash table for this Hessians
-        crefToSimVarHTHessian = HashTableCrefSimVar.emptyHashTableSized(listLength(seedVars)+ listLength(columnVars));
-        crefToSimVarHTHessian = List.fold(seedVars, HashTableCrefSimVar.addSimVarToHashTable, crefToSimVarHTJacobian);
-        crefToSimVarHTHessian = List.fold(columnVars, HashTableCrefSimVar.addSimVarToHashTable, crefToSimVarHTJacobian);
-
-        tmpHess = SimCode.HESS_MATRIX({SimCode.JAC_COLUMN(columnEquations, columnVars, nRows)}, seedVars, nameFirstSeed, -1, 0, SOME(crefToSimVarHTJacobian));
-        linearModelMatrices = tmpHess::inHessianMatrixes;
-        (linearModelMatrices, uniqueEqIndex) = createSymbolicHessiansSimCode(rest, inSimVarHT, uniqueEqIndex, restnames, linearModelMatrices);
-        */
+        (hessianMatrixLst, uniqueEqIndex) := createSymbolicHessiansSimCode(rest, inSimVarHT, uniqueEqIndex, restnames, symJacs, hessianMatrixLst);
      then
         (hessianMatrixLst, uniqueEqIndex);
     else
@@ -5222,6 +5157,22 @@ algorithm
   end for;
   outSimVars := Dangerous.listReverseInPlace(outSimVars);
 end replaceSeedVarsName;
+
+protected function replaceSeedVarsNameForHessian
+  input list<SimCodeVar.SimVar> inVars;
+  input String inMatrixName;
+  output list<SimCodeVar.SimVar> outSimVars = {};
+protected
+  DAE.ComponentRef newCref, oldCref, newLastCref;
+algorithm
+  for v in inVars loop
+      oldCref := varName(v);
+      newLastCref := ComponentReference.makeCrefIdent("Seed" + inMatrixName, DAE.T_UNKNOWN_DEFAULT, {});
+      newCref := ComponentReference.replaceLast(oldCref, newLastCref);
+      outSimVars := replaceSimVarName(newCref, v)::outSimVars;
+  end for;
+  outSimVars := Dangerous.listReverseInPlace(outSimVars);
+end replaceSeedVarsNameForHessian;
 
 protected function sortBackVarWithSimVarsOrder
   input tuple<SimCodeVar.SimVar, tuple<BackendDAE.Variables, list<BackendDAE.Var>>> inTuple;
