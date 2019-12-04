@@ -5098,7 +5098,7 @@ template initialAnalyticHessians(list<JacobianColumn> jacobianColumn, list<SimVa
       DATA* data = ((DATA*)inData);
 
       hessian->sizeCols = <%index_%>;
-      hessian->sizeRows = <%indexColumn%>;
+      hessian->sizeRows = <%index_%>;
       hessian->sizeTmpVars = <%tmpvarsSize%>;
       hessian->seedVars = (modelica_real*) calloc(<%index_%>,sizeof(modelica_real));
       hessian->seedVars1 = (modelica_real*) calloc(<%index_%>,sizeof(modelica_real));

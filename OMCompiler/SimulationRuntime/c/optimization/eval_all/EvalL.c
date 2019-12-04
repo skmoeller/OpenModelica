@@ -245,7 +245,7 @@ static inline void num_hessian0(double * v, const double * const lambda,
     /* ---------------------- REPLACE WITH HESSIAN ---------------*/
     diffSynColoredOptimizerSystem(optData, optData->tmpJ, i,j,2);
 
-    for(l = 0; l < nv; ++l){
+    for(l = 0; l < nJ; ++l){
       const int h_index = optData->s.indexABCD_Hess[2];
       optData->data->simulationInfo->analyticHessians[h_index].lambdaVars[l] = 1;
       getHessianMatrix(optData, optData->H[l], i,j,2);

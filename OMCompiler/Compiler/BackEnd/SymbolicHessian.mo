@@ -143,7 +143,7 @@ algorithm
       paramvarsarr = BackendVariable.listVar1(paramvars);
 
       (SOME(symjac), functionTree,_,_) = SymbolicJacobian.generateGenericJacobian(hessDae,states,statesarr,inputvarsarr,paramvarsarr,statesarr,varlst,"A1",false,true); //generate second derivates
-      (hessDae,_,diffVars,diffedVars,allDiffedVars,_) = symjac;
+      (hessDae,_,_,diffedVars,allDiffedVars,_) = symjac;
 
       hessDae = BackendDAEUtil.setFunctionTree(hessDae, functionTree);
       hessDae = setHessianMatrix(hessDae,nameMatrix); //add up the equations
@@ -177,7 +177,7 @@ algorithm
       paramvarsarr = BackendVariable.listVar1(paramvars);
 
       (SOME(symjac), functionTree,_,_) = SymbolicJacobian.generateGenericJacobian(hessDae,states_inputs,statesarr,inputvarsarr,paramvarsarr,statesarr,varlst,"B1",false,true);
-      (hessDae,_,diffVars,diffedVars,allDiffedVars,_) = symjac;
+      (hessDae,_,_,diffedVars,allDiffedVars,_) = symjac;
 
       hessDae = BackendDAEUtil.setFunctionTree(hessDae, functionTree);
       hessDae = setHessianMatrix(hessDae,nameMatrix);
@@ -215,7 +215,7 @@ algorithm
       optimizer_vars = BackendVariable.addVars(object, optimizer_vars);
 
       (SOME(symjac), functionTree,_,_) = SymbolicJacobian.generateGenericJacobian(hessDae,states_inputs,statesarr,inputvarsarr,paramvarsarr,optimizer_vars,varlst,"C1",false,true);
-      (hessDae,_,diffVars,diffedVars,allDiffedVars,_) = symjac;
+      (hessDae,_,_,diffedVars,allDiffedVars,_) = symjac;
 
       hessDae = BackendDAEUtil.setFunctionTree(hessDae, functionTree);
       hessDae = setHessianMatrix(hessDae,nameMatrix);

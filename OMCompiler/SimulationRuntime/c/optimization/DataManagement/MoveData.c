@@ -919,8 +919,8 @@ void getHessianMatrix(OptData *optData, long double **H, const int m, const int 
     printf("result var: %f\n", hessian->resultVars[0]);
     fflush(stdout);
     printf("matrix elem: %Lf\n", H[i][k]);
+    printf("result var: %f\n", hessian->resultVars[0]);
     */
-    //printf("result var: %f\n", hessian->resultVars[0]);
     H[i][k] = (modelica_real) hessian->resultVars[0];
     hessian->seedVars1[k] = 0;
   }
