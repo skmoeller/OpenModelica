@@ -95,8 +95,8 @@ end generateSymbolicHessian;
 protected function createSymbolicHessian
   "Function creates the symbolic Hessians for the Jacobians A, B and C (D is not needed)
    Matrix A :  Differentiate the eqns system  w.r.t. states
-   Matrix B :  Differentiate the eqns system  w.r.t. states & inputs
-   Matrix C : Differentiate the eqns system including meyer & lagrange term w.r.t. states & inputs
+   Matrix B :  Differentiate the eqns system including constraints  w.r.t. states & inputs
+   Matrix C :  Differentiate the eqns system including constraints & mayer & lagrange term w.r.t. states & inputs
    "
   input BackendDAE.SymbolicJacobian InSymJac "Symbolic Jacobian Matrix";
   output Option<BackendDAE.SymbolicHessian> Hessian "Symbolic Hessian Matrix";
@@ -118,14 +118,6 @@ algorithm
       hessDae = BackendDAEOptimize.collapseIndependentBlocks(hessDae);
       hessDae = BackendDAEUtil.transformBackendDAE(hessDae,SOME((BackendDAE.NO_INDEX_REDUCTION(),BackendDAE.EXACT())),NONE(),NONE());
       BackendDAE.DAE({BackendDAE.EQSYSTEM(orderedVars = v)}, BackendDAE.SHARED(globalKnownVars = globalKnownVars)) = hessDae;
-
-      /*Dumps for more or less all Vars*/
-      //BackendDump.dumpDAE(hessDae);
-      //BackendDump.dumpVarList(diffVars,"diffVars");
-      //BackendDump.dumpVarList(diffedVars,"diffedVars");
-      //BackendDump.dumpVarList(allDiffedVars,"allDiffedVars");
-      //BackendDump.dumpVariables(v, "orderedVars");
-      //BackendDump.dumpVariables(globalKnownVars, "globalKnownVars");
 
       // Prepare all needed variables
       varlst = BackendVariable.varList(v);
@@ -149,7 +141,7 @@ algorithm
       hessDae = setHessianMatrix(hessDae,nameMatrix); //add up the equations
     then SOME((hessDae,nameMatrix,InSymJac,diffVars,diffedVars,allDiffedVars,lambdaVars));
 
-    case (backendDAE,nameMatrix,diffVars,_,allDiffedVars,_) guard stringEqual(nameMatrix,"B")
+    case (backendDAE,nameMatrix,diffVars,diffedVars,allDiffedVars,_) guard stringEqual(nameMatrix,"B")
     equation
       hessDae = BackendDAEUtil.copyBackendDAE(backendDAE);
       (hessDae,lambdaVars) = multiplyLambdas(hessDae, nameMatrix); //multiple the lagrange factors
@@ -157,33 +149,57 @@ algorithm
       hessDae = BackendDAEUtil.transformBackendDAE(hessDae,SOME((BackendDAE.NO_INDEX_REDUCTION(),BackendDAE.EXACT())),NONE(),NONE());
       BackendDAE.DAE({BackendDAE.EQSYSTEM(orderedVars = v)}, BackendDAE.SHARED(globalKnownVars = globalKnownVars)) = hessDae;
 
+      /*Dumps for more or less all Vars*/
+      //BackendDump.dumpDAE(hessDae);
       //BackendDump.dumpVarList(diffVars,"diffVars");
       //BackendDump.dumpVarList(diffedVars,"diffedVars");
       //BackendDump.dumpVarList(allDiffedVars,"allDiffedVars");
+      //BackendDump.dumpVariables(v, "orderedVars");
+      //BackendDump.dumpVariables(globalKnownVars, "globalKnownVars");
 
       // Prepare all needed variables
       varlst = BackendVariable.varList(v);
-      states = diffVars;
+      states = List.select(diffVars, BackendVariable.isStateVar);
+      //BackendDump.dumpVarList(states, "states");
       knvarlst = BackendVariable.varList(globalKnownVars);
-
-      inputvars = List.select(allDiffedVars,BackendVariable.isInput);
+      //BackendDump.dumpVarList(knvarlst,"knvarlst");
+      inputvars = List.select(diffVars,BackendVariable.isInput);
+      //BackendDump.dumpVarList(inputvars,"inputvars");
       paramvars = List.select(knvarlst, BackendVariable.isParam);
-      inputvars2 = List.select(diffVars,BackendVariable.isVarOnTopLevelAndInputNoDerInput); // without der(u)
-
-      states_inputs = listAppend(states, inputvars2);
+      //BackendDump.dumpVarList(paramvars,"paramvars");
+      //BackendDump.dumpVarList(conVarsList, "conVarsList hes");
+      states_inputs = diffVars;
+      //BackendDump.dumpVarList(states_inputs, "states_inputs");
 
       statesarr = BackendVariable.listVar1(states);
       inputvarsarr = BackendVariable.listVar1(inputvars);
       paramvarsarr = BackendVariable.listVar1(paramvars);
 
-      (SOME(symjac), functionTree,_,_) = SymbolicJacobian.generateGenericJacobian(hessDae,states_inputs,statesarr,inputvarsarr,paramvarsarr,statesarr,varlst,"B1",false,true);
+      optimizer_vars = BackendVariable.listVar1(diffedVars);
+
+      //print("System for Matrix B HESSIAN\n\n");
+      //print("DAE Hes\n");
+      //BackendDump.dumpDAE(hessDae);
+      //print("\n");
+      //BackendDump.dumpVarList(states_inputs, "states_inputs hes");
+      //print("statesarr hes\n\n");
+      //BackendDump.printVariables(statesarr);
+      //print("inputvarsarr hes\n\n");
+      //BackendDump.printVariables(inputvarsarr);
+      //print("paramvarsarr hes\n\n");
+      //BackendDump.printVariables(paramvarsarr);
+      //print("optimizer_vars hes\n\n");
+      //BackendDump.printVariables(optimizer_vars);
+      //BackendDump.dumpVarList(varlst, "varlst hes");
+
+      (SOME(symjac), functionTree,_,_) = SymbolicJacobian.generateGenericJacobian(hessDae,states_inputs,statesarr,inputvarsarr,paramvarsarr,optimizer_vars,varlst,"B1",false,true);
       (hessDae,_,_,diffedVars,allDiffedVars,_) = symjac;
 
       hessDae = BackendDAEUtil.setFunctionTree(hessDae, functionTree);
       hessDae = setHessianMatrix(hessDae,nameMatrix);
     then SOME((hessDae,nameMatrix,InSymJac,diffVars,diffedVars,allDiffedVars,lambdaVars));
 
-    case (backendDAE,nameMatrix,diffVars,_,allDiffedVars,_) guard stringEqual(nameMatrix,"C")
+    case (backendDAE,nameMatrix,diffVars,diffedVars,allDiffedVars,_) guard stringEqual(nameMatrix,"C")
     equation
       hessDae = BackendDAEUtil.copyBackendDAE(backendDAE);
       (hessDae,lambdaVars) = multiplyLambdas(hessDae, nameMatrix); //multiple the lagrange factors
@@ -193,26 +209,25 @@ algorithm
 
       // Prepare all needed variables
       varlst = BackendVariable.varList(v);
-      states = diffVars;
+      states = List.select(diffVars, BackendVariable.isStateVar);
+      //BackendDump.dumpVarList(states, "states");
       knvarlst = BackendVariable.varList(globalKnownVars);
-
-      inputvars = List.select(allDiffedVars,BackendVariable.isInput);
+      //BackendDump.dumpVarList(knvarlst,"knvarlst");
+      inputvars = List.select(diffVars,BackendVariable.isInput);
+      //BackendDump.dumpVarList(inputvars,"inputvars");
       paramvars = List.select(knvarlst, BackendVariable.isParam);
-      inputvars2 = List.select(diffVars,BackendVariable.isVarOnTopLevelAndInputNoDerInput); // without der(u)
-      outputvars = List.select(allDiffedVars, BackendVariable.isVarOnTopLevelAndOutput);
-
-      states_inputs = listAppend(states, inputvars2);
+      //BackendDump.dumpVarList(paramvars,"paramvars");
+      //BackendDump.dumpVarList(conVarsList, "conVarsList hes");
+      states_inputs = diffVars;
+      //BackendDump.dumpVarList(states_inputs, "states_inputs");
 
       statesarr = BackendVariable.listVar1(states);
       inputvarsarr = BackendVariable.listVar1(inputvars);
       paramvarsarr = BackendVariable.listVar1(paramvars);
-      outputvarsarr = BackendVariable.listVar1(outputvars);
 
-      optimizer_vars = statesarr;
-      object = DynamicOptimization.checkObjectIsSet(outputvarsarr, BackendDAE.optimizationLagrangeTermName);
-      optimizer_vars = BackendVariable.addVars(object, optimizer_vars);
-      object = DynamicOptimization.checkObjectIsSet(outputvarsarr, BackendDAE.optimizationMayerTermName);
-      optimizer_vars = BackendVariable.addVars(object, optimizer_vars);
+      optimizer_vars = BackendVariable.listVar1(diffedVars);
+      print("optimizer_vars hes\n\n");
+      BackendDump.printVariables(optimizer_vars);
 
       (SOME(symjac), functionTree,_,_) = SymbolicJacobian.generateGenericJacobian(hessDae,states_inputs,statesarr,inputvarsarr,paramvarsarr,optimizer_vars,varlst,"C1",false,true);
       (hessDae,_,_,diffedVars,allDiffedVars,_) = symjac;

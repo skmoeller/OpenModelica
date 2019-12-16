@@ -1879,13 +1879,21 @@ algorithm
 
         // Prepare all needed variables
         varlst = BackendVariable.varList(v);
+        //BackendDump.dumpVarList(varlst,"varlst jac");
         knvarlst = BackendVariable.varList(globalKnownVars);
+        //BackendDump.dumpVarList(knvarlst,"knvarlst jac ");
         states = BackendVariable.getAllStateVarFromVariables(v);
+        //BackendDump.dumpVarList(states, "states jac");
         inputvars = List.select(knvarlst,BackendVariable.isInput);
+        //BackendDump.dumpVarList(inputvars, "inputvars jac");
         paramvars = List.select(knvarlst, BackendVariable.isParam);
+        //BackendDump.dumpVarList(paramvars, "paramvars jac");
         inputvars2 = List.select(knvarlst,BackendVariable.isVarOnTopLevelAndInputNoDerInput); // without der(u)
+        //BackendDump.dumpVarList(inputvars2, "inputvars2 jac");
         outputvars = List.select(varlst, BackendVariable.isVarOnTopLevelAndOutput);
+        //BackendDump.dumpVarList(outputvars, "outputvars jac");
         conVarsList = List.select(varlst, BackendVariable.isRealOptimizeConstraintsVars);
+        //BackendDump.dumpVarList(conVarsList, "conVarsList jac");
         fconVarsList = List.select(varlst, BackendVariable.isRealOptimizeFinalConstraintsVars); // ToDo: FinalCon
 
         states_inputs = listAppend(states, inputvars2);
@@ -1913,9 +1921,29 @@ algorithm
         // Differentiate the System w.r.t states&inputs for matrices B
 
         optimizer_vars = BackendVariable.addVariables(statesarr, BackendVariable.copyVariables(conVars));
-        object = DynamicOptimization.checkObjectIsSet(outputvarsarr, BackendDAE.optimizationLagrangeTermName);
-        optimizer_vars = BackendVariable.addVars(object, optimizer_vars);
+        //print("optimizer_vars1 jac\n\n");
         //BackendDump.printVariables(optimizer_vars);
+        object = DynamicOptimization.checkObjectIsSet(outputvarsarr, BackendDAE.optimizationLagrangeTermName);
+        //BackendDump.dumpVarList(object, "object jac");
+        optimizer_vars = BackendVariable.addVars(object, optimizer_vars);
+        //print("optimizer_vars2 jac\n\n");
+        //BackendDump.printVariables(optimizer_vars);
+
+        //print("System for Matrix B\n\n");
+        //print("DAE\n");
+        //BackendDump.dumpDAE(backendDAE2);
+        //print("\n");
+        //BackendDump.dumpVarList(states_inputs, "states_inputs jac");
+        //print("statesarr jac\n\n");
+        //BackendDump.printVariables(statesarr);
+        //print("inputvarsarr jac\n\n");
+        //BackendDump.printVariables(inputvarsarr);
+        //print("paramvarsarr jac\n\n");
+        //BackendDump.printVariables(paramvarsarr);
+        //print("optimizer_vars jac\n\n");
+        //BackendDump.printVariables(optimizer_vars);
+        //BackendDump.dumpVarList(varlst, "varlst jac");
+
         (linearModelMatrix, funcs, sparsePattern, sparseColoring) = generateGenericJacobian(backendDAE2,states_inputs,statesarr,inputvarsarr,paramvarsarr,optimizer_vars,varlst,"B",false);
         functionTree = DAE.AvlTreePathFunction.join(functionTree, funcs);
         backendDAE2 = BackendDAEUtil.setFunctionTree(backendDAE2, functionTree);
