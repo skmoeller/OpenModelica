@@ -113,7 +113,6 @@ algorithm
 
     case (backendDAE,nameMatrix,diffVars,diffedVars,allDiffedVars,_) guard stringEqual(nameMatrix,"A") or stringEqual(nameMatrix,"B") or stringEqual(nameMatrix,"C")
     algorithm
-
       hessDae := BackendDAEUtil.copyBackendDAE(backendDAE);
       (hessDae,lambdaVars) := multiplyLambdas(hessDae, nameMatrix); //multiple the lagrange factors
       hessDae := BackendDAEOptimize.collapseIndependentBlocks(hessDae);
@@ -170,7 +169,6 @@ algorithm
 
       (SOME(symjac), functionTree,_,_) := SymbolicJacobian.generateGenericJacobian(hessDae, states_inputs, statesarr, inputvarsarr, paramvarsarr, optimizer_vars, varlst ,nameHessian, false, true); //generate second derivates
       (hessDae,_,_,diffedVars,allDiffedVars,_) := symjac;
-
       hessDae := BackendDAEUtil.setFunctionTree(hessDae, functionTree);
       hessDae := setHessianMatrix(hessDae,nameMatrix); //add up the equations
     then SOME((hessDae,nameMatrix,InSymJac,diffVars,diffedVars,allDiffedVars,lambdaVars));
@@ -193,7 +191,7 @@ protected
   BackendDAE.Shared shared;
   BackendDAE.Equation eq;
   DAE.Exp eqExpr;
-  list<BackendDAE.Equation> innerEqns = {}, residualEqns = {}, lambdaEqns ={};
+  list<BackendDAE.Equation> innerEqns = {}, LagrangianEqns = {}, lambdaEqns ={};
 algorithm
   /*more or less the dae's should be the same, just multiple a lambda*/
   lambdaJac := jac;
@@ -205,20 +203,20 @@ algorithm
 
   shared := lambdaJac.shared;
 
-  (innerEqns,residualEqns) := BackendEquation.traverseEquationArray(eqns, assignEqnToInnerOrResidualFirstDerivatives, (innerEqns, residualEqns));
+  (innerEqns,LagrangianEqns) := BackendEquation.traverseEquationArray(eqns, assignEqnToInnerOrResidualFirstDerivatives, (innerEqns, LagrangianEqns));
   //BackendDump.dumpEquationArray(eqns, "filtered eqns");
-  lambdasOption := if Flags.getConfigBool(Flags.GENERATE_SYMBOLIC_HESSIAN) and (listLength(residualEqns)<>0) then SOME(getLambdaList(listLength(residualEqns))) else NONE();
+  lambdasOption := if Flags.getConfigBool(Flags.GENERATE_SYMBOLIC_HESSIAN) and (listLength(LagrangianEqns)<>0) then SOME(getLambdaList(listLength(LagrangianEqns))) else NONE();
 
   if isSome(lambdasOption) then
     SOME(lambdas) := lambdasOption;
     //BackendDump.dumpEquationList(innerEqns, "inner Equations");
-    //BackendDump.dumpEquationList(residualEqns, "residualEqns");
+    //BackendDump.dumpEquationList(LagrangianEqns, "LagrangianEqns");
 
     /*get ordered equations from jac
     traverse and multiply each lambda on rhs
     e1.rhs -> e1.rhs * lambda[1]*/
     for lambdaList in lambdas loop
-      eq::residualEqns := residualEqns;
+      eq::LagrangianEqns := LagrangianEqns;
       eqExpr := BackendEquation.getEquationRHS(eq);
       eqExpr := multiplyLambda2Expression(eqExpr, lambdaList);
       eq := BackendEquation.setEquationRHS(eq, eqExpr);
@@ -285,26 +283,24 @@ protected
   BackendDAE.Equation eq;
   DAE.Exp eqExpr;
   list<DAE.Exp> hessExpr = {};
-  list<BackendDAE.Equation> mayerLagrange = {}, residualEqns = {};
+  list<BackendDAE.Equation> mayerLagrange = {}, LagrangianEqns = {};
   DAE.ComponentRef hessCref = ComponentReference.makeCrefIdent(Util.hessianIdent + matrixName, DAE.T_REAL_DEFAULT, {});
 algorithm
   outHessDae := inHessDae;
-
   {eqs} := outHessDae.eqs;
   BackendDAE.EQSYSTEM(orderedVars = vars, orderedEqs = eqns) := eqs;
   hessEqns := eqns;
-
   shared := outHessDae.shared;
 
-  (mayerLagrange,residualEqns) := BackendEquation.traverseEquationArray(eqns, assignEqnToInnerOrResidualSecondDerivatives, (mayerLagrange, residualEqns));
+  (mayerLagrange,LagrangianEqns) := BackendEquation.traverseEquationArray(eqns, assignEqnToInnerOrResidualSecondDerivatives, (mayerLagrange, LagrangianEqns));
   //BackendDump.dumpEquationArray(eqns, "filtered eqns");
-  //BackendDump.dumpEquationList(residualEqns, "residualEqns");
+  //BackendDump.dumpEquationList(LagrangianEqns, "LagrangianEqns");
   //BackendDump.dumpEquationList(mayerLagrange, "mayerLagrange");
 
   /*get ordered equations from the given dae
   traverse and sum up in one variable*/
-  if listLength(residualEqns)<>0 then
-    for equ in residualEqns loop
+  if listLength(LagrangianEqns)<>0 then
+    for equ in LagrangianEqns loop
       eqExpr := BackendEquation.getEquationRHS(equ);
       hessExpr := eqExpr::hessExpr;
       eq := equ;
@@ -315,9 +311,8 @@ algorithm
   end if;
   (vars, eqns) := addEquations(hessExpr, eq, matrixName, vars);
   vars := removeStateVars(vars, matrixName);
-  if matrixName=="C" then
-    BackendEquation.addList(mayerLagrange, eqns);
-  end if;
+  eqns := BackendEquation.addList(mayerLagrange, eqns);
+  //BackendDump.dumpEquationArray(eqns, "filtered eqns");
   /*Updating the DAE*/
   eqs.orderedEqs := eqns;
   eqs.orderedVars := vars;
@@ -397,14 +392,14 @@ algorithm
 end setHessianElement;
 
 protected function assignEqnToInnerOrResidualFirstDerivatives
-  "Functions splits the equation in a list of residual and inner equations (For multiply the lambdas to it -> just need $DER..)"
+  "Functions splits the equation in a list of Lagrangian and inner equations (For multiply the lambdas to it -> just need $DER and $con)"
   input output BackendDAE.Equation eqn;
   input output tuple<list<BackendDAE.Equation>, list<BackendDAE.Equation>> eqnTpl;
 protected
   list<BackendDAE.Equation> innerEqns, residualEqns;
 algorithm
   (innerEqns, residualEqns) := eqnTpl;
-  if not isInnerEqn(eqn) then
+  if (not isInnerEqn(eqn)) or isConstraint(eqn) then
     residualEqns := eqn :: residualEqns;
   else
     innerEqns := eqn :: innerEqns;
@@ -420,9 +415,9 @@ protected
   list<BackendDAE.Equation> mayerLagrange, residualEqns;
 algorithm
   (mayerLagrange, residualEqns) := eqnTpl;
-  if isResidualEqn(eqn) and not isObjectiveFunction(eqn) then
+  if isResidualEqn(eqn) or isConstraint(eqn) then
     residualEqns := eqn :: residualEqns;
-  elseif isObjectiveFunction(eqn) then
+  else
     mayerLagrange := eqn :: mayerLagrange;
   end if;
   eqnTpl := (mayerLagrange, residualEqns);
@@ -459,6 +454,22 @@ algorithm
     else true;
   end match;
 end isInnerEqn;
+
+protected function isConstraint
+  "Functions checks if a given Equation is an constraint"
+  input BackendDAE.Equation eqn;
+  output Boolean b;
+algorithm
+  b := match eqn
+    local
+      DAE.ComponentRef cr;
+    /* other eqn types relevant? */
+    case BackendDAE.EQUATION(exp = DAE.CREF(componentRef = cr))
+      guard(Util.stringStartsWith("$con",ComponentReference.crefFirstIdent(cr)))
+    then true;
+  else false;
+  end match;
+end isConstraint;
 
 protected function isObjectiveFunction
   "Functions checks if a given Equation is Mayer or Lagrange Term "
