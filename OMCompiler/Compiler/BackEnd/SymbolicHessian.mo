@@ -191,7 +191,7 @@ protected
   BackendDAE.Shared shared;
   BackendDAE.Equation eq;
   DAE.Exp eqExpr;
-  list<BackendDAE.Equation> innerEqns = {}, LagrangianEqns = {}, lambdaEqns ={};
+  list<BackendDAE.Equation> innerEqns = {}, stateEqs = {}, stateEqs = {}, constraints = {}, objectiv = {}, LagrangianEqns = {}, lambdaEqns ={};
 algorithm
   /*more or less the dae's should be the same, just multiple a lambda*/
   lambdaJac := jac;
@@ -203,20 +203,33 @@ algorithm
 
   shared := lambdaJac.shared;
 
-  (innerEqns,LagrangianEqns) := BackendEquation.traverseEquationArray(eqns, assignEqnToInnerOrResidualFirstDerivatives, (innerEqns, LagrangianEqns));
+  (innerEqns, stateEqs, constraints, objectiv) := BackendEquation.traverseEquationArray(eqns, assignEqnToInnerOrResidualFirstDerivatives, (innerEqns, stateEqs, constraints, objectiv));
   //BackendDump.dumpEquationArray(eqns, "filtered eqns");
+
+  //BackendDump.dumpEquationList(stateEqs, "stateEqs");
+  //BackendDump.dumpEquationList(constraints, "constraints");
+  //BackendDump.dumpEquationList(objectiv, "objectiv");
+
+  stateEqs := listReverse(stateEqs);
+  constraints := listReverse(constraints);
+  objectiv := listReverse(objectiv);
+
+  LagrangianEqns := listAppend(stateEqs,constraints);
+  LagrangianEqns := listAppend(LagrangianEqns,objectiv);
   lambdasOption := if Flags.getConfigBool(Flags.GENERATE_SYMBOLIC_HESSIAN) and (listLength(LagrangianEqns)<>0) then SOME(getLambdaList(listLength(LagrangianEqns))) else NONE();
 
   if isSome(lambdasOption) then
     SOME(lambdas) := lambdasOption;
     //BackendDump.dumpEquationList(innerEqns, "inner Equations");
     //BackendDump.dumpEquationList(LagrangianEqns, "LagrangianEqns");
+    lambdas := listReverse(lambdas);
 
     /*get ordered equations from jac
     traverse and multiply each lambda on rhs
     e1.rhs -> e1.rhs * lambda[1]*/
     for lambdaList in lambdas loop
       eq::LagrangianEqns := LagrangianEqns;
+      //print("Lambda:= "+ComponentReference.printComponentRefStr(lambdaList)+"\n");
       eqExpr := BackendEquation.getEquationRHS(eq);
       eqExpr := multiplyLambda2Expression(eqExpr, lambdaList);
       eq := BackendEquation.setEquationRHS(eq, eqExpr);
@@ -283,7 +296,7 @@ protected
   BackendDAE.Equation eq;
   DAE.Exp eqExpr;
   list<DAE.Exp> hessExpr = {};
-  list<BackendDAE.Equation> mayerLagrange = {}, LagrangianEqns = {};
+  list<BackendDAE.Equation> innerEqs = {}, LagrangianEqns = {};
   DAE.ComponentRef hessCref = ComponentReference.makeCrefIdent(Util.hessianIdent + matrixName, DAE.T_REAL_DEFAULT, {});
 algorithm
   outHessDae := inHessDae;
@@ -292,10 +305,10 @@ algorithm
   hessEqns := eqns;
   shared := outHessDae.shared;
 
-  (mayerLagrange,LagrangianEqns) := BackendEquation.traverseEquationArray(eqns, assignEqnToInnerOrResidualSecondDerivatives, (mayerLagrange, LagrangianEqns));
+  (innerEqs,LagrangianEqns) := BackendEquation.traverseEquationArray(eqns, assignEqnToInnerOrResidualSecondDerivatives, (innerEqs, LagrangianEqns));
   //BackendDump.dumpEquationArray(eqns, "filtered eqns");
   //BackendDump.dumpEquationList(LagrangianEqns, "LagrangianEqns");
-  //BackendDump.dumpEquationList(mayerLagrange, "mayerLagrange");
+  //BackendDump.dumpEquationList(innerEqs, "innerEqs");
 
   /*get ordered equations from the given dae
   traverse and sum up in one variable*/
@@ -311,7 +324,8 @@ algorithm
   end if;
   (vars, eqns) := addEquations(hessExpr, eq, matrixName, vars);
   vars := removeStateVars(vars, matrixName);
-  eqns := BackendEquation.addList(mayerLagrange, eqns);
+  //BackendDump.printVariables(vars);
+  eqns := BackendEquation.addList(innerEqs, eqns);
   //BackendDump.dumpEquationArray(eqns, "filtered eqns");
   /*Updating the DAE*/
   eqs.orderedEqs := eqns;
@@ -394,17 +408,21 @@ end setHessianElement;
 protected function assignEqnToInnerOrResidualFirstDerivatives
   "Functions splits the equation in a list of Lagrangian and inner equations (For multiply the lambdas to it -> just need $DER and $con)"
   input output BackendDAE.Equation eqn;
-  input output tuple<list<BackendDAE.Equation>, list<BackendDAE.Equation>> eqnTpl;
+  input output tuple<list<BackendDAE.Equation>, list<BackendDAE.Equation>, list<BackendDAE.Equation>, list<BackendDAE.Equation>> eqnTpl;
 protected
-  list<BackendDAE.Equation> innerEqns, residualEqns;
+  list<BackendDAE.Equation> innerEqns, stateEqs, constraints, objectiv;
 algorithm
-  (innerEqns, residualEqns) := eqnTpl;
-  if (not isInnerEqn(eqn)) or isConstraint(eqn) then
-    residualEqns := eqn :: residualEqns;
+  (innerEqns, stateEqs, constraints, objectiv) := eqnTpl;
+  if not isInnerEqn(eqn) then
+    stateEqs := eqn :: stateEqs;
+  elseif isConstraint(eqn) then
+    constraints := eqn :: constraints;
+  elseif isObjectiveLagrange(eqn) then
+    objectiv := eqn :: objectiv;
   else
     innerEqns := eqn :: innerEqns;
   end if;
-  eqnTpl := (innerEqns, residualEqns);
+  eqnTpl := (innerEqns, stateEqs, constraints, objectiv);
 end assignEqnToInnerOrResidualFirstDerivatives;
 
 protected function assignEqnToInnerOrResidualSecondDerivatives
@@ -471,7 +489,7 @@ algorithm
   end match;
 end isConstraint;
 
-protected function isObjectiveFunction
+protected function isObjectiveLagrange
   "Functions checks if a given Equation is Mayer or Lagrange Term "
   input BackendDAE.Equation eqn;
   output Boolean b;
@@ -481,11 +499,11 @@ algorithm
       DAE.ComponentRef cr;
     /* other eqn types relevant? */
     case BackendDAE.EQUATION(exp = DAE.CREF(componentRef = cr))
-      guard(Util.stringStartsWith("$OMC$",ComponentReference.crefFirstIdent(cr)))
+      guard(Util.stringStartsWith("$OMC$objectLagrangeTerm",ComponentReference.crefFirstIdent(cr)))
     then true;
   else false;
   end match;
-end isObjectiveFunction;
+end isObjectiveLagrange;
 
 protected function removeStateVars
   "Functions removes the first derivatives from the variables"
@@ -505,11 +523,7 @@ algorithm
         DAE.ComponentRef cr;
       case SOME(BackendDAE.VAR(varName = cr)) guard(Util.stringStartsWith("$DER",ComponentReference.crefFirstIdent(cr)) or ComponentReference.isConstraint(cr) or ComponentReference.isMayerOrLagrange(cr))
         equation
-          if not (matrixName=="C") then
-            variables = BackendVariable.deleteVar(cr, variables);
-          elseif not (ComponentReference.isMayerOrLagrange(cr)) then
-            variables = BackendVariable.deleteVar(cr, variables);
-          end if;
+          variables = BackendVariable.deleteVar(cr, variables);
         then "";
       else then "";
     end match;
