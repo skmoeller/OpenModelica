@@ -206,6 +206,9 @@ static inline void num_hessian0(double * v, const double * const lambda,
   const modelica_boolean upCost = la && objFactor != 0;
   DATA * data = optData->data;
   threadData_t *threadData = optData->threadData;
+  const int h_index = optData->s.indexABCD_Hess[2];
+
+  const long double * scaldt = optData->bounds.scaldt[0];
 
   const int nv = optData->dim.nv;
   const int nx = optData->dim.nx;
@@ -245,31 +248,37 @@ static inline void num_hessian0(double * v, const double * const lambda,
     /* ---------------------- REPLACE WITH HESSIAN ---------------*/
     diffSynColoredOptimizerSystem(optData, optData->tmpJ, i,j,2);
     for(l = 0; l < nJ; ++l){
-      const int h_index = optData->s.indexABCD_Hess[2];
       optData->data->simulationInfo->analyticHessians[h_index].lambdaVars[l] = 1;
       getHessianMatrix(optData, optData->H[l], i,j,2);
       optData->data->simulationInfo->analyticHessians[h_index].lambdaVars[l] = 0;
     }
+    printf("------------------------ %i, %i, %f, %f\n", i, j, (float)objFactor, (float)optData->bounds.scalb[i][j]);
+    optData->data->simulationInfo->analyticHessians[h_index].lambdaVars[nJ +1] = objFactor*optData->bounds.scalb[i][j]; // dt
+    getHessianMatrix(optData, optData->Hl, i,j,2);
+    optData->data->simulationInfo->analyticHessians[h_index].lambdaVars[nJ + 1] = 0.00;
     /*******************/
     v[ii] = (double)v_save;
     /*******************/
-    for(jj = nv; jj < ii+1; ++jj){
+    for(jj = 0; jj < ii+1; ++jj){
+      const int h_index = optData->s.indexABCD_Hess[2];
       if(optData->s.H0[ii][jj]){
-        for(l = nv; l < nJ; ++l){
-          if(optData->s.Hg[l][ii][jj] && lambda[l] != 0)
+        for(l = nx; l < nJ; ++l){
+          if(optData->s.Hg[l][ii][jj] && lambda[l] != 0){
+              double old_value = optData->H[l][ii][jj];
               optData->H[l][ii][jj] = (long double)(optData->tmpJ[l][jj] - optData->J[i][j][l][jj])*lambda[l]/h;
+              printf("\n H[%i, %i, %i]]: %f - %f = %f", l, ii, jj, old_value , optData->H[l][ii][jj], old_value - optData->H[l][ii][jj]);
+            }
         }
       }
     }
     /********************/
+
     if(upCost){
       h = objFactor/h;
       for(jj = 0; jj <ii+1; ++jj){
-        if(optData->s.Hl[ii][jj]){
-          optData->Hl[ii][jj] = (long double)(optData->tmpJ[nJ][jj] - optData->J[i][j][nJ][jj])*h;
-        }else{
-          optData->Hl[ii][jj] = 0.0;
-        }
+        optData->Hl[ii][jj] =  (long double)(optData->tmpJ[nJ][jj] - optData->J[i][j][nJ][jj])*h;
+        float num_value =(long double)(optData->tmpJ[nJ][jj] - optData->J[i][j][nJ][jj])*h;
+        printf("\nHcost[%i, %i, %i]]: num_value: %f - sym: %f = %f", l, ii, jj, (float)num_value , (float)optData->Hl[ii][jj], (float)((float)num_value - (float)optData->Hl[ii][jj]));
       }
     }
     /********************/

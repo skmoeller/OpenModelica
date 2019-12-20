@@ -5105,7 +5105,7 @@ algorithm
         // create the lambda variable
         lambdaCompRefs := list(v.varName for v in lambdaVars);
         lambdaSimVars := list(makeSimCodeLambdaVar(cr) for cr in lambdaCompRefs);
-        lambdaSimVars := rewriteIndex(lambdaSimVars, 0);
+        lambdaSimVars := setNativeArrayIndex(lambdaSimVars);
 
         // create hash table for this Hessians
         crefToSimVarHTHessian := HashTableCrefSimVar.emptyHashTableSized(listLength(allSeedVars)+ listLength(columnVars)+ listLength(lambdaSimVars));
@@ -9164,6 +9164,27 @@ algorithm
     Dangerous.arrayUpdateNoBoundsChecking(simVars, Integer(i), lst);
   end for;
 end setVariableIndex;
+
+protected function setNativeArrayIndex
+  input list<SimCodeVar.SimVar> inVars;
+  output list<SimCodeVar.SimVar> outVars = {};
+protected
+  Integer index_;
+  list<SimCodeVar.SimVar> lst;
+algorithm
+  for var in inVars loop
+    var.index := match var.name
+      local Integer idx;
+      case DAE.CREF_IDENT(subscriptLst={DAE.INDEX(DAE.ICONST(integer=idx))}) then (idx-1);
+    else
+    algorithm
+      Error.addMessage(Error.MODIFICATION_INDEX_NOT_FOUND, {"setNativeArrayIndex.Input","","",""});
+    then fail();
+    end match;
+    outVars := var::outVars;
+  end for;
+  outVars := Dangerous.listReverseInPlace(outVars);
+end setNativeArrayIndex;
 
 public function setVariableIndexHelper
   input list<SimCodeVar.SimVar> inVars;

@@ -417,7 +417,7 @@ algorithm
     stateEqs := eqn :: stateEqs;
   elseif isConstraint(eqn) then
     constraints := eqn :: constraints;
-  elseif isObjectiveLagrange(eqn) then
+  elseif isObjective(eqn) then
     objectiv := eqn :: objectiv;
   else
     innerEqns := eqn :: innerEqns;
@@ -489,7 +489,7 @@ algorithm
   end match;
 end isConstraint;
 
-protected function isObjectiveLagrange
+protected function isObjective
   "Functions checks if a given Equation is Mayer or Lagrange Term "
   input BackendDAE.Equation eqn;
   output Boolean b;
@@ -499,11 +499,11 @@ algorithm
       DAE.ComponentRef cr;
     /* other eqn types relevant? */
     case BackendDAE.EQUATION(exp = DAE.CREF(componentRef = cr))
-      guard(Util.stringStartsWith("$OMC$objectLagrangeTerm",ComponentReference.crefFirstIdent(cr)))
+      guard(Util.stringStartsWith("$OMC$object",ComponentReference.crefFirstIdent(cr)))
     then true;
   else false;
   end match;
-end isObjectiveLagrange;
+end isObjective;
 
 protected function removeStateVars
   "Functions removes the first derivatives from the variables"
