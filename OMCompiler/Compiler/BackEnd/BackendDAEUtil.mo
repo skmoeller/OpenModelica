@@ -9271,10 +9271,9 @@ algorithm
   end match;
 end getStrongComponentVarsAndEquations;
 
-public function getStrongComponentEquations"gets all equations from a component"
-  input list<BackendDAE.StrongComponent> comps;
+public function getStrongComponentsEquations"gets all equations from a component"
+  input BackendDAE.StrongComponents comps;
   input BackendDAE.EquationArray eqs;
-  input BackendDAE.Variables vars;
   output list<BackendDAE.Equation> eqsOut;
 protected
   BackendDAE.StrongComponent comp;
@@ -9282,9 +9281,58 @@ protected
 algorithm
   eqsOut := {};
   for comp in comps loop
-    (_,_,eqLst,_) := BackendDAEUtil.getStrongComponentVarsAndEquations(comp,vars,eqs);
+    eqLst := BackendDAEUtil.getStrongComponentEquations(comp,eqs);
     eqsOut := listAppend(eqLst,eqsOut);
   end for;
+end getStrongComponentsEquations;
+
+public function getStrongComponentEquations
+  input BackendDAE.StrongComponent comp;
+  input BackendDAE.EquationArray eqArr;
+  output list<BackendDAE.Equation> eqsOut;
+algorithm
+  eqsOut := match(comp)
+    local
+      Integer eidx;
+      list<Integer> eidxs, otherEqns;
+      BackendDAE.Equation eq;
+      list<BackendDAE.Equation> eqs;
+      BackendDAE.InnerEquations innerEquations;
+  case BackendDAE.SINGLEEQUATION(eqn=eidx)
+    equation
+      eq = BackendEquation.get(eqArr,eidx);
+    then {eq};
+  case BackendDAE.EQUATIONSYSTEM(eqns=eidxs)
+    equation
+      eqs = BackendEquation.getList(eidxs,eqArr);
+    then eqs;
+  case BackendDAE.SINGLEARRAY(eqn=eidx)
+    equation
+      eq = BackendEquation.get(eqArr,eidx);
+    then {eq};
+  case BackendDAE.SINGLEALGORITHM(eqn=eidx)
+    equation
+      eq = BackendEquation.get(eqArr,eidx);
+    then {eq};
+  case BackendDAE.SINGLECOMPLEXEQUATION(eqn=eidx)
+    equation
+      eq = BackendEquation.get(eqArr,eidx);
+    then {eq};
+  case BackendDAE.SINGLEWHENEQUATION(eqn=eidx)
+    equation
+      eq = BackendEquation.get(eqArr,eidx);
+    then {eq};
+  case BackendDAE.SINGLEIFEQUATION(eqn=eidx)
+    equation
+      eq = BackendEquation.get(eqArr,eidx);
+    then {eq};
+  case BackendDAE.TORNSYSTEM(strictTearingSet = BackendDAE.TEARINGSET(residualequations=eidxs, innerEquations=innerEquations))
+    equation
+      (otherEqns,_,_) = List.map_3(innerEquations, BackendDAEUtil.getEqnAndVarsFromInnerEquation);
+      eidxs = listAppend(otherEqns,eidxs);
+      eqs = BackendEquation.getList(eidxs,eqArr);
+    then eqs;
+  end match;
 end getStrongComponentEquations;
 
 public function isFuncCallWithNoDerAnnotation"checks if the equation is a function call which has a noDerivative annotation.

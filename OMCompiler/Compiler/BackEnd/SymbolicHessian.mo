@@ -191,21 +191,26 @@ protected
   BackendDAE.Shared shared;
   BackendDAE.Equation eq;
   DAE.Exp eqExpr;
-  list<BackendDAE.Equation> innerEqns = {}, stateEqs = {}, stateEqs = {}, constraints = {}, objectiv = {}, LagrangianEqns = {}, lambdaEqns ={};
+  list<BackendDAE.Equation> innerEqns = {}, stateEqs = {}, constraints = {}, objectiv = {}, LagrangianEqns = {}, lambdaEqns ={};
+  array<Integer> assE2V, assV2E;
+  BackendDAE.StrongComponents comps;
 algorithm
   /*more or less the dae's should be the same, just multiple a lambda*/
   lambdaJac := jac;
   //BackendDump.dumpDAE(jac);
   /*get the ordered equations*/
   {eqs} := lambdaJac.eqs;
-  BackendDAE.EQSYSTEM(orderedEqs = eqns) := eqs;
+  BackendDAE.EQSYSTEM(orderedEqs = eqns, matching = BackendDAE.MATCHING(ass1 = assE2V, ass2 = assV2E, comps = comps)) := eqs;
+  //BackendDump.dumpMatchingVars(assV2E);
   jacEqns := eqns;
+  eqns := BackendEquation.listEquation(BackendDAEUtil.getStrongComponentsEquations(comps, eqns));
+
+  BackendDump.dumpComponents(comps);
+  BackendDump.dumpEquationArray(eqns, "ordered eqs");
 
   shared := lambdaJac.shared;
-
   (innerEqns, stateEqs, constraints, objectiv) := BackendEquation.traverseEquationArray(eqns, assignEqnToInnerOrResidualFirstDerivatives, (innerEqns, stateEqs, constraints, objectiv));
   //BackendDump.dumpEquationArray(eqns, "filtered eqns");
-
   //BackendDump.dumpEquationList(stateEqs, "stateEqs");
   //BackendDump.dumpEquationList(constraints, "constraints");
   //BackendDump.dumpEquationList(objectiv, "objectiv");
@@ -237,7 +242,7 @@ algorithm
       /*Create the lambda Vars*/
       lambdaVars := createLambdaVar(lambdaList)::lambdaVars;
     end for;
-    //BackendDump.dumpEquationList(lambdaEqns,"lambda Equations1");
+    BackendDump.dumpEquationList(lambdaEqns,"lambda Equations1");
     lambdaEqns := listAppend(lambdaEqns,innerEqns);
     //BackendDump.dumpEquationList(lambdaEqns,"lambda Equations2");
     eqns := BackendEquation.listEquation(lambdaEqns);
