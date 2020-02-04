@@ -51,6 +51,7 @@ protected import BackendVariable;
 protected import ComponentReference;
 protected import Config;
 
+protected import SymbolicJacobian;
 protected import Differentiate;
 
 protected import Expression;
@@ -79,7 +80,7 @@ algorithm
   dae.shared := shared;
 end createDynamicOptimization;
 
-protected function addOptimizationVarsEqns
+public function addOptimizationVarsEqns
 "author: Vitalij Ruge
  add objective function and constraints to DAE. Neeed for derivatives"
   input output BackendDAE.Variables vars;
@@ -96,7 +97,6 @@ protected
   BackendDAE.Variables globalKnownVars;
   Boolean inOptimicaFlag = Config.acceptOptimicaGrammar();
   Boolean inDynOptimization = Flags.getConfigBool(Flags.GENERATE_DYN_OPTIMIZATION_PROBLEM);
-  constant Boolean debug = false;
 algorithm
    classAttrs := shared.classAttrs;
    constraints := shared.constraints;
@@ -127,10 +127,6 @@ algorithm
     FlagsUtil.setConfigBool(Flags.GENERATE_SYMBOLIC_LINEARIZATION, true);
 
     shared.classAttrs := {DAE.OPTIMIZATION_ATTRS(mayer, lagrange, startTimeE, finalTimeE)};
-    if debug then
-      print("\neqs");
-      BackendDump.printEquationList(eqnsLst);
-    end if;
     eqns := BackendEquation.addList(eqnsLst, eqns);
 
 end addOptimizationVarsEqns;
@@ -163,7 +159,6 @@ algorithm
     ind := BackendVariable.getVarIndexFromVars(tG, ov);
     for i in ind loop
       ov := BackendVariable.setVarKindForVar(i, BackendDAE.OPT_TGRID(), ov);
-      //BackendDump.printVar(BackendVariable.getVarAt(ov,i));
     end for;
   end if;
 
@@ -474,7 +469,6 @@ algorithm
         outShared := BackendVariable.addGlobalKnownVarDAE(v, outShared);
       end for;
       _ := BackendVariable.daeGlobalKnownVars(outShared);
-       //BackendDump.printVariables(vars);
     then (isyst, true);
 
     else (isyst, inChanged);
@@ -770,6 +764,7 @@ algorithm
   if Flags.getConfigBool(Flags.GENERATE_DYN_OPTIMIZATION_PROBLEM) then
 
     //BackendDump.bltdump("START:", inDAE);
+
     BackendDAE.DAE(systlst, shared) := inDAE;
     BackendDAE.SHARED(functionTree = funcs, globalKnownVars = globalKnownVars) := shared;
 
@@ -777,7 +772,7 @@ algorithm
       BackendDAE.EQSYSTEM(orderedVars=vars,orderedEqs=eqns,matching=BackendDAE.MATCHING(comps=comps)) := syst;
       b := false;
       for comp in comps loop
-        //BackendDump.dumpComponent(comp);
+       //print("\n Components: \n");
        if (match comp case BackendDAE.SINGLEEQUATION() then true; else false; end match) then
 
          BackendDAE.SINGLEEQUATION(eqn=eindex,var=vindx) := comp;
@@ -955,7 +950,7 @@ algorithm
   end for;
 
   outDAE := BackendDAE.DAE(newsyst, shared);
-  //BackendDump.bltdump("END:reduceDynamicOptimization", outDAE);
+  BackendDump.bltdump("END:reduceDynamicOptimization", outDAE);
 end reduceDynamicOptimization;
 
 public function checkObjectIsSet

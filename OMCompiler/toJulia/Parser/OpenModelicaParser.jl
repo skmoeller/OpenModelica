@@ -16,8 +16,8 @@ module OpenModelicaParser
     const _libpath = joinpath(dirname(dirname(@__DIR__)),"Parser","libomparse-julia.dll")
   else
     const _libpath = joinpath(dirname(dirname(@__DIR__)),"Parser","libomparse-julia.so")
-  end 
-  
+  end
+
   function parseFile(fileName::String)::Absyn.Program
     res = ccall((:parseFile,_libpath),Any,(String,),fileName)
     if res == nothing

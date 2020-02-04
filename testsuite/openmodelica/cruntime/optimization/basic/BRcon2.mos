@@ -21,7 +21,7 @@ end nmpcBatchReactorCon2;
 ");
 getErrorString();
 
-optimize(nmpcBatchReactorCon2, numberOfIntervals=20, tolerance = 1e-08);
+optimize(nmpcBatchReactorCon2, numberOfIntervals=20, tolerance = 1e-08,simflags="");
 getErrorString();
 
 res := OpenModelica.Scripting.compareSimulationResults("nmpcBatchReactorCon2_res.mat","ReferenceFiles/nmpcBatchReactorCon2_ref.mat","nmpcBatchReactorCon2_res.csv",0.01,0.0001);

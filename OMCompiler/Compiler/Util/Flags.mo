@@ -553,6 +553,8 @@ constant DebugFlag NF_DUMP_FLAT = DEBUG_FLAG(192, "nfDumpFlat", false,
   Gettext.gettext("Dumps the flat model structure before generating the DAE."));
 constant DebugFlag DUMP_FORCE_FMI_ATTRIBUTES = DEBUG_FLAG(193, "force-fmi-attributes", false,
   Gettext.gettext("Force to export all fmi attributes to the modelDescription.xml, including those which have default values"));
+constant DebugFlag DUMP_HESSIAN = DEBUG_FLAG(194, "dumpHess", false,
+  Gettext.gettext("Dumps the Hessian matrices A,B,C,D for dynamic Optimization"));
 
 public
 // CONFIGURATION FLAGS
@@ -1304,41 +1306,48 @@ constant ConfigFlag INITIAL_STATE_SELECTION = CONFIG_FLAG(129, "initialStateSele
 constant ConfigFlag LINEARIZATION_DUMP_LANGUAGE = CONFIG_FLAG(130, "linearizationDumpLanguage",
   NONE(), EXTERNAL(), STRING_FLAG("modelica"),
   SOME(STRING_OPTION({"modelica","matlab","julia","python"})),
-    Gettext.gettext("Sets the target language for the produced code of linearization. Only works with '--generateSymbolicLinearization' and 'linearize(modelName)'."));
+  Gettext.gettext("Sets the target language for the produced code of linearization. Only works with '--generateSymbolicLinearization' and 'linearize(modelName)'."));
 
-constant ConfigFlag NO_ASSC = CONFIG_FLAG(131, "noASSC",
+constant ConfigFlag GENERATE_SYMBOLIC_HESSIAN = CONFIG_FLAG(131, "generateSymbolicHessian",
+  NONE(), EXTERNAL(), BOOL_FLAG(false), NONE(),
+  Gettext.gettext("Generates symbolic Hessian matrix, where der(x) is differentiated w.r.t. x."));
+
+constant ConfigFlag NO_ASSC = CONFIG_FLAG(132, "noASSC",
   NONE(), EXTERNAL(),  BOOL_FLAG(false), NONE(),
   Gettext.gettext("Disables analytical to structural singularity conversion."));
 
-
-constant ConfigFlag FULL_ASSC = CONFIG_FLAG(132, "fullASSC",
+constant ConfigFlag FULL_ASSC = CONFIG_FLAG(133, "fullASSC",
   NONE(), EXTERNAL(),  BOOL_FLAG(false), NONE(),
   Gettext.gettext("Enables full equation replacement for BLT transformation from the ASSC algorithm."));
 
-constant ConfigFlag USE_ZEROMQ_IN_SIM = CONFIG_FLAG(133, "useZeroMQInSim",
+constant ConfigFlag USE_ZEROMQ_IN_SIM = CONFIG_FLAG(134, "useZeroMQInSim",
   NONE(), EXTERNAL(), BOOL_FLAG(false), NONE(),
   Gettext.gettext("Configures to use zeroMQ in simulation runtime to exchange information via ZeroMQ with other applications"));
 
-constant ConfigFlag ZEROMQ_PUB_PORT = CONFIG_FLAG(134, "zeroMQPubPort",
+constant ConfigFlag ZEROMQ_PUB_PORT = CONFIG_FLAG(135, "zeroMQPubPort",
   NONE(), EXTERNAL(), INT_FLAG(3203), NONE(),
   Gettext.gettext("Configures port number for simulation runtime to send information via ZeroMQ"));
 
-constant ConfigFlag ZEROMQ_SUB_PORT = CONFIG_FLAG(135, "zeroMQSubPort",
+constant ConfigFlag ZEROMQ_SUB_PORT = CONFIG_FLAG(136, "zeroMQSubPort",
   NONE(), EXTERNAL(), INT_FLAG(3204), NONE(),
   Gettext.gettext("Configures port number for simulation runtime to receive information via ZeroMQ"));
 
-constant ConfigFlag ZEROMQ_JOB_ID = CONFIG_FLAG(136, "zeroMQJOBID",
+constant ConfigFlag ZEROMQ_JOB_ID = CONFIG_FLAG(137, "zeroMQJOBID",
   NONE(), EXTERNAL(), STRING_FLAG("empty"), NONE(),
   Gettext.gettext("Configures the ID with which the omc api call is labelled for zeroMQ communication."));
-constant ConfigFlag ZEROMQ_SERVER_ID = CONFIG_FLAG(137, "zeroMQServerID",
+
+constant ConfigFlag ZEROMQ_SERVER_ID = CONFIG_FLAG(138, "zeroMQServerID",
   NONE(), EXTERNAL(), STRING_FLAG("empty"), NONE(),
   Gettext.gettext("Configures the ID with which server application is labelled for zeroMQ communication."));
-constant ConfigFlag ZEROMQ_CLIENT_ID = CONFIG_FLAG(138, "zeroMQClientID",
+
+constant ConfigFlag ZEROMQ_CLIENT_ID = CONFIG_FLAG(139, "zeroMQClientID",
   NONE(), EXTERNAL(), STRING_FLAG("empty"), NONE(),
   Gettext.gettext("Configures the ID with which the client application is labelled for zeroMQ communication."));
-constant ConfigFlag FMI_VERSION = CONFIG_FLAG(139,
-  "", NONE(), INTERNAL(), STRING_FLAG(""), NONE(),
+
+constant ConfigFlag FMI_VERSION = CONFIG_FLAG(140, "",
+  NONE(), INTERNAL(), STRING_FLAG(""), NONE(),
   Gettext.gettext("returns the FMI Version either 1.0 or 2.0."));
+
 function getFlags
   "Loads the flags with getGlobalRoot. Assumes flags have been loaded."
   input Boolean initialize = true;

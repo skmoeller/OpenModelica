@@ -549,7 +549,7 @@ end differentiateWhenEquations;
 //
 // =============================================================================
 
-protected function differentiateExp
+public function differentiateExp
   input DAE.Exp inExp;
   input DAE.ComponentRef inDiffwrtCref;
   input BackendDAE.DifferentiateInputData inInputData;
@@ -1407,13 +1407,13 @@ algorithm
       then
         (DAE.CALL(path,{e,DAE.ICONST(i)},attr), inFunctionTree);
 
-    case (DAE.CALL(path=Absyn.IDENT(name = "der"),expLst = {e}), _, BackendDAE.DIFFINPUTDATA(matrixName=SOME(matrixName)), _, _)
+    case (DAE.CALL(path=Absyn.IDENT(name = "der"),expLst = {e}, attr = attr), _, BackendDAE.DIFFINPUTDATA(matrixName=SOME(matrixName)), _, _)
       equation
         cr = Expression.expCref(e);
         tp = Expression.typeof(e);
-        cr = ComponentReference.crefPrefixDer(cr);
+        //cr = ComponentReference.crefPrefixDer(cr);
         cr = ComponentReference.createDifferentiatedCrefName(cr, inDiffwrtCref, matrixName);
-        res = Expression.makeCrefExp(cr, tp);
+        res = DAE.CALL(path=Absyn.IDENT(name = "der"), expLst = {Expression.makeCrefExp(cr, tp)}, attr = attr);
 
         if ComponentReference.crefEqual(DAE.CREF_IDENT("$",DAE.T_REAL_DEFAULT,{}), inDiffwrtCref) then
           (res,_) = Expression.makeZeroExpression(Expression.arrayDimension(tp));

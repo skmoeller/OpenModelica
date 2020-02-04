@@ -173,6 +173,12 @@ end translateModel;
     extern int <%symbolName(modelNamePrefixStr,"functionJacC_column")%>(void* data, threadData_t *threadData, ANALYTIC_JACOBIAN *thisJacobian, ANALYTIC_JACOBIAN *parentJacobian);
     extern int <%symbolName(modelNamePrefixStr,"functionJacD_column")%>(void* data, threadData_t *threadData, ANALYTIC_JACOBIAN *thisJacobian, ANALYTIC_JACOBIAN *parentJacobian);
     extern int <%symbolName(modelNamePrefixStr,"functionJacF_column")%>(void* data, threadData_t *threadData, ANALYTIC_JACOBIAN *thisJacobian, ANALYTIC_JACOBIAN *parentJacobian);
+    extern int <%symbolName(modelNamePrefixStr,"initialAnalyticHessianA")%>(void* data, threadData_t *threadData, ANALYTIC_HESSIAN *hessian, ANALYTIC_JACOBIAN *parentJacobian);
+    extern int <%symbolName(modelNamePrefixStr,"initialAnalyticHessianB")%>(void* data, threadData_t *threadData, ANALYTIC_HESSIAN *hessian, ANALYTIC_JACOBIAN *parentJacobian);
+    extern int <%symbolName(modelNamePrefixStr,"initialAnalyticHessianC")%>(void* data, threadData_t *threadData, ANALYTIC_HESSIAN *hessian, ANALYTIC_JACOBIAN *parentJacobian);
+    extern int <%symbolName(modelNamePrefixStr,"functionHessA_column")%>(void* data, threadData_t *threadData, ANALYTIC_HESSIAN *thisHessian, ANALYTIC_HESSIAN *parentHessian, ANALYTIC_JACOBIAN *parentJacobian);
+    extern int <%symbolName(modelNamePrefixStr,"functionHessB_column")%>(void* data, threadData_t *threadData, ANALYTIC_HESSIAN *thisHessian, ANALYTIC_HESSIAN *parentHessian, ANALYTIC_JACOBIAN *parentJacobian);
+    extern int <%symbolName(modelNamePrefixStr,"functionHessC_column")%>(void* data, threadData_t *threadData, ANALYTIC_HESSIAN *thisHessian, ANALYTIC_HESSIAN *parentHessian, ANALYTIC_JACOBIAN *parentJacobian);
     extern const char* <%symbolName(modelNamePrefixStr,"linear_model_frame")%>(void);
     extern const char* <%symbolName(modelNamePrefixStr,"linear_model_datarecovery_frame")%>(void);
     extern int <%symbolName(modelNamePrefixStr,"mayer")%>(DATA* data, modelica_real** res, short *);
@@ -613,6 +619,7 @@ template simulationFile_inz(SimCode simCode)
     <%simulationFileHeader(simCode.fileNamePrefix)%>
     #include "<%simCode.fileNamePrefix%>_11mix.h"
     #include "<%simCode.fileNamePrefix%>_12jac.h"
+    #include "<%simCode.fileNamePrefix%>_18hes.h"
     #if defined(__cplusplus)
     extern "C" {
     #endif
@@ -776,6 +783,38 @@ template simulationFile_jac_header(SimCode simCode)
   end match
 end simulationFile_jac_header;
 
+template simulationFile_hes(SimCode simCode)
+"Hessians: skmoeller"
+::=
+  match simCode
+    case simCode as SIMCODE(__) then
+    <<
+    /* Hessians <%listLength(hessianMatrices)%> */
+    <%simulationFileHeader(simCode.fileNamePrefix)%>
+    #include "<%fileNamePrefix%>_18hes.h"
+    <%functionAnalyticHessians(hessianMatrices, modelNamePrefix(simCode))%>
+
+    <%\n%>
+    >>
+    /* adrpo: leave a newline at the end of file to get rid of the warning */
+  end match
+end simulationFile_hes;
+
+template simulationFile_hes_header(SimCode simCode)
+"Hessians: skmoeller"
+::=
+  match simCode
+    case simCode as SIMCODE(__) then
+    <<
+    /* Hessians */
+    static const REAL_ATTRIBUTE dummy_HESS_REAL_ATTRIBUTE = omc_dummyRealAttribute;
+    <%symHessDefinition(hessianMatrices, modelNamePrefix(simCode))%>
+    <%\n%>
+    >>
+    /* adrpo: leave a newline at the end of file to get rid of the warning */
+  end match
+end simulationFile_hes_header;
+
 template simulationFile_opt(SimCode simCode)
 "Optimization"
 ::=
@@ -786,6 +825,7 @@ template simulationFile_opt(SimCode simCode)
     /* Optimization */
     <%simulationFileHeader(simCode.fileNamePrefix)%>
     #include "<%fileNamePrefix%>_12jac.h"
+    #include "<%fileNamePrefix%>_18hes.h"
     #if defined(__cplusplus)
     extern "C" {
     #endif
@@ -1086,6 +1126,7 @@ template simulationFile(SimCode simCode, String guid, String isModelExchangeFMU)
 
     #include "<%simCode.fileNamePrefix%>_12jac.h"
     #include "<%simCode.fileNamePrefix%>_13opt.h"
+    #include "<%simCode.fileNamePrefix%>_18hes.h"
 
     struct OpenModelicaGeneratedFunctionCallbacks <%symbolName(modelNamePrefixStr,"callback")%> = {
        <% if isModelExchangeFMU then "NULL" else '(int (*)(DATA *, threadData_t *, void *)) <%symbolName(modelNamePrefixStr,"performSimulation")%>'%>,
@@ -1140,6 +1181,15 @@ template simulationFile(SimCode simCode, String guid, String isModelExchangeFMU)
        <%symbolName(modelNamePrefixStr,"functionJacC_column")%>,
        <%symbolName(modelNamePrefixStr,"functionJacD_column")%>,
        <%symbolName(modelNamePrefixStr,"functionJacF_column")%>,
+       <%symbolName(modelNamePrefixStr,"INDEX_HESS_A")%>,
+       <%symbolName(modelNamePrefixStr,"INDEX_HESS_B")%>,
+       <%symbolName(modelNamePrefixStr,"INDEX_HESS_C")%>,
+       <%symbolName(modelNamePrefixStr,"initialAnalyticHessianA")%>,
+       <%symbolName(modelNamePrefixStr,"initialAnalyticHessianB")%>,
+       <%symbolName(modelNamePrefixStr,"initialAnalyticHessianC")%>,
+       <%symbolName(modelNamePrefixStr,"functionHessA_column")%>,
+       <%symbolName(modelNamePrefixStr,"functionHessB_column")%>,
+       <%symbolName(modelNamePrefixStr,"functionHessC_column")%>,
        <%symbolName(modelNamePrefixStr,"linear_model_frame")%>,
        <%symbolName(modelNamePrefixStr,"linear_model_datarecovery_frame")%>,
        <%symbolName(modelNamePrefixStr,"mayer")%>,
@@ -1581,6 +1631,30 @@ template symJacDefinition(list<JacobianMatrix> JacobianMatrixes, String modelNam
 
   >>
 end symJacDefinition;
+
+template symHessDefinition(list<HessianMatrix> HessianMatrices, String modelNamePrefix) "template variableDefinitionsHessians
+  Generates defines for hessian vars."
+::=
+  let symbolicHesssDefine = (HessianMatrices |> HESS_MATRIX(columns=jacColumn, seedVars=seedVars, lambdaVars=lambdas, matrixName=name, hessianIndex=indexHessian)  =>
+    <<
+    #if defined(__cplusplus)
+    extern "C" {
+    #endif
+      #define <%symbolName(modelNamePrefix,"INDEX_HESS_")%><%name%> <%indexHessian%>
+      int <%symbolName(modelNamePrefix,"functionHess")%><%name%>_column(void* data, threadData_t *threadData, ANALYTIC_HESSIAN *thisHessian, ANALYTIC_HESSIAN *parentHessian, ANALYTIC_JACOBIAN *parentJacobian);
+      int <%symbolName(modelNamePrefix,"initialAnalyticHessian")%><%name%>(void* data, threadData_t *threadData, ANALYTIC_HESSIAN *hessian, ANALYTIC_JACOBIAN *parentJacobian);
+    #if defined(__cplusplus)
+    }
+    #endif
+    >>
+    ;separator="\n";empty)
+
+  <<
+  /* Hessian Variables */
+  <%symbolicHesssDefine%>
+
+  >>
+end symHessDefinition;
 
 template aliasVarNameType(AliasVariable var)
   "Generates type of alias."
@@ -2601,7 +2675,7 @@ template functionExtraResidualsPreBodyJacobian(SimEqSystem eq, Text &eqs, String
     <<
     /* local constraints */
     <%createLocalConstraints(eq)%>
-    <%equation_callJacobian(eq, modelNamePrefixStr)%>
+    <%equation_callJacobian(eq, modelNamePrefixStr, false)%>
     >>
   end match
 end functionExtraResidualsPreBodyJacobian;
@@ -4921,7 +4995,7 @@ template functionAnalyticJacobians(list<JacobianMatrix> JacobianMatrixes,String 
   let initialjacMats = (JacobianMatrixes |> JAC_MATRIX(columns=mat, seedVars=vars, matrixName=name, sparsity=sparsepattern, coloredCols=colorList, maxColorCols=maxColor, jacobianIndex=indexJacobian) =>
     initialAnalyticJacobians(mat, vars, name, sparsepattern, colorList, maxColor, modelNamePrefix); separator="\n")
   let jacMats = (JacobianMatrixes |> JAC_MATRIX(columns=mat, seedVars=vars, matrixName=name, partitionIndex=partIdx, crefsHT=crefsHT) =>
-    generateMatrix(mat, vars, name, partIdx, crefsHT, modelNamePrefix) ;separator="\n")
+    generateMatrix(mat, vars, name, partIdx, crefsHT, modelNamePrefix, false) ;separator="\n")
 
   <<
   <%jacMats%>
@@ -4929,6 +5003,21 @@ template functionAnalyticJacobians(list<JacobianMatrix> JacobianMatrixes,String 
   <%initialjacMats%>
   >>
 end functionAnalyticJacobians;
+
+template functionAnalyticHessians(list<HessianMatrix> HessianMatrices,String modelNamePrefix) "template functionAnalyticHessians
+  This template generates source code for all given hessians."
+::=
+  let initialhessMats = (HessianMatrices |> HESS_MATRIX(columns=mat, seedVars=vars, lambdaVars=lambdas, matrixName=name, hessianIndex=indexHessian) =>
+    initialAnalyticHessians(mat, vars, lambdas, name, modelNamePrefix); separator="\n")
+  let hessMats = (HessianMatrices |> HESS_MATRIX(columns=mat, seedVars=vars, lambdaVars=lambdas, matrixName=name, partitionIndex=partIdx, crefsHT=crefsHT) =>
+    generateMatrix(mat, vars, name, partIdx, crefsHT, modelNamePrefix, true) ;separator="\n")
+
+  <<
+  <%initialhessMats%>
+
+  <%hessMats%>
+  >>
+end functionAnalyticHessians;
 
 template initialAnalyticJacobians(list<JacobianColumn> jacobianColumn, list<SimVar> seedVars, String matrixname, SparsityPattern sparsepattern, list<list<Integer>> colorList, Integer maxColor, String modelNamePrefix)
 "template initialAnalyticJacobians
@@ -5000,15 +5089,53 @@ match sparsepattern
 end match
 end initialAnalyticJacobians;
 
-template generateMatrix(list<JacobianColumn> jacobianColumn, list<SimVar> seedVars, String matrixname, Integer partIdx, Option<HashTableCrefSimVar.HashTable> jacHT, String modelNamePrefix)
-  "This template generates source code for a single jacobian in dense format and sparse format.
+template initialAnalyticHessians(list<JacobianColumn> jacobianColumn, list<SimVar> seedVars, list<SimVar> lambdaVars, String matrixname, String modelNamePrefix)
+"template initialAnalyticHessians
+  This template generates source code for functions that initialize a single hessian.
+  This is a helper of template functionAnalyticHessians"
+::=
+
+    let &eachCrefParts = buffer ""
+    let indexColumn = (jacobianColumn |> JAC_COLUMN(numberOfResultVars=n) => '<%n%>';separator="\n")
+    let tmpvarsSize = (jacobianColumn |> JAC_COLUMN(columnVars=vars) => intSub(listLength(vars), 1) ;separator="\n")
+    let index_ = intDiv(listLength(seedVars),2)
+    <<
+    OMC_DISABLE_OPT
+    int <%symbolName(modelNamePrefix,"initialAnalyticHessian")%><%matrixname%>(void* inData, threadData_t *threadData, ANALYTIC_HESSIAN *hessian, ANALYTIC_JACOBIAN *parentJacobian)
+    {
+      TRACE_PUSH
+      DATA* data = ((DATA*)inData);
+
+      hessian->sizeCols = <%index_%>;
+      hessian->sizeRows = <%index_%>;
+      hessian->sizeTmpVars = <%tmpvarsSize%>;
+      hessian->seedVars = (modelica_real*) calloc(<%index_%>,sizeof(modelica_real));
+      hessian->seedVars1 = (modelica_real*) calloc(<%index_%>,sizeof(modelica_real));
+      /* only first index of result vars is used right now. update with new sparsity pattern! */
+      hessian->resultVars = (modelica_real*) calloc(<%1%>,sizeof(modelica_real));
+      hessian->tmpVars = (modelica_real*) calloc(<%tmpvarsSize%>,sizeof(modelica_real));
+      hessian->lambdaVars = (modelica_real*) calloc(<%indexColumn%>,sizeof(modelica_real));
+
+      TRACE_POP
+      return 0;
+    }
+    >>
+end initialAnalyticHessians;
+
+template generateMatrix(list<JacobianColumn> jacobianColumn, list<SimVar> seedVars, String matrixname, Integer partIdx, Option<HashTableCrefSimVar.HashTable> jacHT, String modelNamePrefix, Boolean hess)
+  "This template generates source code for a single jacobian or hessian in dense format and also in sparse format for a single jacobian.
   This is a helper of template functionAnalyticJacobians"
 ::=
+  let STRUCT_NAME = (if hess then <<HESSIAN>> else <<JACOBIAN>>)
+  let struct_name = (if hess then <<hessian>> else <<jacobian>>)
+  let struct_Name = (if hess then <<Hessian>> else <<Jacobian>>)
+  let short_name = (if hess then <<Hess>> else <<Jac>>)
+  let parent_jacobian = (if hess then <<, ANALYTIC_JACOBIAN *parentJacobian>> else <<>>)
   let nRows = (jacobianColumn |> JAC_COLUMN(numberOfResultVars=nRows) => '<%nRows%>')
   match nRows
   case "0" then
     <<
-    int <%symbolName(modelNamePrefix,"functionJac")%><%matrixname%>_column(void* data, threadData_t *threadData, ANALYTIC_JACOBIAN *jacobian, ANALYTIC_JACOBIAN *parentJacobian)
+    int <%symbolName(modelNamePrefix,'function<%short_name%>')%><%matrixname%>_column(void* data, threadData_t *threadData, ANALYTIC_<%STRUCT_NAME%> *<%struct_name%>, ANALYTIC_<%STRUCT_NAME%> *parent<%struct_Name%><%parent_jacobian%>)
     {
       TRACE_PUSH
       TRACE_POP
@@ -5019,7 +5146,7 @@ template generateMatrix(list<JacobianColumn> jacobianColumn, list<SimVar> seedVa
     match seedVars
      case {} then
         <<
-        int <%symbolName(modelNamePrefix,"functionJac")%><%matrixname%>_column(void* data, threadData_t *threadData, ANALYTIC_JACOBIAN *jacobian, ANALYTIC_JACOBIAN *parentJacobian)
+        int <%symbolName(modelNamePrefix,'function<%short_name%>')%><%matrixname%>_column(void* data, threadData_t *threadData, ANALYTIC_<%STRUCT_NAME%> *<%struct_name%>, ANALYTIC_<%STRUCT_NAME%> *parent<%struct_Name%><%parent_jacobian%>)
         {
           TRACE_PUSH
           TRACE_POP
@@ -5027,9 +5154,9 @@ template generateMatrix(list<JacobianColumn> jacobianColumn, list<SimVar> seedVa
         }
         >>
       case _ then
-        let jacMats =
-        (jacobianColumn |> JAC_COLUMN(columnEqns=eqs, constantEqns=constantEqns) =>
-          functionJac(eqs, constantEqns, partIdx, matrixname, jacHT, modelNamePrefix)
+
+        let jacMats = (jacobianColumn |> JAC_COLUMN(columnEqns=eqs) =>
+          functionJac(eqs, constantEqns, partIdx, matrixname, jacHT, modelNamePrefix, hess)
           ;separator="\n")
         let indexColumn = (jacobianColumn |> JAC_COLUMN(numberOfResultVars=nRows) =>
           nRows
@@ -5052,7 +5179,7 @@ template generateConstantEqns(list<SimEqSystem> constantEqns, String matrixName,
       DATA* data = ((DATA*)inData);
       int index = <%symbolName(modelNamePrefix,"INDEX_JAC_")%><%matrixName%>;
 
-      <%(constantEqns |> eq => equation_callJacobian(eq, modelNamePrefix); separator="")%>
+      <%(constantEqns |> eq => equation_callJacobian(eq, modelNamePrefix, false); separator="")%>
 
       TRACE_POP
       return 0;
@@ -5060,32 +5187,83 @@ template generateConstantEqns(list<SimEqSystem> constantEqns, String matrixName,
     >>
 end generateConstantEqns;
 
-template functionJac(list<SimEqSystem> jacEquations, list<SimEqSystem> constantEqns, Integer partIdx, String matrixName, Option<HashTableCrefSimVar.HashTable> jacHT, String modelNamePrefix)
+template generateConstantEqnsHess(list<SimEqSystem> constantEqns, String matrixName, String modelNamePrefix)
+::=
+    <<
+    OMC_DISABLE_OPT
+    int <%symbolName(modelNamePrefix,"functionHess")%><%matrixName%>_constantEqns(void* inData, threadData_t *threadData, ANALYTIC_HESSIAN> *hessian, ANALYTIC_HESSIAN *parentHessian, ANALYTIC_JACOBIAN *parentJacobian)
+    {
+      TRACE_PUSH
+
+      DATA* data = ((DATA*)inData);
+      int index = <%symbolName(modelNamePrefix,"INDEX_HESS_")%><%matrixName%>;
+
+      <%(constantEqns |> eq => equation_callJacobian(eq, modelNamePrefix, true); separator="")%>
+
+      TRACE_POP
+      return 0;
+    }
+    >>
+end generateConstantEqnsHess;
+
+template functionJac(list<SimEqSystem> jacEquations, list<SimEqSystem> constantEqns, Integer partIdx, String matrixName, Option<HashTableCrefSimVar.HashTable> jacHT, String modelNamePrefix, Boolean hess)
   "This template generates functions for each column of a single jacobian.
    This is a helper of generateMatrix."
 ::=
-  let constantEqns2 = generateConstantEqns(constantEqns, matrixName, modelNamePrefix)
-  <<
-  /* constant equations */
-  <%(constantEqns |> eq =>
-    equation_impl(partIdx, eq, createJacContext(jacHT), modelNamePrefix); separator="\n")%>
-  /* dynamic equations */
-  <%(jacEquations |> eq =>
-    equation_impl(partIdx, eq, createJacContext(jacHT), modelNamePrefix); separator="\n")%>
+  let STRUCT_NAME = (if hess then <<HESSIAN>> else <<JACOBIAN>>)
+  let struct_name = (if hess then <<hessian>> else <<jacobian>>)
+  let struct_Name = (if hess then <<Hessian>> else <<Jacobian>>)
+  let SHORT_NAME = (if hess then <<HESS>> else <<JAC>>)
+  let short_name = (if hess then <<Hess>> else <<Jac>>)
+  let parent_jacobian = (if hess then <<, ANALYTIC_JACOBIAN *parentJacobian>> else <<>>)
+  match hess
+  case true then
+    <<
+    /* constant equations don't do this for hessians for now
+    <%(constantEqns |> eq =>
+      equation_impl(partIdx, eq, createHessContext(jacHT), modelNamePrefix); separator="\n")%>
 
-  <%constantEqns2%>
+    <%generateConstantEqnsHess(constantEqns, matrixName, modelNamePrefix)%>*/
 
-  int <%symbolName(modelNamePrefix,"functionJac")%><%matrixName%>_column(void* inData, threadData_t *threadData, ANALYTIC_JACOBIAN *jacobian, ANALYTIC_JACOBIAN *parentJacobian)
-  {
-    TRACE_PUSH
+    /* dynamic equations */
+    <%(jacEquations |> eq =>
+      equation_impl(partIdx, eq, createHessContext(jacHT), modelNamePrefix); separator="\n")%>
+      int <%symbolName(modelNamePrefix,'function<%short_name%>')%><%matrixName%>_column(void* inData, threadData_t *threadData, ANALYTIC_<%STRUCT_NAME%> *<%struct_name%>, ANALYTIC_<%STRUCT_NAME%> *parent<%struct_Name%><%parent_jacobian%>)
+      {
+        TRACE_PUSH
 
-    DATA* data = ((DATA*)inData);
-    int index = <%symbolName(modelNamePrefix,"INDEX_JAC_")%><%matrixName%>;
-    <%(jacEquations |> eq => equation_callJacobian(eq, modelNamePrefix); separator="")%>
-    TRACE_POP
-    return 0;
-  }
-  >>
+        DATA* data = ((DATA*)inData);
+        int index = <%symbolName(modelNamePrefix,'INDEX_<%SHORT_NAME%>_')%><%matrixName%>;
+        <%(jacEquations |> eq =>
+        equation_callJacobian(eq, modelNamePrefix, hess); separator="\n")%>
+
+        TRACE_POP
+        return 0;
+      }
+      >>
+  else
+    <<
+    /* constant equations */
+    <%(constantEqns |> eq =>
+      equation_impl(partIdx, eq, createJacContext(jacHT), modelNamePrefix); separator="\n")%>
+    <%generateConstantEqns(constantEqns, matrixName, modelNamePrefix)%>
+
+    /* dynamic equations */
+    <%(jacEquations |> eq =>
+      equation_impl(partIdx, eq, createJacContext(jacHT), modelNamePrefix); separator="\n")%>
+      int <%symbolName(modelNamePrefix,'function<%short_name%>')%><%matrixName%>_column(void* inData, threadData_t *threadData, ANALYTIC_<%STRUCT_NAME%> *<%struct_name%>, ANALYTIC_<%STRUCT_NAME%> *parent<%struct_Name%><%parent_jacobian%>)
+      {
+        TRACE_PUSH
+
+        DATA* data = ((DATA*)inData);
+        int index = <%symbolName(modelNamePrefix,'INDEX_<%SHORT_NAME%>_')%><%matrixName%>;
+        <%(jacEquations |> eq =>
+        equation_callJacobian(eq, modelNamePrefix, hess); separator="\n")%>
+
+        TRACE_POP
+        return 0;
+      }
+    >>
 end functionJac;
 
 // function for sparsity pattern generation
@@ -5361,6 +5539,24 @@ template equation_impl2(Integer clockIndex, SimEqSystem eq, Context context, Str
           TRACE_POP
         }
         >>
+        case HESSIAN_CONTEXT()
+        then
+        <<
+
+        <%tempeqns%>
+        /*
+        <%dumpEqs(fill(eq,1))%>
+        */
+        <%OMC_NO_OPT%><% if static then "static "%>void <%symbolName(modelNamePrefix,"eqFunction")%>_<%ix%>(DATA *data, threadData_t *threadData, ANALYTIC_HESSIAN *hessian, ANALYTIC_HESSIAN *parentHessian, ANALYTIC_JACOBIAN *parentJacobian)
+        {
+          TRACE_PUSH
+          <%clockIndex_%>
+          const int equationIndexes[2] = {1,<%ix%>};
+          <%&varD%>
+          <%x%>
+          TRACE_POP
+        }
+        >>
         else
         <<
 
@@ -5406,9 +5602,12 @@ template equation_call(SimEqSystem eq, String modelNamePrefix)
   )
 end equation_call;
 
-template equation_callJacobian(SimEqSystem eq, String modelNamePrefix)
+template equation_callJacobian(SimEqSystem eq, String modelNamePrefix, Boolean hess)
  "Generates the equation calls for jacobians fucntion."
 ::=
+  let MATRIX_NAME = (if hess then <<Hessian>> else <<Jacobian>>)
+  let matrix_name = (if hess then <<hessian>> else <<jacobian>>)
+  let jacobian_parent = (if hess then <<, parentJacobian>> else <<>>)
   match eq
   case e as SES_ALGORITHM(statements={})
   then ""
@@ -5423,12 +5622,11 @@ template equation_callJacobian(SimEqSystem eq, String modelNamePrefix)
   end match
   <<
   <% if profileAll() then 'SIM_PROF_TICK_EQ(<%ix%>);' %>
-  <%symbolName(modelNamePrefix,"eqFunction")%>_<%ix%>(data, threadData, jacobian, parentJacobian);
+  <%symbolName(modelNamePrefix,"eqFunction")%>_<%ix%>(data, threadData, <%matrix_name%>, parent<%MATRIX_NAME%><%jacobian_parent%>);
   <% if profileAll() then 'SIM_PROF_ACC_EQ(<%ix%>);' %>
   >>
   )
 end equation_callJacobian;
-
 
 template equationForward_(SimEqSystem eq, Context context, String modelNamePrefixStr)
  "Generates an equation.
@@ -6157,7 +6355,7 @@ case SIMCODE(modelInfo=MODELINFO(__), makefileParams=MAKEFILE_PARAMS(__), simula
   CFILES=<%fileNamePrefix%>_functions.c <%fileNamePrefix%>_records.c \
   <%fileNamePrefix%>_01exo.c <%fileNamePrefix%>_02nls.c <%fileNamePrefix%>_03lsy.c <%fileNamePrefix%>_04set.c <%fileNamePrefix%>_05evt.c <%fileNamePrefix%>_06inz.c <%fileNamePrefix%>_07dly.c \
   <%fileNamePrefix%>_08bnd.c <%fileNamePrefix%>_09alg.c <%fileNamePrefix%>_10asr.c <%fileNamePrefix%>_11mix.c <%fileNamePrefix%>_12jac.c <%fileNamePrefix%>_13opt.c <%fileNamePrefix%>_14lnz.c \
-  <%fileNamePrefix%>_15syn.c <%fileNamePrefix%>_16dae.c <%fileNamePrefix%>_17inl.c <%extraFiles |> extraFile => ' <%extraFile%>'%>
+  <%fileNamePrefix%>_15syn.c <%fileNamePrefix%>_16dae.c <%fileNamePrefix%>_17inl.c <%fileNamePrefix%>_18hes.c <%extraFiles |> extraFile => ' <%extraFile%>'%>
 
   OFILES=$(CFILES:.c=.obj)
   GENERATEDFILES=$(MAINFILE) $(FILEPREFIX)_functions.h $(FILEPREFIX).makefile $(CFILES)
@@ -6212,7 +6410,7 @@ case SIMCODE(modelInfo=MODELINFO(varInfo=varInfo as VARINFO(__)), delayedExps=DE
   CFILES=<%fileNamePrefix%>_functions.c <%fileNamePrefix%>_records.c \
   <%fileNamePrefix%>_01exo.c <%fileNamePrefix%>_02nls.c <%fileNamePrefix%>_03lsy.c <%fileNamePrefix%>_04set.c <%fileNamePrefix%>_05evt.c <%fileNamePrefix%>_06inz.c <%fileNamePrefix%>_07dly.c \
   <%fileNamePrefix%>_08bnd.c <%fileNamePrefix%>_09alg.c <%fileNamePrefix%>_10asr.c <%fileNamePrefix%>_11mix.c <%fileNamePrefix%>_12jac.c <%fileNamePrefix%>_13opt.c <%fileNamePrefix%>_14lnz.c \
-  <%fileNamePrefix%>_15syn.c <%fileNamePrefix%>_16dae.c <%fileNamePrefix%>_17inl.c <%extraFiles |> extraFile => ' \<%\n%>  <%extraFile%>'%>
+  <%fileNamePrefix%>_15syn.c <%fileNamePrefix%>_16dae.c <%fileNamePrefix%>_17inl.c <%fileNamePrefix%>_18hes.c <%extraFiles |> extraFile => ' \<%\n%>  <%extraFile%>'%>
 
   OFILES=$(CFILES:.c=.o)
   GENERATEDFILES=$(MAINFILE) <%fileNamePrefix%>.makefile <%fileNamePrefix%>_literals.h <%fileNamePrefix%>_functions.h $(CFILES)

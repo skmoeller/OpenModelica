@@ -131,6 +131,7 @@ uniontype Shared "Data shared for all equation-systems"
     ExternalObjectClasses extObjClasses     "classes of external objects, contains constructor & destructor";
     BackendDAEType backendDAEType           "indicate for what the BackendDAE is used";
     SymbolicJacobians symjacs               "Symbolic Jacobians";
+    SymbolicHessians symHesss               "SymbolicHessians";
     ExtraInfo info "contains extra info that we send around like the model name";
     PartitionsInfo partitionsInfo;
     BackendDAEModeData daeModeData "DAEMode Data";
@@ -273,7 +274,11 @@ uniontype VarKind "variable kind"
   record EXTOBJ Absyn.Path fullClassName; end EXTOBJ;
   record JAC_VAR end JAC_VAR;
   record JAC_DIFF_VAR end JAC_DIFF_VAR;
-  record SEED_VAR end SEED_VAR;
+  record HESS_VAR end HESS_VAR;
+  record HESS_DIFF_VAR end HESS_DIFF_VAR;
+  record SEED_VAR
+    Boolean b;
+  end SEED_VAR;
   record OPT_CONSTR end OPT_CONSTR;
   record OPT_FCONSTR end OPT_FCONSTR;
   record OPT_INPUT_WITH_DER end OPT_INPUT_WITH_DER;
@@ -796,11 +801,24 @@ type SparsePatternCref = tuple< .DAE.ComponentRef, list< .DAE.ComponentRef>>;
 type SparsePatternCrefs = list<SparsePatternCref>;
 
 public
-type SparsePattern = tuple<SparsePatternCrefs,              // column-wise sparse pattern
-                           SparsePatternCrefs,              // row-wise sparse pattern
-                           tuple<list< .DAE.ComponentRef>,  // diff vars (independent vars) of associated jacobian
-                                 list< .DAE.ComponentRef>>, // diffed vars (residual vars) of associated jacobian
-                           Integer>;                        // nonZeroElements
+type SymbolicHessians = list< Option<SymbolicHessian> >;
+
+public
+type SymbolicHessian = tuple<  BackendDAE,              // symbolic equation system
+                               String,                  // Name of the Hessian Matrix
+                               SymbolicJacobian,        // parent jacobian
+                               list<Var>,               // diff Variables
+                               list<Var>,               // diffed Variables
+                               list<Var>,               // all diffed Variables
+                               list<Var>                // lambda Variables
+                               >;
+
+public
+type SparsePattern = tuple<list<tuple< .DAE.ComponentRef, list< .DAE.ComponentRef>>>, // column-wise sparse pattern
+                           list<tuple< .DAE.ComponentRef, list< .DAE.ComponentRef>>>, // row-wise sparse pattern
+                           tuple<list< .DAE.ComponentRef>,                            // diff vars
+                                 list< .DAE.ComponentRef>>,                           // diffed vars
+                           Integer>;                                                  // nonZeroElements
 
 public
 constant SparsePattern emptySparsePattern = ({},{},({},{}),0);

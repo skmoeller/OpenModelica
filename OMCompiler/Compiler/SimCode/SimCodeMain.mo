@@ -544,6 +544,8 @@ algorithm
           (CodegenC.simulationFile_dae, "_16dae.c"),
           (CodegenC.simulationFile_dae_header, "_16dae.h"),
           (CodegenC.simulationFile_inl, "_17inl.c"),
+          (CodegenC.simulationFile_hes, "_18hes.c"),
+          (CodegenC.simulationFile_hes_header, "_18hes.h"),
           (CodegenC.simulationHeaderFile, "_model.h")
         } loop
           (func,str) := f;
@@ -1176,6 +1178,7 @@ protected
   tuple<Option<BackendDAE.SymbolicJacobian>, BackendDAE.SparsePattern, BackendDAE.SparseColoring> daeModeJac;
   SimCode.JacobianMatrix symDAESparsPattern;
   list<SimCode.JacobianMatrix> symJacs, SymbolicJacs, SymbolicJacsNLS, SymbolicJacsTemp, SymbolicJacsStateSelect;
+  list<SimCode.HessianMatrix> SymbolicHesss;
   list<SimCode.SimEqSystem> initialEquations, removedInitialEquations, jacobianEquations;
   list<SimCodeVar.SimVar> jacobianSimvars, seedVars;
   list<SimCode.SimEqSystem> startValueEquations;        // --> updateBoundStartValues
@@ -1333,6 +1336,8 @@ algorithm
     // The updated variable 'numEquations' (by SimCodeUtil.addNumEqns) is not even used in createCrefToSimVarHT :/
     // crefToSimVarHT := SimCodeUtil.createCrefToSimVarHT(modelInfo);
 
+    SymbolicHesss := {SimCode.emptyHessian};
+
     simCode := SimCode.SIMCODE(modelInfo,
                               {}, // Set by the traversal below...
                               recordDecls,
@@ -1365,6 +1370,7 @@ algorithm
                               makefileParams,
                               SimCode.DELAYED_EXPRESSIONS(delayedExps, maxDelayedExpIndex),
                               SymbolicJacs,
+                              SymbolicHesss,
                               simSettingsOpt,
                               filenamePrefix,
                               "",

@@ -74,6 +74,7 @@ import System;
 
 public constant SourceInfo dummyInfo = SOURCEINFO("",false,0,0,0,0,0.0);
 public constant String derivativeNamePrefix="$DER";
+public constant String hessianIdent = "$Hessian";
 
 public function isIntGreater "Author: BZ"
   input Integer lhs;

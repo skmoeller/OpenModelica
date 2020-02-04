@@ -5893,7 +5893,7 @@ algorithm
          //print("predecessors of outputs "+stringDelimitList(List.map(predecessors,intString),", ")+"\n");
 
       //get equations from the new reduced set of comps
-      eqLstNew := BackendDAEUtil.getStrongComponentEquations(compsNew,eqs,vars);
+      eqLstNew := BackendDAEUtil.getStrongComponentsEquations(compsNew,eqs);
 
       // Get all state-variables which are needed in these equations and apply the same search for these equations.
       // The according state-derivatives have to be computed.
@@ -5915,7 +5915,7 @@ algorithm
           //get their predecessor tasks, the corresponding comps and add their equations
           predecessors := HpcOmTaskGraph.getAllSuccessors(stateTasks1,taskGraphT);
           addComps := List.map1(listAppend(stateTasks1,predecessors),List.getIndexFirst,comps);
-          eqLstNew := List.unique(listAppend(eqLstNew,BackendDAEUtil.getStrongComponentEquations(addComps,eqs,vars)));
+          eqLstNew := List.unique(listAppend(eqLstNew,BackendDAEUtil.getStrongComponentsEquations(addComps,eqs)));
         end if;
       end while;
       stateTasks := Dangerous.listReverseInPlace(stateTasks);

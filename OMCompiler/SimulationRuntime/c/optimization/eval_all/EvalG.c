@@ -185,14 +185,15 @@ Bool evalfDiffG(Index n, double * vopt, Bool new_x, Index m, Index njac, Index *
       fprintf(pFile, "%i", m);
       fprintf(pFile, "%s", "\nNumberOfIntervalls = ");
       fprintf(pFile, "%i", nsi);
-      fprintf(pFile, "\nH = sparse(%i,%i);\n",m,n);
+      fprintf(pFile, "\nJ = sparse(%i,%i);\n",m,n);
       fprintf(pFile, "%s", "%%%%%%%%%%%%%%%%%%%%%%\n");
       for(i=0; i< njac; ++i){
-        sprintf(buffer, "H(%i,%i) = 1;\n", iRow[i]+1, iCol[i]+1);
+        sprintf(buffer, "J(%i,%i) = 1;\n", iRow[i]+1, iCol[i]+1);
         fprintf(pFile,"%s", buffer);
       }
       fprintf(pFile, "%s", "%%%%%%%%%%%%%%%%%%%%%%\n");
-      fprintf(pFile, "%s", "spy(H)\n");
+      fprintf(pFile, "%s", "spy(J)\n");
+      fclose(pFile);
     }
     assert(0);
 #endif
@@ -313,11 +314,11 @@ Bool evalfDiffG(Index n, double * vopt, Bool new_x, Index m, Index njac, Index *
     assert(0);
     }
     */
-    /*
+
     for(i = 0; i< njac; ++i)
     printf("\nvalues[%i] = %g",i,values[i]);
-    assert(0);
-    */
+
+
    {
     if(optData->ipop.debugeJ){
       int ijac = 0;
@@ -726,6 +727,3 @@ static inline void printMaxError(Number *g, const int m, const int nx, const int
     }
   }
 }
-
-
-

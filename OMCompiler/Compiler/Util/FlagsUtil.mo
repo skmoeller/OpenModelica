@@ -249,7 +249,8 @@ constant list<Flags.DebugFlag> allDebugFlags = {
   Flags.DUMP_ASSC,
   Flags.SPLIT_CONSTANT_PARTS_SYMJAC,
   Flags.NF_DUMP_FLAT,
-  Flags.DUMP_FORCE_FMI_ATTRIBUTES
+  Flags.DUMP_FORCE_FMI_ATTRIBUTES,
+  Flags.DUMP_HESSIAN
 };
 
 protected
@@ -387,6 +388,7 @@ constant list<Flags.ConfigFlag> allConfigFlags = {
   Flags.SHOW_STRUCTURAL_ANNOTATIONS,
   Flags.INITIAL_STATE_SELECTION,
   Flags.LINEARIZATION_DUMP_LANGUAGE,
+  Flags.GENERATE_SYMBOLIC_HESSIAN,
   Flags.NO_ASSC,
   Flags.FULL_ASSC,
   Flags.USE_ZEROMQ_IN_SIM,
@@ -396,7 +398,6 @@ constant list<Flags.ConfigFlag> allConfigFlags = {
   Flags.ZEROMQ_SERVER_ID,
   Flags.ZEROMQ_CLIENT_ID,
   Flags.FMI_VERSION
-
 };
 
 public function new

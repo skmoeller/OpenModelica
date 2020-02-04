@@ -811,7 +811,7 @@ algorithm
   end if;
 end dumpTimeEvents;
 
-protected function dumpConstraintList
+public function dumpConstraintList   //Changed the attr. to public -> wanted to dump the constraint list!!!
   input list<DAE.Constraint> inConstraintArray;
   input String heading;
 algorithm
@@ -2642,6 +2642,8 @@ algorithm
     case BackendDAE.EXTOBJ(path)  then "EXTOBJ: " + AbsynUtil.pathString(path);
     case BackendDAE.JAC_VAR()     then "JACOBIAN_VAR";
     case BackendDAE.JAC_DIFF_VAR()then "JACOBIAN_DIFF_VAR";
+    case BackendDAE.HESS_VAR()     then "HESSIAN_VAR";
+    case BackendDAE.HESS_DIFF_VAR()then "HESSIAN_DIFF_VAR";
     case BackendDAE.OPT_CONSTR()  then "OPT_CONSTR";
     case BackendDAE.OPT_FCONSTR()  then "OPT_FCONSTR";
     case BackendDAE.OPT_INPUT_WITH_DER()  then "OPT_INPUT_WITH_DER";

@@ -1123,6 +1123,14 @@ algorithm
       equation
         File.write(file,"jacobian differentiated variable");
       then ();
+      case BackendDAE.HESS_VAR()
+        equation
+          File.write(file,"hessian variable");
+        then ();
+      case BackendDAE.HESS_DIFF_VAR()
+        equation
+          File.write(file,"hessian differentiated variable");
+        then ();
     case BackendDAE.OPT_CONSTR()
       equation
         File.write(file,"constraint");

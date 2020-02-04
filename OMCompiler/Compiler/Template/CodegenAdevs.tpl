@@ -2025,7 +2025,7 @@ template functionHeaderImpl(String fname, list<Variable> fargs, list<Variable> o
 ::=
   let &preExp = buffer "" /*BUFD*/
   let &varDecls = buffer "" /*BUFD*/
-  
+
   let fargsStr = if boxed then
       (fargs |> var => funArgBoxedDefinition(var) ;separator=", ")
     else

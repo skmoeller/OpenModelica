@@ -220,6 +220,10 @@ uniontype Context
     Option<HashTableCrefSimVar.HashTable> jacHT;
   end JACOBIAN_CONTEXT;
 
+  record HESSIAN_CONTEXT
+    Option<HashTableCrefSimVar.HashTable> hessHT;
+  end HESSIAN_CONTEXT;
+
   record OTHER_CONTEXT
   end OTHER_CONTEXT;
 
@@ -244,6 +248,7 @@ public constant Context contextSimulationNonDiscrete  = SIMULATION_CONTEXT(false
 public constant Context contextSimulationDiscrete     = SIMULATION_CONTEXT(true);
 public constant Context contextFunction               = FUNCTION_CONTEXT("", false);
 public constant Context contextJacobian               = JACOBIAN_CONTEXT(NONE());
+public constant Context contextHessian                = HESSIAN_CONTEXT(NONE());
 public constant Context contextAlgloopJacobian        = ALGLOOP_CONTEXT(false,true);
 public constant Context contextAlgloopInitialisation  = ALGLOOP_CONTEXT(true,false);
 public constant Context contextAlgloop                = ALGLOOP_CONTEXT(false,false);

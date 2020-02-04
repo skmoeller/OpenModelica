@@ -380,6 +380,18 @@ package SimCode
     end JAC_MATRIX;
   end JacobianMatrix;
 
+  uniontype HessianMatrix
+    record HESS_MATRIX
+      list<JacobianColumn> columns;
+      list<SimCodeVar.SimVar> seedVars;
+      list<SimCodeVar.SimVar> lambdaVars;
+      String matrixName;
+      Integer hessianIndex;
+      Integer partitionIndex;
+      Option<HashTableCrefSimVar.HashTable> crefsHT;
+    end HESS_MATRIX;
+  end HessianMatrix;
+
   uniontype SimCode
     record SIMCODE
       ModelInfo modelInfo;
@@ -417,6 +429,7 @@ package SimCode
       SimCodeFunction.MakefileParams makefileParams;
       DelayedExpression delayedExps;
       list<JacobianMatrix> jacobianMatrixes;
+      list<HessianMatrix> hessianMatrices;
       Option<SimulationSettings> simulationSettingsOpt;
       String fileNamePrefix;
       String fullPathPrefix; // Used for FMI where code is not generated in the same directory
@@ -951,6 +964,9 @@ package SimCodeFunction
     record JACOBIAN_CONTEXT
       Option<HashTableCrefSimVar.HashTable> jacHT;
     end JACOBIAN_CONTEXT;
+    record HESSIAN_CONTEXT
+      Option<HashTableCrefSimVar.HashTable> hessHT;
+    end HESSIAN_CONTEXT;
     record ALGLOOP_CONTEXT
       Boolean genInitialisation;
       Boolean genJacobian;
@@ -1180,6 +1196,11 @@ package SimCodeUtil
     input Option<HashTableCrefSimVar.HashTable> jacHT;
     output SimCodeFunction.Context outContext;
   end createJacContext;
+
+  function createHessContext
+    input Option<HashTableCrefSimVar.HashTable> hessHT;
+    output SimCodeFunction.Context outContext;
+  end createHessContext;
 
   function localCref2SimVar
     input DAE.ComponentRef inCref;
@@ -1416,7 +1437,11 @@ package BackendDAE
     record EXTOBJ Absyn.Path fullClassName; end EXTOBJ;
     record JAC_VAR end JAC_VAR;
     record JAC_DIFF_VAR end JAC_DIFF_VAR;
-    record SEED_VAR end SEED_VAR;
+    record HESS_VAR end HESS_VAR;
+    record HESS_DIFF_VAR end HESS_DIFF_VAR;
+    record SEED_VAR
+      Boolean b;
+    end SEED_VAR;
     record OPT_CONSTR end OPT_CONSTR;
     record OPT_FCONSTR end OPT_FCONSTR;
     record OPT_INPUT_WITH_DER end OPT_INPUT_WITH_DER;

@@ -3201,7 +3201,7 @@ import Util;
     oString := (iVarsString,iBytesString);
   end cacheLineEntryToStringClean;
 
-  protected function dumpSimCodeVar
+  public function dumpSimCodeVar
     input SimCodeVar.SimVar iVar;
     output String oString;
   protected

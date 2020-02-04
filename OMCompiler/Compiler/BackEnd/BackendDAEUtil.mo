@@ -110,6 +110,7 @@ import ResolveLoops;
 import SCode;
 import SCodeUtil;
 import Sorting;
+import SymbolicHessian;
 import StackOverflow;
 import SymbolicImplicitSolver;
 import SymbolicJacobian;
@@ -7959,7 +7960,6 @@ algorithm
   if causalized then
     BackendDAE.DAE(systs,shared) := stateDeselectionDAE(outDAE, args, stateDeselection);
   end if;
-
   // sort assigned equations to blt form
   systs := mapSortEqnsDAE(systs, shared);
   outDAE := BackendDAE.DAE(systs, shared);
@@ -8194,7 +8194,6 @@ algorithm
   dae := causalizeDAE(dae, NONE(), matchingAlgorithm, daeHandler, true);
   execStat("causalizeDAE (first run)");
   //fcall(Flags.DUMP_DAE_LOW, BackendDump.bltdump, ("bltdump", dae));
-
   // post-optimization phase
   outDAE := postOptimizeDAE(dae, postOptModules, matchingAlgorithm, daeHandler);
 
@@ -8495,12 +8494,12 @@ public function allPreOptimizationModules
     (BackendDAEUtil.introduceOutputAliases, "introduceOutputAliases"),
     (Uncertainties.dataReconciliation, "dataReconciliation"),
     (UnitCheck.unitChecking, "unitChecking"),
-    (DynamicOptimization.createDynamicOptimization,"createDynamicOptimization"),
     (BackendInline.normalInlineFunction, "normalInlineFunction"),
     (EvaluateParameter.evaluateParameters, "evaluateParameters"),
     (RemoveSimpleEquations.removeVerySimpleEquations, "removeVerySimpleEquations"),
     (BackendDAEOptimize.simplifyIfEquations, "simplifyIfEquations"),
     (BackendDAEOptimize.expandDerOperator, "expandDerOperator"),
+    (DynamicOptimization.createDynamicOptimization,"createDynamicOptimization"),
     (BackendDAEOptimize.removeLocalKnownVars, "removeLocalKnownVars"),
     (CommonSubExpression.wrapFunctionCalls, "wrapFunctionCalls"),
     (SynchronousFeatures.clockPartitioning, "clockPartitioning"),
@@ -9446,6 +9445,7 @@ algorithm
                               {},
                               backendDAEType,
                               {},
+                              {},
                               ei,
                               emptyPartitionsInfo(),
                               BackendDAE.emptyDAEModeData,
@@ -9698,6 +9698,20 @@ algorithm
     case shared as BackendDAE.SHARED() then shared.symjacs;
   end match;
 end getSharedSymJacs;
+
+public function setSharedSymHesss
+  input BackendDAE.Shared inShared;
+  input BackendDAE.SymbolicHessians symHesss;
+  output BackendDAE.Shared outShared;
+algorithm
+  outShared := match inShared
+    local
+      BackendDAE.Shared shared;
+    case shared as BackendDAE.SHARED()
+      algorithm shared.symHesss := symHesss;
+      then shared;
+  end match;
+end setSharedSymHesss;
 
 public function setSharedFunctionTree
   input BackendDAE.Shared inShared;
@@ -10031,10 +10045,9 @@ algorithm
   end match;
 end getStrongComponentVarsAndEquations;
 
-public function getStrongComponentEquations"gets all equations from a component"
-  input list<BackendDAE.StrongComponent> comps;
+public function getStrongComponentsEquations"gets all equations from a component"
+  input BackendDAE.StrongComponents comps;
   input BackendDAE.EquationArray eqs;
-  input BackendDAE.Variables vars;
   output list<BackendDAE.Equation> eqsOut;
 protected
   BackendDAE.StrongComponent comp;
@@ -10042,9 +10055,58 @@ protected
 algorithm
   eqsOut := {};
   for comp in comps loop
-    (_,_,eqLst,_) := BackendDAEUtil.getStrongComponentVarsAndEquations(comp,vars,eqs);
+    eqLst := BackendDAEUtil.getStrongComponentEquations(comp,eqs);
     eqsOut := listAppend(eqLst,eqsOut);
   end for;
+end getStrongComponentsEquations;
+
+public function getStrongComponentEquations
+  input BackendDAE.StrongComponent comp;
+  input BackendDAE.EquationArray eqArr;
+  output list<BackendDAE.Equation> eqsOut;
+algorithm
+  eqsOut := match(comp)
+    local
+      Integer eidx;
+      list<Integer> eidxs, otherEqns;
+      BackendDAE.Equation eq;
+      list<BackendDAE.Equation> eqs;
+      BackendDAE.InnerEquations innerEquations;
+  case BackendDAE.SINGLEEQUATION(eqn=eidx)
+    equation
+      eq = BackendEquation.get(eqArr,eidx);
+    then {eq};
+  case BackendDAE.EQUATIONSYSTEM(eqns=eidxs)
+    equation
+      eqs = BackendEquation.getList(eidxs,eqArr);
+    then eqs;
+  case BackendDAE.SINGLEARRAY(eqn=eidx)
+    equation
+      eq = BackendEquation.get(eqArr,eidx);
+    then {eq};
+  case BackendDAE.SINGLEALGORITHM(eqn=eidx)
+    equation
+      eq = BackendEquation.get(eqArr,eidx);
+    then {eq};
+  case BackendDAE.SINGLECOMPLEXEQUATION(eqn=eidx)
+    equation
+      eq = BackendEquation.get(eqArr,eidx);
+    then {eq};
+  case BackendDAE.SINGLEWHENEQUATION(eqn=eidx)
+    equation
+      eq = BackendEquation.get(eqArr,eidx);
+    then {eq};
+  case BackendDAE.SINGLEIFEQUATION(eqn=eidx)
+    equation
+      eq = BackendEquation.get(eqArr,eidx);
+    then {eq};
+  case BackendDAE.TORNSYSTEM(strictTearingSet = BackendDAE.TEARINGSET(residualequations=eidxs, innerEquations=innerEquations))
+    equation
+      (otherEqns,_,_) = List.map_3(innerEquations, BackendDAEUtil.getEqnAndVarsFromInnerEquation);
+      eidxs = listAppend(otherEqns,eidxs);
+      eqs = BackendEquation.getList(eidxs,eqArr);
+    then eqs;
+  end match;
 end getStrongComponentEquations;
 
 public function isFuncCallWithNoDerAnnotation"checks if the equation is a function call which has a noDerivative annotation.

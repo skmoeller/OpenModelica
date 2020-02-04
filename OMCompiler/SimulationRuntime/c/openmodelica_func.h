@@ -266,6 +266,28 @@ int (*functionJacD_column)(void* data, threadData_t *threadData, ANALYTIC_JACOBI
 int (*functionJacF_column)(void* data, threadData_t *threadData, ANALYTIC_JACOBIAN* thisJacobian, ANALYTIC_JACOBIAN* parentJacobian);
 /*#endif*/
 
+
+/* Hessian matrix */
+const int INDEX_HESS_A;
+const int INDEX_HESS_B;
+const int INDEX_HESS_C;
+
+/*
+ * These functions initialize specific Hessian.
+ * Return-value 0: jac is present
+ * Return-value 1: jac is not present
+ */
+int (*initialAnalyticHessianA)(void* data, threadData_t *threadData, ANALYTIC_HESSIAN* thisHessian, ANALYTIC_JACOBIAN* parentJacobian);
+int (*initialAnalyticHessianB)(void* data, threadData_t *threadData, ANALYTIC_HESSIAN* thisHessian, ANALYTIC_JACOBIAN* parentJacobian);
+int (*initialAnalyticHessianC)(void* data, threadData_t *threadData, ANALYTIC_HESSIAN* thisHessian, ANALYTIC_JACOBIAN* parentJacobian);
+
+/*
+ * These functions calculate specific Hessian column.
+ */
+int (*functionHessA_column)(void* data, threadData_t *threadData, ANALYTIC_HESSIAN* thisHessian, ANALYTIC_HESSIAN* parentHessian, ANALYTIC_JACOBIAN* parentJacobian);
+int (*functionHessB_column)(void* data, threadData_t *threadData, ANALYTIC_HESSIAN* thisHessian, ANALYTIC_HESSIAN* parentHessian, ANALYTIC_JACOBIAN* parentJacobian);
+int (*functionHessC_column)(void* data, threadData_t *threadData, ANALYTIC_HESSIAN* thisHessian, ANALYTIC_HESSIAN* parentHessian, ANALYTIC_JACOBIAN* parentJacobian);
+
 const char *(*linear_model_frame)(void); /* printf format-string with holes for 6 strings */
 const char *(*linear_model_datarecovery_frame)(void); /* printf format-string with holes for 9 strings */
 

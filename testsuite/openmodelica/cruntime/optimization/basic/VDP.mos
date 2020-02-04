@@ -7,7 +7,7 @@ getErrorString();
 loadFile("VDP.mo");
 getErrorString();
 
-optimize(nmpcVDP, stopTime=20.0, numberOfIntervals=50, tolerance = 1e-8);
+optimize(nmpcVDP, stopTime=20.0, numberOfIntervals=50, tolerance = 1e-8, simflags="-lv=LOG_IPOPT");
 getErrorString();
 
 res := OpenModelica.Scripting.compareSimulationResults("nmpcVDP_res.mat","ReferenceFiles/nmpcVDP_ref.mat","nmpcVDP_res.csv",0.01,0.0001);
