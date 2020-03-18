@@ -315,10 +315,6 @@ Bool evalfDiffG(Index n, double * vopt, Bool new_x, Index m, Index njac, Index *
     }
     */
 
-    for(i = 0; i< njac; ++i)
-    printf("\nvalues[%i] = %g",i,values[i]);
-
-
    {
     if(optData->ipop.debugeJ){
       int ijac = 0;

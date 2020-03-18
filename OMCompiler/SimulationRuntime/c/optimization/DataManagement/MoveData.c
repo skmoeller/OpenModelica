@@ -829,7 +829,7 @@ void diffSynColoredOptimizerSystem(OptData *optData, modelica_real **J, const in
   const int dnxnc = optData->dim.nJ;
   const modelica_real * const resultVars = jacobian->resultVars;
   const unsigned int * const sPindex = jacobian->sparsePattern->index;
-  long double  scalb = optData->bounds.scalb[m][n];
+  long double scalb = optData->bounds.scalb[m][n];
 
   const int * index_J = (index == 3)? optData->s.indexJ3 : optData->s.indexJ2;
   const int nJ1 = optData->dim.nJ + 1;
@@ -922,12 +922,10 @@ void getHessianMatrix(OptData *optData, long double **H, const int m, const int 
     */
 
     H[i][k] = (modelica_real) hessian->resultVars[0];
-    printf("indices: %i, %i\n", i, k);
-    fflush(stdout);
-    printf("result var: %f\n", hessian->resultVars[0]);
-    fflush(stdout);
-    printf("matrix elem: %Lf\n", H[i][k]);
-    printf("result var: %f\n", hessian->resultVars[0]);
+    printf("H[%i, %i] = %g \n", i, k, (double) hessian->resultVars[0]);
+    //fflush(stdout);
+    //printf("matrix elem: %Lf\n", H[i][k]);
+    //printf("result var: %f\n", hessian->resultVars[0]);
     hessian->seedVars1[k] = 0;
   }
   hessian->seedVars[i] = 0;

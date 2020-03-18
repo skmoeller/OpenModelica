@@ -247,13 +247,15 @@ static inline void num_hessian0(double * v, const double * const lambda,
     /********************/
     /* ---------------------- REPLACE WITH HESSIAN ---------------*/
     diffSynColoredOptimizerSystem(optData, optData->tmpJ, i,j,2);
+
     for(l = 0; l < nJ; ++l){
-      optData->data->simulationInfo->analyticHessians[h_index].lambdaVars[l] = 1;
+      optData->data->simulationInfo->analyticHessians[h_index].lambdaVars[l] = 1; //(modelica_real) optData->bounds.scaldt[i][l];
       getHessianMatrix(optData, optData->H[l], i,j,2);
       optData->data->simulationInfo->analyticHessians[h_index].lambdaVars[l] = 0;
     }
     printf("------------------------ %i, %i, %f, %f\n", i, j, (float)objFactor, (float)optData->bounds.scalb[i][j]);
-    optData->data->simulationInfo->analyticHessians[h_index].lambdaVars[nJ +1] = objFactor*optData->bounds.scalb[i][j]; // dt
+    /* scalb - gauss gewichte aus quadratur || i - intervall || j - kollokationspunkt*/
+    optData->data->simulationInfo->analyticHessians[h_index].lambdaVars[nJ + 1] = (modelica_real) objFactor*optData->bounds.scalb[i][j]; // dt
     getHessianMatrix(optData, optData->Hl, i,j,2);
     optData->data->simulationInfo->analyticHessians[h_index].lambdaVars[nJ + 1] = 0.00;
     /*******************/
@@ -262,11 +264,18 @@ static inline void num_hessian0(double * v, const double * const lambda,
     for(jj = 0; jj < ii+1; ++jj){
       const int h_index = optData->s.indexABCD_Hess[2];
       if(optData->s.H0[ii][jj]){
-        for(l = nx; l < nJ; ++l){
+        for(l = 0; l < nJ; ++l){
           if(optData->s.Hg[l][ii][jj] && lambda[l] != 0){
+
+          //  optData->H[l][ii][jj] = (long double)(optData->tmpJ[l][jj] - optData->J[i][j][l][jj])*h;
+            float num_value = (long double)(optData->tmpJ[l][jj] - optData->J[i][j][l][jj])/h;
+//            printf("\nHcost[%i, %i, %i]]: J: %f  tmpJ: %f h:%g", l, ii, jj, (float)optData->J[i][j][l][jj], (float)optData->tmpJ[l][jj], (double) h);
+            printf("\nHcost[%i, %i, %i]]: num_value: %f - sym: %f = %f", l, ii, jj, (float)num_value , (float)optData->H[l][ii][jj], (float)((float)num_value - (float)optData->H[l][ii][jj]));
+        /*
               double old_value = optData->H[l][ii][jj];
               optData->H[l][ii][jj] = (long double)(optData->tmpJ[l][jj] - optData->J[i][j][l][jj])*lambda[l]/h;
-              printf("\n H[%i, %i, %i]]: %f - %f = %f", l, ii, jj, old_value , optData->H[l][ii][jj], old_value - optData->H[l][ii][jj]);
+              printf("\n H[%i, %i, %i]]: %f - %f = %f", l, ii, jj, (float) old_value , (float) optData->H[l][ii][jj], (float) old_value - (float) optData->H[l][ii][jj]);
+*/
             }
         }
       }
