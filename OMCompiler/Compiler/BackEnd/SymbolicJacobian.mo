@@ -2060,7 +2060,7 @@ algorithm
         if SymbolicHessian then
           reducedDAE = inBackendDAE;
         else
-        reducedDAE = BackendDAEUtil.reduceEqSystemsInDAE(inBackendDAE, diffedVars);
+          reducedDAE = BackendDAEUtil.reduceEqSystemsInDAE(inBackendDAE, diffedVars);
         end if;
 
         comref_vars = List.map(inDiffVars, BackendVariable.varCref);

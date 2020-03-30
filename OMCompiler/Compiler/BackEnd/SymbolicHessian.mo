@@ -127,7 +127,7 @@ algorithm
       //BackendDump.dumpVarList(states, "states");
       knvarlst := BackendVariable.varList(globalKnownVars);
       //BackendDump.dumpVarList(knvarlst,"knvarlst");
-      inputvars := List.select(allDiffedVars,BackendVariable.isInput);
+      inputvars := List.select(diffVars,BackendVariable.isInput);
       //BackendDump.dumpVarList(inputvars,"inputvars");
       paramvars := List.select(knvarlst, BackendVariable.isParam);
       //BackendDump.dumpVarList(paramvars,"paramvars");
@@ -135,7 +135,7 @@ algorithm
       states_inputs := diffVars;
       //BackendDump.dumpVarList(states_inputs, "states_inputs");
 
-      statesarr := BackendVariable.listVar1(diffedVars);
+      statesarr := BackendVariable.listVar1(states);
       //print("statesarr hes\n");
       //BackendDump.printVariables(statesarr);
       //print("\n\n");
@@ -148,25 +148,26 @@ algorithm
       //BackendDump.printVariables(statesarr);
       //print("\n\n")
       optimizer_vars := BackendVariable.listVar1(diffedVars);
-      //print("statesarr hes\n");
-      //BackendDump.printVariables(statesarr);
-      //print("\n\n")
-
-      //print("System for HESSIAN\n\n");
-      //print("DAE Hes\n");
-      //BackendDump.dumpDAE(hessDae);
-      //print("\n");
-      //BackendDump.dumpVarList(states_inputs, "states_inputs hes");
-      //print("statesarr hes\n\n");
-      //BackendDump.printVariables(statesarr);
-      //print("inputvarsarr hes\n\n");
-      //BackendDump.printVariables(inputvarsarr);
-      //print("paramvarsarr hes\n\n");
-      //BackendDump.printVariables(paramvarsarr);
-      //print("optimizer_vars hes\n\n");
+      //print("optimizer_vars hes\n");
       //BackendDump.printVariables(optimizer_vars);
-      //BackendDump.dumpVarList(varlst, "varlst hes");
-
+      //print("\n\n");
+      /*
+      print("System for HESSIAN\n\n");
+      print("DAE Hes\n");
+      BackendDump.dumpDAE(hessDae);
+      print("\n");
+      BackendDump.dumpVarList(states_inputs, "states_inputs hes");
+      print("statesarr hes\n\n");
+      BackendDump.printVariables(statesarr);
+      print("inputvarsarr hes\n\n");
+      BackendDump.printVariables(inputvarsarr);
+      print("paramvarsarr hes\n\n");
+      BackendDump.printVariables(paramvarsarr);
+      print("optimizer_vars hes\n\n");
+      BackendDump.printVariables(optimizer_vars);
+      BackendDump.dumpVarList(varlst, "varlst hes");
+      */
+      hessDae.shared := BackendDAEUtil.setSharedGlobalKnownVars(hessDae.shared,paramvarsarr);
       (SOME(symjac), functionTree,_,_) := SymbolicJacobian.generateGenericJacobian(hessDae, states_inputs, statesarr, inputvarsarr, paramvarsarr, optimizer_vars, varlst ,nameHessian, false, true); //generate second derivates
       (hessDae,_,_,diffedVars,allDiffedVars,_) := symjac;
       hessDae := BackendDAEUtil.setFunctionTree(hessDae, functionTree);
