@@ -219,7 +219,7 @@ static inline void num_hessian0(double * v, const double * const lambda,
   int ii,jj, l;
   long double v_save, h;
   modelica_real * realV[3];
-
+/*
   printf("\n--scalb---\n");
   for(int inter = 0; inter<50; inter++){
     printf("[%i]", inter);
@@ -238,7 +238,7 @@ static inline void num_hessian0(double * v, const double * const lambda,
       }
       printf("\n");
     }
-
+*/
   for(l = 1; l<3; ++l){
     realV[l] = data->localData[l]->realVars;
     data->localData[l]->realVars = optData->v[i][j];
@@ -274,9 +274,11 @@ static inline void num_hessian0(double * v, const double * const lambda,
     }
     //printf("------------------------ %i, %i, %f, %f, %d\n", i, j, (float)objFactor, (float)optData->bounds.scalb[i][j], (double)optData->bounds.scaldt[i][l]);
     /* scalb - gauss gewichte aus quadratur || i - intervall || j - kollokationspunkt*/
-    optData->data->simulationInfo->analyticHessians[h_index].lambdaVars[nJ + 1] = objFactor/h; //(modelica_real) objFactor*optData->bounds.scaldt[i][j]; // dt
-    getHessianMatrix(optData, optData->Hl, i,j,2);
-    optData->data->simulationInfo->analyticHessians[h_index].lambdaVars[nJ + 1] = 0;
+    if(upCost){
+      optData->data->simulationInfo->analyticHessians[h_index].lambdaVars[nJ + 1] = objFactor; //(modelica_real) objFactor*optData->bounds.scaldt[i][j]; // dt
+      getHessianMatrix(optData, optData->Hl, i,j,3);
+      optData->data->simulationInfo->analyticHessians[h_index].lambdaVars[nJ + 1] = 0;
+    }
     /*******************/
     v[ii] = (double)v_save;
     /*******************/
@@ -287,7 +289,7 @@ static inline void num_hessian0(double * v, const double * const lambda,
           if(optData->s.Hg[l][ii][jj] && lambda[l] != 0){
             float num_value = (long double)(optData->tmpJ[l][jj] - optData->J[i][j][l][jj])/h;
             if((float)((float)num_value - (float)optData->H[l][ii][jj]) > 0.0001)
-              printf("\nHcost[%i, %i, %i]]: num_value: %f - sym: %f = %f", l, ii, jj, (float)num_value , (float)optData->H[l][ii][jj], (float)((float)num_value - (float)optData->H[l][ii][jj]));
+              printf("\nHcost[%i, %i, %i]]: num_value: %f - sym: %f = %g", l, ii, jj, (float)num_value , (float)optData->H[l][ii][jj], (double)(num_value - optData->H[l][ii][jj]));
             }
         }
       }
@@ -373,14 +375,22 @@ static inline void num_hessian1(double * v, const double * const lambda,
 
     for(l = 0; l < nJ; ++l){
       optData->data->simulationInfo->analyticHessians[h_index].lambdaVars[l] = (modelica_real) optData->bounds.scaldt[i][l];
-      getHessianMatrix(optData, optData->H[l], i,j,2);
+      getHessianMatrix(optData, optData->H[l], i,j,3);
       optData->data->simulationInfo->analyticHessians[h_index].lambdaVars[l] = 0;
     }
     //printf("------------------------ %i, %i, %f, %f, %d\n", i, j, (float)objFactor, (float)optData->bounds.scalb[i][j], (double)optData->bounds.scaldt[i][l]);
     /* scalb - gauss gewichte aus quadratur || i - intervall || j - kollokationspunkt*/
-    optData->data->simulationInfo->analyticHessians[h_index].lambdaVars[nJ + 1] = objFactor/h; //(modelica_real) objFactor*optData->bounds.scaldt[i][j]; // dt
-    getHessianMatrix(optData, optData->Hl, i,j,2);
-    optData->data->simulationInfo->analyticHessians[h_index].lambdaVars[nJ + 1] = 0;
+    if(upCost){
+      optData->data->simulationInfo->analyticHessians[h_index].lambdaVars[nJ + 1] = objFactor; //(modelica_real) objFactor*optData->bounds.scaldt[i][j]; // dt
+      getHessianMatrix(optData, optData->Hl, i,j,3);
+      optData->data->simulationInfo->analyticHessians[h_index].lambdaVars[nJ + 1] = 0;
+    }
+
+    if(upCost2){
+      optData->data->simulationInfo->analyticHessians[h_index].lambdaVars[nJ + 1] = objFactor; //(modelica_real) objFactor*optData->bounds.scaldt[i][j]; // dt
+      getHessianMatrix(optData, optData->Hm, i,j,3);
+      optData->data->simulationInfo->analyticHessians[h_index].lambdaVars[nJ + 1] = 0;
+    }
     /*******************/
     v[ii] = (double)v_save;
     /*******************/

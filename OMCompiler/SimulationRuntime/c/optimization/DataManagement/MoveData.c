@@ -905,10 +905,9 @@ void getHessianMatrix(OptData *optData, long double **H, const int m, const int 
   setContext(data, &(data->localData[0]->timeValue), CONTEXT_SYM_JACOBIAN);
 
   for(i = 0; i < hessian->sizeRows; ++i){
-    hessian->seedVars[i] = 1;
+    hessian->seedVars[i] = optData->bounds.vnom[i];
     for(k = 0; k < i + 1; ++k){
-      hessian->seedVars1[k] = 1;
-
+      hessian->seedVars1[k] = optData->bounds.vnom[k];
     if(index == 2){
       data->callback->functionHessB_column(data, threadData, hessian, NULL, parentJacobian);
     }else if(index == 3){
