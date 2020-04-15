@@ -894,39 +894,60 @@ void getHessianMatrix(OptData *optData, long double **H, const int m, const int 
   ANALYTIC_HESSIAN* hessian = &(data->simulationInfo->analyticHessians[h_index]);
   ANALYTIC_JACOBIAN* parentJacobian = &(data->simulationInfo->analyticJacobians[j_index]);
   const long double * scaldt = optData->bounds.scaldt[m];
+  long double scalb = optData->bounds.scalb[m][n];
   const int nx = hessian->sizeCols;
   const int dnx = optData->dim.nx;
   const int dnxnc = optData->dim.nJ;
   const modelica_real * const resultVars = hessian->resultVars;
-  long double  scalb = optData->bounds.scalb[m][n];
-
   const int nJ1 = optData->dim.nJ + 1;
 
   setContext(data, &(data->localData[0]->timeValue), CONTEXT_SYM_JACOBIAN);
 
   for(i = 0; i < hessian->sizeRows; ++i){
     hessian->seedVars[i] = optData->bounds.vnom[i];
-    for(k = 0; k < i + 1; ++k){
-      hessian->seedVars1[k] = optData->bounds.vnom[k];
-    if(index == 2){
-      data->callback->functionHessB_column(data, threadData, hessian, NULL, parentJacobian);
-    }else if(index == 3){
-      data->callback->functionHessC_column(data, threadData, hessian, NULL, parentJacobian);
-    }else
-      assert(0);
-
-    increaseJacContext(data);
-/*
-
+    /*
+    if(i < dnx){
+      hessian->seedVars[i] = optData->bounds.vnom[i];
+    }else if(i < dnxnc){
+      hessian->seedVars[i] = optData->bounds.vnom[i];
+    }else if(i == optData->dim.nJ && optData->s.lagrange){
+      hessian->seedVars[i] = optData->bounds.vnom[i] * scalb;
+    }else{
+      hessian->seedVars[i] = optData->bounds.vnom[i];
+    }
     */
+    for(k = 0; k < hessian->sizeCols; ++k){
+      hessian->seedVars1[k] = optData->bounds.vnom[k];
+      /*
+      if(k < dnx){
+        hessian->seedVars1[k] = optData->bounds.vnom[k];// * scaldt[k];
+      }else if(k < dnxnc){
+        hessian->seedVars1[k] = optData->bounds.vnom[k];
+      }else if(k == optData->dim.nJ && optData->s.lagrange){
+        hessian->seedVars1[k] = optData->bounds.vnom[k] * scalb;
+      }else{
+        hessian->seedVars1[k] = optData->bounds.vnom[k];
+      }
+      */
 
-    H[i][k] = (modelica_real) hessian->resultVars[0];
-    //printf("H[%i, %i] = %g \n", i, k, (double) hessian->resultVars[0]);
-    //fflush(stdout);
-    //printf("matrix elem: %Lf\n", H[i][k]);
-    //printf("result var: %f\n", hessian->resultVars[0]);
-    hessian->seedVars1[k] = 0;
-  }
+      if(index == 2){
+        data->callback->functionHessB_column(data, threadData, hessian, NULL, parentJacobian);
+      }else if(index == 3){
+        data->callback->functionHessC_column(data, threadData, hessian, NULL, parentJacobian);
+      }else{
+        assert(0);
+      }
+      increaseJacContext(data);
+
+
+      /* set the element of the hessian matrix to result value */
+      H[i][k] = (modelica_real) hessian->resultVars[0];
+      //printf("H[%i, %i] = %g \n", i, k, (double) hessian->resultVars[0]);
+      //fflush(stdout);
+      //printf("matrix elem: %Lf\n", H[i][k]);
+      //printf("result var: %f\n", hessian->resultVars[0]);
+      hessian->seedVars1[k] = 0;
+    }
   hessian->seedVars[i] = 0;
   }
   unsetContext(data);

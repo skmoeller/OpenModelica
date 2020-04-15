@@ -267,16 +267,25 @@ static inline void num_hessian0(double * v, const double * const lambda,
     /* ---------------------- REPLACE WITH HESSIAN ---------------*/
     diffSynColoredOptimizerSystem(optData, optData->tmpJ, i,j,2);
 
-    for(l = 0; l < nJ; ++l){
-      optData->data->simulationInfo->analyticHessians[h_index].lambdaVars[l] = (modelica_real) optData->bounds.scaldt[i][l];
-      getHessianMatrix(optData, optData->H[l], i,j,2);
+    for(l = 0; l < nx; ++l){
+      optData->data->simulationInfo->analyticHessians[h_index].lambdaVars[l] = (modelica_real) optData->time.dt[i] / optData->bounds.vnom[l];
+      getHessianMatrix(optData, optData->H[l], i, j, 2);
       optData->data->simulationInfo->analyticHessians[h_index].lambdaVars[l] = 0;
     }
+
+    for(; l < nJ; ++l){
+      optData->data->simulationInfo->analyticHessians[h_index].lambdaVars[l] = 1; //(modelica_real) optData->bounds.scaldt[i][l];
+      getHessianMatrix(optData, optData->H[l], i, j, 2);
+      optData->data->simulationInfo->analyticHessians[h_index].lambdaVars[l] = 0;
+      printf("test !!!!!!1\n");
+    }
+
+
     //printf("------------------------ %i, %i, %f, %f, %d\n", i, j, (float)objFactor, (float)optData->bounds.scalb[i][j], (double)optData->bounds.scaldt[i][l]);
     /* scalb - gauss gewichte aus quadratur || i - intervall || j - kollokationspunkt*/
     if(upCost){
-      optData->data->simulationInfo->analyticHessians[h_index].lambdaVars[nJ + 1] = objFactor; //(modelica_real) objFactor*optData->bounds.scaldt[i][j]; // dt
-      getHessianMatrix(optData, optData->Hl, i,j,3);
+      optData->data->simulationInfo->analyticHessians[h_index].lambdaVars[nJ + 1] = (modelica_real) optData->bounds.scalb[i][j] * objFactor; //(modelica_real) objFactor*optData->bounds.scaldt[i][j]; // dt
+      getHessianMatrix(optData, optData->Hl, i, j, 2);
       optData->data->simulationInfo->analyticHessians[h_index].lambdaVars[nJ + 1] = 0;
     }
     /*******************/
@@ -288,8 +297,11 @@ static inline void num_hessian0(double * v, const double * const lambda,
         for(l = 0; l < nJ; ++l){
           if(optData->s.Hg[l][ii][jj] && lambda[l] != 0){
             float num_value = (long double)(optData->tmpJ[l][jj] - optData->J[i][j][l][jj])/h;
-            if((float)((float)num_value - (float)optData->H[l][ii][jj]) > 0.0001)
-              printf("\nHcost[%i, %i, %i]]: num_value: %f - sym: %f = %g", l, ii, jj, (float)num_value , (float)optData->H[l][ii][jj], (double)(num_value - optData->H[l][ii][jj]));
+            if((float)((float)num_value - (float)optData->H[l][ii][jj]) > 0.0001){
+              printf("Hcost[%i, %i, %i]]: num_value: %f / sym: %f = %g\n", l, ii, jj,
+              (float)num_value , (float)optData->H[l][ii][jj], (double)(num_value / optData->H[l][ii][jj]));
+              printf("x1 = %g, x2 = %g\n", data->localData[0]->realVars[1], data->localData[0]->realVars[2]);
+            }
             }
         }
       }
@@ -373,16 +385,23 @@ static inline void num_hessian1(double * v, const double * const lambda,
     diffSynColoredOptimizerSystem(optData, optData->tmpJ, i,j,2);
     const int h_index = optData->s.indexABCD_Hess[2];
 
-    for(l = 0; l < nJ; ++l){
-      optData->data->simulationInfo->analyticHessians[h_index].lambdaVars[l] = (modelica_real) optData->bounds.scaldt[i][l];
-      getHessianMatrix(optData, optData->H[l], i,j,3);
+    for(l = 0; l < nx; ++l){
+      optData->data->simulationInfo->analyticHessians[h_index].lambdaVars[l] = (modelica_real) optData->time.dt[i] / optData->bounds.vnom[l];
+      getHessianMatrix(optData, optData->H[l], i,j,2);
       optData->data->simulationInfo->analyticHessians[h_index].lambdaVars[l] = 0;
     }
+
+
+    for(; l < nJ; ++l){
+      optData->data->simulationInfo->analyticHessians[h_index].lambdaVars[l] = 1;
+      getHessianMatrix(optData, optData->H[l], i,j,2);
+      optData->data->simulationInfo->analyticHessians[h_index].lambdaVars[l] = 0;
+      printf("test !!!!!!\n");
+    }
     //printf("------------------------ %i, %i, %f, %f, %d\n", i, j, (float)objFactor, (float)optData->bounds.scalb[i][j], (double)optData->bounds.scaldt[i][l]);
-    /* scalb - gauss gewichte aus quadratur || i - intervall || j - kollokationspunkt*/
     if(upCost){
-      optData->data->simulationInfo->analyticHessians[h_index].lambdaVars[nJ + 1] = objFactor; //(modelica_real) objFactor*optData->bounds.scaldt[i][j]; // dt
-      getHessianMatrix(optData, optData->Hl, i,j,3);
+      optData->data->simulationInfo->analyticHessians[h_index].lambdaVars[nJ + 1] = (modelica_real) optData->bounds.scalb[i][j] * objFactor; //(modelica_real) objFactor*optData->bounds.scaldt[i][j]; // dt
+      getHessianMatrix(optData, optData->Hl, i,j,2);
       optData->data->simulationInfo->analyticHessians[h_index].lambdaVars[nJ + 1] = 0;
     }
 
@@ -391,9 +410,7 @@ static inline void num_hessian1(double * v, const double * const lambda,
       getHessianMatrix(optData, optData->Hm, i,j,3);
       optData->data->simulationInfo->analyticHessians[h_index].lambdaVars[nJ + 1] = 0;
     }
-    /*******************/
     v[ii] = (double)v_save;
-    /*******************/
     for(jj = 0; jj < ii+1; ++jj){
       if(optData->s.H0[ii][jj]){
         for(l = 0; l < nJ; ++l){
@@ -407,7 +424,6 @@ static inline void num_hessian1(double * v, const double * const lambda,
     }
 
 
-/*
     diffSynColoredOptimizerSystem(optData, optData->tmpJ, i,j,indexJ);
     /********************/
     /*v[ii] = (double)v_save;
@@ -441,8 +457,8 @@ static inline void num_hessian1(double * v, const double * const lambda,
       }
     }
     /********************/
-    /*
-    if(upFinalCon && ncf > 0){
+
+    /*if(upFinalCon && ncf > 0){
       diffSynColoredOptimizerSystemF(optData, optData->tmpJf);
       for(jj = 0; jj <ii+1; ++jj){
         if(optData->s.H0[ii][jj]){
@@ -454,7 +470,6 @@ static inline void num_hessian1(double * v, const double * const lambda,
         }
       }
     }
-    */
     /********************/
   }
 
