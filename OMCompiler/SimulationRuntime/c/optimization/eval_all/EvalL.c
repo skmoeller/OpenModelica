@@ -268,13 +268,13 @@ static inline void num_hessian0(double * v, const double * const lambda,
     diffSynColoredOptimizerSystem(optData, optData->tmpJ, i,j,2);
 
     for(l = 0; l < nx; ++l){
-      optData->data->simulationInfo->analyticHessians[h_index].lambdaVars[l] = (modelica_real) optData->time.dt[i] / optData->bounds.vnom[l];
+      optData->data->simulationInfo->analyticHessians[h_index].lambdaVars[l] = (modelica_real) lambda[l]* optData->time.dt[i] / optData->bounds.vnom[l];
       getHessianMatrix(optData, optData->H[l], i, j, 2);
       optData->data->simulationInfo->analyticHessians[h_index].lambdaVars[l] = 0;
     }
 
     for(; l < nJ; ++l){
-      optData->data->simulationInfo->analyticHessians[h_index].lambdaVars[l] = 1; //(modelica_real) optData->bounds.scaldt[i][l];
+      optData->data->simulationInfo->analyticHessians[h_index].lambdaVars[l] = lambda[l];
       getHessianMatrix(optData, optData->H[l], i, j, 2);
       optData->data->simulationInfo->analyticHessians[h_index].lambdaVars[l] = 0;
       printf("test !!!!!!1\n");
@@ -284,7 +284,7 @@ static inline void num_hessian0(double * v, const double * const lambda,
     //printf("------------------------ %i, %i, %f, %f, %d\n", i, j, (float)objFactor, (float)optData->bounds.scalb[i][j], (double)optData->bounds.scaldt[i][l]);
     /* scalb - gauss gewichte aus quadratur || i - intervall || j - kollokationspunkt*/
     if(upCost){
-      optData->data->simulationInfo->analyticHessians[h_index].lambdaVars[nJ + 1] = (modelica_real) optData->bounds.scalb[i][j] * objFactor; //(modelica_real) objFactor*optData->bounds.scaldt[i][j]; // dt
+      optData->data->simulationInfo->analyticHessians[h_index].lambdaVars[nJ + 1] = (modelica_real) optData->bounds.scalb[i][j] * objFactor; // * lambda[l] (???!!!)
       getHessianMatrix(optData, optData->Hl, i, j, 2);
       optData->data->simulationInfo->analyticHessians[h_index].lambdaVars[nJ + 1] = 0;
     }
@@ -296,12 +296,14 @@ static inline void num_hessian0(double * v, const double * const lambda,
       if(optData->s.H0[ii][jj]){
         for(l = 0; l < nJ; ++l){
           if(optData->s.Hg[l][ii][jj] && lambda[l] != 0){
-            float num_value = (long double)(optData->tmpJ[l][jj] - optData->J[i][j][l][jj])/h;
+            long double num_value = (long double)(optData->tmpJ[l][jj] - optData->J[i][j][l][jj])*lambda[l]/h;
             if((float)((float)num_value - (float)optData->H[l][ii][jj]) > 0.0001){
               printf("Hcost[%i, %i, %i]]: num_value: %f / sym: %f = %g\n", l, ii, jj,
               (float)num_value , (float)optData->H[l][ii][jj], (double)(num_value / optData->H[l][ii][jj]));
               printf("x1 = %g, x2 = %g\n", data->localData[0]->realVars[1], data->localData[0]->realVars[2]);
-            }
+              }
+
+            //ptData->H[l][ii][jj] = num_value;
             }
         }
       }
@@ -386,14 +388,14 @@ static inline void num_hessian1(double * v, const double * const lambda,
     const int h_index = optData->s.indexABCD_Hess[2];
 
     for(l = 0; l < nx; ++l){
-      optData->data->simulationInfo->analyticHessians[h_index].lambdaVars[l] = (modelica_real) optData->time.dt[i] / optData->bounds.vnom[l];
+      optData->data->simulationInfo->analyticHessians[h_index].lambdaVars[l] = (modelica_real) lambda[l] * optData->time.dt[i] / optData->bounds.vnom[l];
       getHessianMatrix(optData, optData->H[l], i,j,2);
       optData->data->simulationInfo->analyticHessians[h_index].lambdaVars[l] = 0;
     }
 
 
     for(; l < nJ; ++l){
-      optData->data->simulationInfo->analyticHessians[h_index].lambdaVars[l] = 1;
+      optData->data->simulationInfo->analyticHessians[h_index].lambdaVars[l] = lambda[l];
       getHessianMatrix(optData, optData->H[l], i,j,2);
       optData->data->simulationInfo->analyticHessians[h_index].lambdaVars[l] = 0;
       printf("test !!!!!!\n");
@@ -464,7 +466,7 @@ static inline void num_hessian1(double * v, const double * const lambda,
         if(optData->s.H0[ii][jj]){
           for(l = 0; l < ncf; ++l){
             if(optData->s.Hcf[l][ii][jj]){
-              optData->Hcf[l][ii][jj] = (long double)(optData->tmpJf[l][jj] - optData->Jf[l][jj])*lambda[nJ+l]/h;
+              optData->Hcf[l][ii][jj] = (long double)(optData->tmpJf[l][jj] - optData->Jf[l][jj])*lambda[nJ+l]/h; // FINAL CONSTRAINTS LAMBDA!
             }
           }
         }
