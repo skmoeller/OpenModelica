@@ -73,6 +73,7 @@ int pickUpModelData(DATA* data, threadData_t *threadData, SOLVER_INFO* solverInf
 
   int i, j;
   OptData *optData =  (OptData*) solverInfo->solverData;
+  optData->symHess = data->modelData->optimizerSymHess;
   OptDataDim *dim;
 
   pickUpDim(&optData->dim, data, &optData->time);

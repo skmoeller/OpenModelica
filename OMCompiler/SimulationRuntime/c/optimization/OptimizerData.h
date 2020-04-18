@@ -197,6 +197,7 @@ typedef struct OptData{
   short index;
   modelica_boolean scc;
 
+  modelica_boolean symHess /* true if symbolic hessian was generated */;
 }OptData;
 
 #endif

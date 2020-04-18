@@ -35,8 +35,10 @@
 #include "../OptimizerLocalFunction.h"
 #include "../../simulation/solver/model_help.h"
 
-static inline void num_hessian0(double * v, const double * const lambda, const double objFactor , OptData *optData, const int i, const int j);
+static inline void sym_hessian0(double * v, const double * const lambda, const double objFactor, OptData *optData, const int i, const int j);
+static inline void num_hessian0(double * v, const double * const lambda, const double objFactor, OptData *optData, const int i, const int j);
 static inline void sumLagrange0(const int i, const int j, double * res,  const modelica_boolean upC, OptData *optData);
+static inline void sym_hessian1(double * v, const double * const lambda, const double objFactor, OptData *optData, const int i, const int j);
 static inline void num_hessian1(double * v, const double * const lambda, const double objFactor, OptData *optData, const int i, const int j);
 static inline void sumLagrange1(const int i, const int j, double * res,  const modelica_boolean upC, const modelica_boolean upC2, OptData *optData);
 #define DF_STEP(v) (1e-5*fabsl(v) + 1e-8)
@@ -156,7 +158,12 @@ Bool ipopt_h(int n, double *vopt, Bool new_x, double obj_factor, int m, double *
 
     for(ii = 0, k = 0, v = vopt, la = lambda; ii + 1 < nsi; ++ii){
       for(p = 1; p < np1; ++p, v += nv, la += nJ){
-        num_hessian0(v, la, obj_factor, optData, ii, p-1);
+    ;
+        if(optData->symHess){
+          sym_hessian0(v, la, obj_factor, optData, ii, p-1);
+        }else{
+          num_hessian0(v, la, obj_factor, optData, ii, p-1);
+        }
         /*******************/
         for(i = 0; i < nv; ++i){
           for(j = 0; j < i + 1; ++j){
@@ -170,7 +177,11 @@ Bool ipopt_h(int n, double *vopt, Bool new_x, double obj_factor, int m, double *
     }
     /*******************/
     for(p = 1; p < np1; ++p, v += nv, la += nJ){
-      num_hessian1(v, la, obj_factor, optData, ii, p-1);
+      if(optData->symHess){
+        sym_hessian1(v, la, obj_factor, optData, ii, p-1);
+      }else{
+        num_hessian1(v, la, obj_factor, optData, ii, p-1);
+      }
       /*******************/
       for(i = 0; i < nv; ++i){
         for(j = 0; j < i + 1; ++j){
@@ -195,11 +206,14 @@ Bool ipopt_h(int n, double *vopt, Bool new_x, double obj_factor, int m, double *
   return TRUE;
 }
 
-/* numerical approximation
- *  hessian
- * author: Vitalij Ruge
+/*
+ * This function computes the symbolic hessian matrix based on generated
+ * functions. Without mayer function and final constraints and therefore
+ * not to be used for the last interval.
+ * Backend Module: SymbolicHessian.mo
+ * authors: Sören Möller, Vitalij Ruge, Karim Abdelhak
  */
-static inline void num_hessian0(double * v, const double * const lambda,
+static inline void sym_hessian0(double * v, const double * const lambda,
     const double objFactor , OptData *optData, const int i, const int j){
 
   const modelica_boolean la = optData->s.lagrange;
@@ -217,28 +231,201 @@ static inline void num_hessian0(double * v, const double * const lambda,
   const modelica_real * const vnom = optData->bounds.vnom;
 
   int ii,jj, l;
-  long double v_save, h;
   modelica_real * realV[3];
-/*
-  printf("\n--scalb---\n");
-  for(int inter = 0; inter<50; inter++){
-    printf("[%i]", inter);
-    for(int kollo = 0; kollo<3; kollo++){
-      printf("\t%f", (float) optData->bounds.scalb[inter][kollo]);
-    }
-    printf("\n");
+
+  /* Store the values temporarily before scaling */
+  for(l = 1; l<3; ++l){
+    realV[l] = data->localData[l]->realVars;
+    data->localData[l]->realVars = optData->v[i][j];
+    data->localData[l]->timeValue = (modelica_real) optData->time.t[i][j];
+  }
+  data->localData[0]->timeValue = (modelica_real) optData->time.t[i][j];
+
+  /* Scale all values with their nominal value */
+  for(l = 0; l < nx; ++l)
+    data->localData[0]->realVars[l] = v[l]*vnom[l];
+  for(; l <nv; ++l)
+    data->simulationInfo->inputVars[l-nx] = (modelica_real) v[l]*vnom[l];
+  data->callback->input_function(data, threadData);
+
+  /* Compute the full system */
+  updateDiscreteSystem(data, threadData);
+
+  /* ------- COMPUTE THE HESSIAN TENSOR ------- */
+
+  /* Hessian matrices for each lambda belonging to a differential equation */
+  for(l = 0; l < nx; ++l){
+    optData->data->simulationInfo->analyticHessians[h_index].lambdaVars[l] = (modelica_real) lambda[l]* optData->time.dt[i] / optData->bounds.vnom[l];
+    getHessianMatrix(optData, optData->H[l], i, j, 2);
+    optData->data->simulationInfo->analyticHessians[h_index].lambdaVars[l] = 0;
   }
 
+  /* Hessian matrices for each lambda belonging to a constraint equation */
+  for(; l < nJ; ++l){
+    optData->data->simulationInfo->analyticHessians[h_index].lambdaVars[l] = lambda[l];
+    getHessianMatrix(optData, optData->H[l], i, j, 2);
+    optData->data->simulationInfo->analyticHessians[h_index].lambdaVars[l] = 0;
+  }
 
-    printf("\n--scaldt---\n");
-    for(int inter = 0; inter<50; inter++){
-      printf("[%i]", inter);
-      for(int kollo = 0; kollo<3; kollo++){
-        printf("\t%f", (float) optData->bounds.scaldt[inter][kollo]);
+  /* Hessian matrix for the langrangian function */
+  if(upCost){
+    optData->data->simulationInfo->analyticHessians[h_index].lambdaVars[nJ + 1] = (modelica_real) optData->bounds.scalb[i][j] * objFactor;
+    getHessianMatrix(optData, optData->Hl, i, j, 2);
+    optData->data->simulationInfo->analyticHessians[h_index].lambdaVars[nJ + 1] = 0;
+  }
+
+  /* reset the values to unscaled values (without nominal) */
+  for(l = 1; l<3; ++l){
+    data->localData[l]->realVars = realV[l];
+  }
+
+  // REMOVE THE COMMENTS TO PLOT DIFFERENCE TO NUMERICAL APPROXIMATION - ONLY FOR DEBUGGING
+  /*
+  diffSynColoredOptimizerSystem(optData, optData->tmpJ, i,j,2);
+  for(jj = 0; jj < ii+1; ++jj){
+    if(optData->s.H0[ii][jj]){
+      for(l = 0; l < nJ; ++l){
+        if(optData->s.Hg[l][ii][jj] && lambda[l] != 0){
+          long double num_value = (long double)(optData->tmpJ[l][jj] - optData->J[i][j][l][jj])*lambda[l]/h;
+          if((float)((float)num_value - (float)optData->H[l][ii][jj]) > 0.0001){
+            printf("Hcost[%i, %i, %i]]: num_value: %f / sym: %f = %g\n", l, ii, jj,
+              (float)num_value , (float)optData->H[l][ii][jj], (double)(num_value / optData->H[l][ii][jj]));
+          }
       }
-      printf("\n");
     }
-*/
+  }
+  */
+}
+
+/*
+ * This function computes the symbolic hessian matrix based on generated
+ * functions. With mayer function and final constraints and therefore
+ * only to be used for the last interval.
+ * Backend Module: SymbolicHessian.mo
+ * authors: Sören Möller, Vitalij Ruge, Karim Abdelhak
+ */
+static inline void sym_hessian1(double * v, const double * const lambda,
+    const double objFactor, OptData *optData, const int i, const int j){
+
+  const modelica_boolean la = optData->s.lagrange;
+  const modelica_boolean ma = optData->s.mayer;
+  const modelica_boolean upCost = la && objFactor != 0;
+
+  const int nv = optData->dim.nv;
+  const int nx = optData->dim.nx;
+  const int np = optData->dim.np;
+  const int nJ = optData->dim.nJ;
+  const int nJ1 = optData->dim.nJ + 1;
+  const int nsi = optData->dim.nsi;
+  const int ncf = optData->dim.ncf;
+  const modelica_real * const vmax = optData->bounds.vmax;
+  const modelica_real * const vnom = optData->bounds.vnom;
+  const modelica_boolean upFinalCon = np == j + 1 && nsi == i  +1;
+  const modelica_boolean upCost2 = upFinalCon && ma && objFactor != 0;
+  const short indexJ = (upCost2) ? 3 : 2;
+  int ii,jj, l,k;
+  DATA * data = optData->data;
+  threadData_t *threadData = optData->threadData;
+  const int h_index = optData->s.indexABCD_Hess[2];
+
+  modelica_real * realV[3];
+
+  /* Store the values temporarily before scaling */
+  data->localData[0]->timeValue = (modelica_real) optData->time.t[i][j];
+  for(l = 1; l<3; ++l){
+    realV[l] = data->localData[l]->realVars;
+    data->localData[l]->realVars = optData->v[i][j];
+    data->localData[l]->timeValue = (modelica_real) optData->time.t[i][j];
+}
+
+  /* Scale all values with their nominal value */
+  for(l = 0; l < nx; ++l)
+    data->localData[0]->realVars[l] = v[l]*vnom[l];
+  for(; l <nv; ++l)
+    data->simulationInfo->inputVars[l-nx] = (modelica_real) v[l]*vnom[l];
+
+  data->callback->input_function(data, threadData);
+
+  /* Compute the full system */
+  updateDiscreteSystem(data, threadData);
+
+  /* ------- COMPUTE THE HESSIAN TENSOR ------- */
+
+  /* Hessian matrices for each lambda belonging to a differential equation */
+  for(l = 0; l < nx; ++l){
+    optData->data->simulationInfo->analyticHessians[h_index].lambdaVars[l] = (modelica_real) lambda[l] * optData->time.dt[i] / optData->bounds.vnom[l];
+    getHessianMatrix(optData, optData->H[l], i,j,2);
+    optData->data->simulationInfo->analyticHessians[h_index].lambdaVars[l] = 0;
+  }
+
+  /* Hessian matrices for each lambda belonging to a constraint equation */
+  for(; l < nJ; ++l){
+    optData->data->simulationInfo->analyticHessians[h_index].lambdaVars[l] = lambda[l];
+    getHessianMatrix(optData, optData->H[l], i,j,2);
+    optData->data->simulationInfo->analyticHessians[h_index].lambdaVars[l] = 0;
+  }
+
+  /* Hessian matrix for the langrangian function */
+  if(upCost){
+    optData->data->simulationInfo->analyticHessians[h_index].lambdaVars[nJ + 1] = (modelica_real) optData->bounds.scalb[i][j] * objFactor;
+    getHessianMatrix(optData, optData->Hl, i,j,2);
+    optData->data->simulationInfo->analyticHessians[h_index].lambdaVars[nJ + 1] = 0;
+  }
+
+  /* Hessian matrix for the mayer function */
+  if(upCost2){
+    int index_mayer = (upCost ? nJ + 2 : nJ + 1);
+    optData->data->simulationInfo->analyticHessians[h_index].lambdaVars[index_mayer] = objFactor;
+    getHessianMatrix(optData, optData->Hm, i,j,3);
+    optData->data->simulationInfo->analyticHessians[h_index].lambdaVars[index_mayer] = 0;
+  }
+
+  /* TODO: ADD FINAL CONSTRAINTS! */
+
+  /*if(upFinalCon && ncf > 0){
+    diffSynColoredOptimizerSystemF(optData, optData->tmpJf);
+    for(jj = 0; jj <ii+1; ++jj){
+      if(optData->s.H0[ii][jj]){
+        for(l = 0; l < ncf; ++l){
+          if(optData->s.Hcf[l][ii][jj]){
+            optData->Hcf[l][ii][jj] = (long double)(optData->tmpJf[l][jj] - optData->Jf[l][jj])*lambda[nJ+l]/h; // FINAL CONSTRAINTS LAMBDA!
+          }
+        }
+      }
+    }
+  }
+  /********************/
+
+  /* reset the values to unscaled values (without nominal) */
+  for(l = 1; l<3; ++l){
+    data->localData[l]->realVars = realV[l];
+  }
+
+}
+
+/* numerical approximation
+ *  hessian
+ * author: Vitalij Ruge
+ */
+static inline void num_hessian0(double * v, const double * const lambda,
+    const double objFactor , OptData *optData, const int i, const int j){
+
+  const modelica_boolean la = optData->s.lagrange;
+  const modelica_boolean upCost = la && objFactor != 0;
+  DATA * data = optData->data;
+  threadData_t *threadData = optData->threadData;
+
+  const int nv = optData->dim.nv;
+  const int nx = optData->dim.nx;
+  const int nJ = optData->dim.nJ;
+  const modelica_real * const vmax = optData->bounds.vmax;
+  const modelica_real * const vnom = optData->bounds.vnom;
+
+  int ii,jj, l;
+  long double v_save, h;
+  modelica_real * realV[3];
+
+
   for(l = 1; l<3; ++l){
     realV[l] = data->localData[l]->realVars;
     data->localData[l]->realVars = optData->v[i][j];
@@ -264,67 +451,39 @@ static inline void num_hessian0(double * v, const double * const lambda,
     /*data->callback->functionDAE(data);*/
     updateDiscreteSystem(data, threadData);
     /********************/
-    /* ---------------------- REPLACE WITH HESSIAN ---------------*/
     diffSynColoredOptimizerSystem(optData, optData->tmpJ, i,j,2);
-
-    for(l = 0; l < nx; ++l){
-      optData->data->simulationInfo->analyticHessians[h_index].lambdaVars[l] = (modelica_real) lambda[l]* optData->time.dt[i] / optData->bounds.vnom[l];
-      getHessianMatrix(optData, optData->H[l], i, j, 2);
-      optData->data->simulationInfo->analyticHessians[h_index].lambdaVars[l] = 0;
-    }
-
-    for(; l < nJ; ++l){
-      optData->data->simulationInfo->analyticHessians[h_index].lambdaVars[l] = lambda[l];
-      getHessianMatrix(optData, optData->H[l], i, j, 2);
-      optData->data->simulationInfo->analyticHessians[h_index].lambdaVars[l] = 0;
-      printf("test !!!!!!1\n");
-    }
-
-
-    //printf("------------------------ %i, %i, %f, %f, %d\n", i, j, (float)objFactor, (float)optData->bounds.scalb[i][j], (double)optData->bounds.scaldt[i][l]);
-    /* scalb - gauss gewichte aus quadratur || i - intervall || j - kollokationspunkt*/
-    if(upCost){
-      optData->data->simulationInfo->analyticHessians[h_index].lambdaVars[nJ + 1] = (modelica_real) optData->bounds.scalb[i][j] * objFactor; // * lambda[l] (???!!!)
-      getHessianMatrix(optData, optData->Hl, i, j, 2);
-      optData->data->simulationInfo->analyticHessians[h_index].lambdaVars[nJ + 1] = 0;
-    }
-    /*******************/
+    /********************/
     v[ii] = (double)v_save;
-    /*******************/
-    const int h_index = optData->s.indexABCD_Hess[2];
-    for(jj = 0; jj < ii+1; ++jj){
+    /********************/
+    for(jj = 0; jj <ii+1; ++jj){
       if(optData->s.H0[ii][jj]){
         for(l = 0; l < nJ; ++l){
-          if(optData->s.Hg[l][ii][jj] && lambda[l] != 0){
-            long double num_value = (long double)(optData->tmpJ[l][jj] - optData->J[i][j][l][jj])*lambda[l]/h;
-            if((float)((float)num_value - (float)optData->H[l][ii][jj]) > 0.0001){
-              printf("Hcost[%i, %i, %i]]: num_value: %f / sym: %f = %g\n", l, ii, jj,
-              (float)num_value , (float)optData->H[l][ii][jj], (double)(num_value / optData->H[l][ii][jj]));
-              printf("x1 = %g, x2 = %g\n", data->localData[0]->realVars[1], data->localData[0]->realVars[2]);
-              }
-
-            //ptData->H[l][ii][jj] = num_value;
-            }
+          if(optData->s.Hg[l][ii][jj] && lambda[l] != 0)
+              optData->H[l][ii][jj] = (long double)(optData->tmpJ[l][jj] - optData->J[i][j][l][jj])*lambda[l]/h;
         }
       }
     }
-
     /********************/
-
     if(upCost){
       h = objFactor/h;
       for(jj = 0; jj <ii+1; ++jj){
-        //optData->Hl[ii][jj] =  (long double)(optData->tmpJ[nJ][jj] - optData->J[i][j][nJ][jj])*h;
-        //float num_value =(long double)(optData->tmpJ[nJ][jj] - optData->J[i][j][nJ][jj])*h;
-        //printf("\nHcost[%i, %i, %i]]: num_value: %f - sym: %f = %f", l, ii, jj, (float)num_value , (float)optData->Hl[ii][jj], (float)((float)num_value - (float)optData->Hl[ii][jj]));
+        if(optData->s.Hl[ii][jj]){
+          optData->Hl[ii][jj] = (long double)(optData->tmpJ[nJ][jj] - optData->J[i][j][nJ][jj])*h;
+        }else{
+          optData->Hl[ii][jj] = 0.0;
+        }
       }
     }
     /********************/
   }
+
   for(l = 1; l<3; ++l){
     data->localData[l]->realVars = realV[l];
   }
+
 }
+
+
 
 /* numerical approximation
  *  hessian
@@ -382,55 +541,11 @@ static inline void num_hessian1(double * v, const double * const lambda,
     /*data->callback->functionDAE(data);*/
     updateDiscreteSystem(data, threadData);
     /********************/
-
-    /* ---------------------- REPLACE WITH HESSIAN ---------------*/
-    diffSynColoredOptimizerSystem(optData, optData->tmpJ, i,j,2);
-    const int h_index = optData->s.indexABCD_Hess[2];
-
-    for(l = 0; l < nx; ++l){
-      optData->data->simulationInfo->analyticHessians[h_index].lambdaVars[l] = (modelica_real) lambda[l] * optData->time.dt[i] / optData->bounds.vnom[l];
-      getHessianMatrix(optData, optData->H[l], i,j,2);
-      optData->data->simulationInfo->analyticHessians[h_index].lambdaVars[l] = 0;
-    }
-
-
-    for(; l < nJ; ++l){
-      optData->data->simulationInfo->analyticHessians[h_index].lambdaVars[l] = lambda[l];
-      getHessianMatrix(optData, optData->H[l], i,j,2);
-      optData->data->simulationInfo->analyticHessians[h_index].lambdaVars[l] = 0;
-      printf("test !!!!!!\n");
-    }
-    //printf("------------------------ %i, %i, %f, %f, %d\n", i, j, (float)objFactor, (float)optData->bounds.scalb[i][j], (double)optData->bounds.scaldt[i][l]);
-    if(upCost){
-      optData->data->simulationInfo->analyticHessians[h_index].lambdaVars[nJ + 1] = (modelica_real) optData->bounds.scalb[i][j] * objFactor; //(modelica_real) objFactor*optData->bounds.scaldt[i][j]; // dt
-      getHessianMatrix(optData, optData->Hl, i,j,2);
-      optData->data->simulationInfo->analyticHessians[h_index].lambdaVars[nJ + 1] = 0;
-    }
-
-    if(upCost2){
-      optData->data->simulationInfo->analyticHessians[h_index].lambdaVars[nJ + 1] = objFactor; //(modelica_real) objFactor*optData->bounds.scaldt[i][j]; // dt
-      getHessianMatrix(optData, optData->Hm, i,j,3);
-      optData->data->simulationInfo->analyticHessians[h_index].lambdaVars[nJ + 1] = 0;
-    }
-    v[ii] = (double)v_save;
-    for(jj = 0; jj < ii+1; ++jj){
-      if(optData->s.H0[ii][jj]){
-        for(l = 0; l < nJ; ++l){
-          if(optData->s.Hg[l][ii][jj] && lambda[l] != 0){
-            float num_value = (long double)(optData->tmpJ[l][jj] - optData->J[i][j][l][jj])/h;
-            if((float)((float)num_value - (float)optData->H[l][ii][jj]) > 0.0001)
-              printf("\nHcost[%i, %i, %i]]: num_value: %f - sym: %f = %f", l, ii, jj, (float)num_value , (float)optData->H[l][ii][jj], (float)((float)num_value - (float)optData->H[l][ii][jj]));
-            }
-        }
-      }
-    }
-
-
     diffSynColoredOptimizerSystem(optData, optData->tmpJ, i,j,indexJ);
     /********************/
-    /*v[ii] = (double)v_save;
+    v[ii] = (double)v_save;
     /********************/
-    /*for(jj = 0; jj <ii+1; ++jj){
+    for(jj = 0; jj <ii+1; ++jj){
       if(optData->s.H0[ii][jj]){
         for(l = 0; l < nJ; ++l){
           if(optData->s.Hg[l][ii][jj])
@@ -439,7 +554,7 @@ static inline void num_hessian1(double * v, const double * const lambda,
       }
     }
     /********************/
-    /*if(upCost){
+    if(upCost){
       long double hh;
       hh = objFactor/h;
       for(jj = 0; jj <ii+1; ++jj){
@@ -449,7 +564,7 @@ static inline void num_hessian1(double * v, const double * const lambda,
       }
     }
     /********************/
-    /*if(upCost2){
+    if(upCost2){
       long double hh;
       hh = objFactor/h;
       for(jj = 0; jj <ii+1; ++jj){
@@ -459,14 +574,13 @@ static inline void num_hessian1(double * v, const double * const lambda,
       }
     }
     /********************/
-
-    /*if(upFinalCon && ncf > 0){
+    if(upFinalCon && ncf > 0){
       diffSynColoredOptimizerSystemF(optData, optData->tmpJf);
       for(jj = 0; jj <ii+1; ++jj){
         if(optData->s.H0[ii][jj]){
           for(l = 0; l < ncf; ++l){
             if(optData->s.Hcf[l][ii][jj]){
-              optData->Hcf[l][ii][jj] = (long double)(optData->tmpJf[l][jj] - optData->Jf[l][jj])*lambda[nJ+l]/h; // FINAL CONSTRAINTS LAMBDA!
+              optData->Hcf[l][ii][jj] = (long double)(optData->tmpJf[l][jj] - optData->Jf[l][jj])*lambda[nJ+l]/h;
             }
           }
         }

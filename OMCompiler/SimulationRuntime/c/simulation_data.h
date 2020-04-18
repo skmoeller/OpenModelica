@@ -584,6 +584,7 @@ typedef struct MODEL_DATA
   long nInlineVars;                    /* number of additional variables for the inline solver */
   long nOptimizeConstraints;           /* number of additional variables for constraint in dynamic optimization*/
   long nOptimizeFinalConstraints;      /* number of additional variables for final constraint in dynamic optimization*/
+  modelica_boolean optimizerSymHess;   /* true if a symbolic hessian matrix for initialization was generated */
 
   long nAliasReal;
   long nAliasInteger;

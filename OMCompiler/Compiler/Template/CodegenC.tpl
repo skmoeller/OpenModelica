@@ -1368,6 +1368,7 @@ template populateModelInfo(ModelInfo modelInfo, String fileNamePrefix, String gu
     data->modelData->nJacobians = <%varInfo.numJacobians%>;
     data->modelData->nOptimizeConstraints = <%varInfo.numOptimizeConstraints%>;
     data->modelData->nOptimizeFinalConstraints = <%varInfo.numOptimizeFinalConstraints%>;
+    data->modelData->optimizerSymHess = <%if Flags.getConfigBool(Flags.GENERATE_SYMBOLIC_HESSIAN) then '1' else '0' %>;
 
     data->modelData->nDelayExpressions = <%match delayed case
      DELAYED_EXPRESSIONS(__) then maxDelayedIndex%>;
@@ -1635,25 +1636,43 @@ end symJacDefinition;
 template symHessDefinition(list<HessianMatrix> HessianMatrices, String modelNamePrefix) "template variableDefinitionsHessians
   Generates defines for hessian vars."
 ::=
-  let symbolicHesssDefine = (HessianMatrices |> HESS_MATRIX(columns=jacColumn, seedVars=seedVars, lambdaVars=lambdas, matrixName=name, hessianIndex=indexHessian)  =>
-    <<
-    #if defined(__cplusplus)
-    extern "C" {
-    #endif
-      #define <%symbolName(modelNamePrefix,"INDEX_HESS_")%><%name%> <%indexHessian%>
-      int <%symbolName(modelNamePrefix,"functionHess")%><%name%>_column(void* data, threadData_t *threadData, ANALYTIC_HESSIAN *thisHessian, ANALYTIC_HESSIAN *parentHessian, ANALYTIC_JACOBIAN *parentJacobian);
-      int <%symbolName(modelNamePrefix,"initialAnalyticHessian")%><%name%>(void* data, threadData_t *threadData, ANALYTIC_HESSIAN *hessian, ANALYTIC_JACOBIAN *parentJacobian);
-    #if defined(__cplusplus)
-    }
-    #endif
-    >>
-    ;separator="\n";empty)
+  match Flags.getConfigBool(Flags.GENERATE_SYMBOLIC_HESSIAN)
+    case true then
+      let symbolicHesssDefine = (HessianMatrices |> HESS_MATRIX(columns=jacColumn, seedVars=seedVars, lambdaVars=lambdas, matrixName=name, hessianIndex=indexHessian)  =>
+        <<
+        #if defined(__cplusplus)
+        extern "C" {
+        #endif
+          #define <%symbolName(modelNamePrefix,"INDEX_HESS_")%><%name%> <%indexHessian%>
+          int <%symbolName(modelNamePrefix,"functionHess")%><%name%>_column(void* data, threadData_t *threadData, ANALYTIC_HESSIAN *thisHessian, ANALYTIC_HESSIAN *parentHessian, ANALYTIC_JACOBIAN *parentJacobian);
+          int <%symbolName(modelNamePrefix,"initialAnalyticHessian")%><%name%>(void* data, threadData_t *threadData, ANALYTIC_HESSIAN *hessian, ANALYTIC_JACOBIAN *parentJacobian);
+        #if defined(__cplusplus)
+        }
+        #endif
+        >>
+        ;separator="\n";empty)
 
-  <<
-  /* Hessian Variables */
-  <%symbolicHesssDefine%>
+      <<
+      /* Hessian Variables */
+      <%symbolicHesssDefine%>
 
-  >>
+      >>
+    else
+      <<
+      /* DUMMY DEFINITIONS */
+      #define <%symbolName(modelNamePrefix,"INDEX_HESS_A")%> 0
+      int <%symbolName(modelNamePrefix,"functionHess")%>A_column(void* data, threadData_t *threadData, ANALYTIC_HESSIAN *thisHessian, ANALYTIC_HESSIAN *parentHessian, ANALYTIC_JACOBIAN *parentJacobian);
+      int <%symbolName(modelNamePrefix,"initialAnalyticHessian")%>A(void* data, threadData_t *threadData, ANALYTIC_HESSIAN *hessian, ANALYTIC_JACOBIAN *parentJacobian);
+
+      #define <%symbolName(modelNamePrefix,"INDEX_HESS_B")%> 1
+      int <%symbolName(modelNamePrefix,"functionHess")%>B_column(void* data, threadData_t *threadData, ANALYTIC_HESSIAN *thisHessian, ANALYTIC_HESSIAN *parentHessian, ANALYTIC_JACOBIAN *parentJacobian);
+      int <%symbolName(modelNamePrefix,"initialAnalyticHessian")%>B(void* data, threadData_t *threadData, ANALYTIC_HESSIAN *hessian, ANALYTIC_JACOBIAN *parentJacobian);
+
+      #define <%symbolName(modelNamePrefix,"INDEX_HESS_C")%> 2
+      int <%symbolName(modelNamePrefix,"functionHess")%>C_column(void* data, threadData_t *threadData, ANALYTIC_HESSIAN *thisHessian, ANALYTIC_HESSIAN *parentHessian, ANALYTIC_JACOBIAN *parentJacobian);
+      int <%symbolName(modelNamePrefix,"initialAnalyticHessian")%>C(void* data, threadData_t *threadData, ANALYTIC_HESSIAN *hessian, ANALYTIC_JACOBIAN *parentJacobian);
+      >>
+    end match
 end symHessDefinition;
 
 template aliasVarNameType(AliasVariable var)
@@ -5007,16 +5026,64 @@ end functionAnalyticJacobians;
 template functionAnalyticHessians(list<HessianMatrix> HessianMatrices,String modelNamePrefix) "template functionAnalyticHessians
   This template generates source code for all given hessians."
 ::=
-  let initialhessMats = (HessianMatrices |> HESS_MATRIX(columns=mat, seedVars=vars, lambdaVars=lambdas, matrixName=name, hessianIndex=indexHessian) =>
-    initialAnalyticHessians(mat, vars, lambdas, name, modelNamePrefix); separator="\n")
-  let hessMats = (HessianMatrices |> HESS_MATRIX(columns=mat, seedVars=vars, lambdaVars=lambdas, matrixName=name, partitionIndex=partIdx, crefsHT=crefsHT) =>
-    generateMatrix(mat, vars, name, partIdx, crefsHT, modelNamePrefix, true) ;separator="\n")
+  match Flags.getConfigBool(Flags.GENERATE_SYMBOLIC_HESSIAN)
+  case true then
+    let initialhessMats = (HessianMatrices |> HESS_MATRIX(columns=mat, seedVars=vars, lambdaVars=lambdas, matrixName=name, hessianIndex=indexHessian) =>
+      initialAnalyticHessians(mat, vars, lambdas, name, modelNamePrefix); separator="\n")
+    let hessMats = (HessianMatrices |> HESS_MATRIX(columns=mat, seedVars=vars, lambdaVars=lambdas, matrixName=name, partitionIndex=partIdx, crefsHT=crefsHT) =>
+      generateMatrix(mat, vars, name, partIdx, crefsHT, modelNamePrefix, true) ;separator="\n")
+    <<
+    <%hessMats%>
 
-  <<
-  <%initialhessMats%>
+    <%initialhessMats%>
+    >>
+  else
+    <<
+    /* DUMMY FUNCTIONS */
+    int <%symbolName(modelNamePrefix,'functionHess')%>A_column(void* data, threadData_t *threadData, ANALYTIC_HESSIAN *hessian, ANALYTIC_HESSIAN *parentHessian, ANALYTIC_JACOBIAN *parentJacobian)
+    {
+      TRACE_PUSH
+      TRACE_POP
+      return 0;
+    }
 
-  <%hessMats%>
-  >>
+    int <%symbolName(modelNamePrefix,'functionHess')%>B_column(void* data, threadData_t *threadData, ANALYTIC_HESSIAN *hessian, ANALYTIC_HESSIAN *parentHessian, ANALYTIC_JACOBIAN *parentJacobian)
+    {
+      TRACE_PUSH
+      TRACE_POP
+      return 0;
+    }
+
+    int <%symbolName(modelNamePrefix,'functionHess')%>C_column(void* data, threadData_t *threadData, ANALYTIC_HESSIAN *hessian, ANALYTIC_HESSIAN *parentHessian, ANALYTIC_JACOBIAN *parentJacobian)
+    {
+      TRACE_PUSH
+      TRACE_POP
+      return 0;
+    }
+
+    /* DUMMY INITIAL FUNCTIONS */
+    int <%symbolName(modelNamePrefix,"initialAnalyticHessianA")%>(void* inData, threadData_t *threadData, ANALYTIC_HESSIAN *hessian, ANALYTIC_JACOBIAN *parentJacobian)
+    {
+      TRACE_PUSH
+      TRACE_POP
+      return 1;
+    }
+
+    int <%symbolName(modelNamePrefix,"initialAnalyticHessianB")%>(void* inData, threadData_t *threadData, ANALYTIC_HESSIAN *hessian, ANALYTIC_JACOBIAN *parentJacobian)
+    {
+      TRACE_PUSH
+      TRACE_POP
+      return 1;
+    }
+
+    int <%symbolName(modelNamePrefix,"initialAnalyticHessianC")%>(void* inData, threadData_t *threadData, ANALYTIC_HESSIAN *hessian, ANALYTIC_JACOBIAN *parentJacobian)
+    {
+      TRACE_PUSH
+      TRACE_POP
+      return 1;
+    }
+    >>
+  end match
 end functionAnalyticHessians;
 
 template initialAnalyticJacobians(list<JacobianColumn> jacobianColumn, list<SimVar> seedVars, String matrixname, SparsityPattern sparsepattern, list<list<Integer>> colorList, Integer maxColor, String modelNamePrefix)
