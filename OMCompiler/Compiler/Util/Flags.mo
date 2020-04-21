@@ -554,7 +554,9 @@ constant DebugFlag NF_DUMP_FLAT = DEBUG_FLAG(192, "nfDumpFlat", false,
 constant DebugFlag DUMP_FORCE_FMI_ATTRIBUTES = DEBUG_FLAG(193, "force-fmi-attributes", false,
   Gettext.gettext("Force to export all fmi attributes to the modelDescription.xml, including those which have default values"));
 constant DebugFlag DUMP_HESSIAN = DEBUG_FLAG(194, "dumpHess", false,
-  Gettext.gettext("Dumps the Hessian matrices A,B,C,D for dynamic Optimization"));
+  Gettext.gettext("Dumps the Hessian matrices A,B,C for dynamic optimization problems."));
+constant DebugFlag DUMP_HESSIAN_VERBOSE = DEBUG_FLAG(195, "dumpHessVerbose", false,
+  Gettext.gettext("Dumps additional information about the Hessian matrices A,B,C."));
 
 public
 // CONFIGURATION FLAGS
