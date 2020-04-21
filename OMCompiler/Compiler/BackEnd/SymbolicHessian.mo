@@ -55,7 +55,7 @@
  import Util;
 
  // =============================================================================
- //         Section to create Hessians with the Data from a Jacobian
+ //         Section to create Hessians with the Data from Jacobians
  // =============================================================================
 
 public function generateSymbolicHessian
@@ -265,7 +265,7 @@ algorithm
       eq::optimizerEqns := optimizerEqns;
 
       if Flags.isSet(Flags.DUMP_HESSIAN_VERBOSE) then
-        print("Lambda:= "+ComponentReference.printComponentRefStr(lambdaList)+"\n");
+        print("Element of the lambda vector: "+ComponentReference.printComponentRefStr(lambdaList)+"\n");
       end if;
 
       /*Take the RHS of the current Equation*/
