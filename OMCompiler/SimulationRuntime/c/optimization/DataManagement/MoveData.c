@@ -906,30 +906,8 @@ void getHessianMatrix(OptData *optData, long double **H, const int m, const int 
 
   for(i = 0; i < hessian->sizeRows; ++i){
     hessian->seedVars[i] = optData->bounds.vnom[i];
-    /*
-    if(i < dnx){
-      hessian->seedVars[i] = optData->bounds.vnom[i];
-    }else if(i < dnxnc){
-      hessian->seedVars[i] = optData->bounds.vnom[i];
-    }else if(i == optData->dim.nJ && optData->s.lagrange){
-      hessian->seedVars[i] = optData->bounds.vnom[i] * scalb;
-    }else{
-      hessian->seedVars[i] = optData->bounds.vnom[i];
-    }
-    */
     for(k = 0; k < hessian->sizeCols; ++k){
       hessian->seedVars1[k] = optData->bounds.vnom[k];
-      /*
-      if(k < dnx){
-        hessian->seedVars1[k] = optData->bounds.vnom[k];// * scaldt[k];
-      }else if(k < dnxnc){
-        hessian->seedVars1[k] = optData->bounds.vnom[k];
-      }else if(k == optData->dim.nJ && optData->s.lagrange){
-        hessian->seedVars1[k] = optData->bounds.vnom[k] * scalb;
-      }else{
-        hessian->seedVars1[k] = optData->bounds.vnom[k];
-      }
-      */
 
       if(index == 2){
         data->callback->functionHessB_column(data, threadData, hessian, NULL, parentJacobian);

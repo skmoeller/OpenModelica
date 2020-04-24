@@ -230,7 +230,8 @@ static inline void sym_hessian0(double * v, const double * const lambda,
   const modelica_real * const vmax = optData->bounds.vmax;
   const modelica_real * const vnom = optData->bounds.vnom;
 
-  int ii,jj, l;
+  int ii, jj, l;
+  long double h, v_save;
   modelica_real * realV[3];
 
   /* Store the values temporarily before scaling */
@@ -255,14 +256,14 @@ static inline void sym_hessian0(double * v, const double * const lambda,
 
   /* Hessian matrices for each lambda belonging to a differential equation */
   for(l = 0; l < nx; ++l){
-    optData->data->simulationInfo->analyticHessians[h_index].lambdaVars[l] = (modelica_real) lambda[l]* optData->time.dt[i] / optData->bounds.vnom[l];
+    optData->data->simulationInfo->analyticHessians[h_index].lambdaVars[l] = (modelica_real) lambda[l] * optData->time.dt[i] / optData->bounds.vnom[l];
     getHessianMatrix(optData, optData->H[l], i, j, 2);
     optData->data->simulationInfo->analyticHessians[h_index].lambdaVars[l] = 0;
   }
 
   /* Hessian matrices for each lambda belonging to a constraint equation */
   for(; l < nJ; ++l){
-    optData->data->simulationInfo->analyticHessians[h_index].lambdaVars[l] = lambda[l];
+    optData->data->simulationInfo->analyticHessians[h_index].lambdaVars[l] = (modelica_real) lambda[l];
     getHessianMatrix(optData, optData->H[l], i, j, 2);
     optData->data->simulationInfo->analyticHessians[h_index].lambdaVars[l] = 0;
   }
@@ -274,27 +275,42 @@ static inline void sym_hessian0(double * v, const double * const lambda,
     optData->data->simulationInfo->analyticHessians[h_index].lambdaVars[nJ + 1] = 0;
   }
 
+  // REMOVE THE COMMENTS TO PLOT DIFFERENCE TO NUMERICAL APPROXIMATION - ONLY FOR DEBUGGING
+  for(ii = 0; ii < nv; ++ii){
+
+    v_save = (long double) v[ii];
+    h = (long double)DF_STEP(v_save);
+    v[ii] += h;
+    if( v[ii] >=  vmax[ii]){
+      h *= -1.0;
+      v[ii] = v_save + h;
+    }
+
+    updateDiscreteSystem(data, threadData);
+    diffSynColoredOptimizerSystem(optData, optData->tmpJ, i,j,2);
+
+    double num_value;
+    for(jj = 0; jj < ii+1; ++jj){
+      if(optData->s.H0[ii][jj]){
+        for(l = 0; l < nJ; ++l){
+          if(optData->s.Hg[l][ii][jj] && lambda[l] != 0){
+            num_value = (double)(optData->tmpJ[l][jj] - optData->J[i][j][l][jj])*lambda[l]/h;
+            if(abs(1 - (num_value / optData->H[l][ii][jj])) > 0.0001){
+              printf("Hcost[%i, %i, %i]]: num_value: %g / sym: %e = %e\n", l, ii, jj,
+                num_value , (double)optData->H[l][ii][jj], (double)(num_value / optData->H[l][ii][jj]));
+            }
+          }
+        }
+      }
+    }
+
+    v[ii] = (double)v_save;
+  }
+
   /* reset the values to unscaled values (without nominal) */
   for(l = 1; l<3; ++l){
     data->localData[l]->realVars = realV[l];
   }
-
-  // REMOVE THE COMMENTS TO PLOT DIFFERENCE TO NUMERICAL APPROXIMATION - ONLY FOR DEBUGGING
-  /*
-  diffSynColoredOptimizerSystem(optData, optData->tmpJ, i,j,2);
-  for(jj = 0; jj < ii+1; ++jj){
-    if(optData->s.H0[ii][jj]){
-      for(l = 0; l < nJ; ++l){
-        if(optData->s.Hg[l][ii][jj] && lambda[l] != 0){
-          long double num_value = (long double)(optData->tmpJ[l][jj] - optData->J[i][j][l][jj])*lambda[l]/h;
-          if((float)((float)num_value - (float)optData->H[l][ii][jj]) > 0.0001){
-            printf("Hcost[%i, %i, %i]]: num_value: %f / sym: %f = %g\n", l, ii, jj,
-              (float)num_value , (float)optData->H[l][ii][jj], (double)(num_value / optData->H[l][ii][jj]));
-          }
-      }
-    }
-  }
-  */
 }
 
 /*
@@ -475,7 +491,19 @@ static inline void num_hessian0(double * v, const double * const lambda,
       }
     }
     /********************/
+
+          for(jj = 0; jj < ii+1; ++jj){
+            if(optData->s.H0[ii][jj]){
+              for(l = 0; l < nJ; ++l){
+                if(optData->s.Hg[l][ii][jj] && lambda[l] != 0){
+                    printf("Hcost[%i, %i, %i]]: num_value: %g \n", l, ii, jj, (double)optData->H[l][ii][jj]);
+                }
+              }
+            }
+          }
   }
+
+
 
   for(l = 1; l<3; ++l){
     data->localData[l]->realVars = realV[l];
