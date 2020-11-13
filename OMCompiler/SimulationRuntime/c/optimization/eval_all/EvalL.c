@@ -289,15 +289,15 @@ static inline void sym_hessian0(double * v, const double * const lambda,
     updateDiscreteSystem(data, threadData);
     diffSynColoredOptimizerSystem(optData, optData->tmpJ, i,j,2);
 
-    double num_value;
+    long double num_value;
     for(jj = 0; jj < ii+1; ++jj){
       if(optData->s.H0[ii][jj]){
         for(l = 0; l < nJ; ++l){
           if(optData->s.Hg[l][ii][jj] && lambda[l] != 0){
-            num_value = (double)(optData->tmpJ[l][jj] - optData->J[i][j][l][jj])*lambda[l]/h;
+            num_value = (long double)(optData->tmpJ[l][jj] - optData->J[i][j][l][jj])*lambda[l]/h;
             if(abs(1 - (num_value / optData->H[l][ii][jj])) > 0.0001){
-              printf("Hcost[%i, %i, %i]]: num_value: %g / sym: %e = %e\n", l, ii, jj,
-                num_value , (double)optData->H[l][ii][jj], (double)(num_value / optData->H[l][ii][jj]));
+              printf("Hcost[%i, %i, %i]]: num_value: %Lf / sym: %Lf = %Lf\n", l, ii, jj,
+                num_value , optData->H[l][ii][jj], (num_value / optData->H[l][ii][jj]));
             }
           }
         }
