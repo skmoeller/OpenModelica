@@ -296,9 +296,9 @@ static inline void sym_hessian0(double * v, const double * const lambda,
           if(optData->s.Hg[l][ii][jj] && lambda[l] != 0){
             num_value = (long double)(optData->tmpJ[l][jj] - optData->J[i][j][l][jj])*lambda[l]/h;
             if(abs(1 - (num_value / optData->H[l][ii][jj])) > 0.0001){
-              printf("Hcost[%i, %i, %i]] \n", l, ii, jj)
-              printf(" sym: %Lf", optData->H[l][ii][jj]);
-              printf(" num_value: %Lf\n", num_value);
+              printf("Hcost[%i, %i, %i]]", l, ii, jj);
+              printf(" sym: %Lf \n", optData->H[l][ii][jj]);
+             // printf(" num_value: %g\n",(double)num_value);
             }
           }
         }
