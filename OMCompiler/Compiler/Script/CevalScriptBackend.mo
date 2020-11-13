@@ -3313,7 +3313,7 @@ algorithm
           placementProgram := Interactive.modelicaAnnotationProgram(Config.getAnnotationVersion());
           graphicProgramSCode := AbsynToSCode.translateAbsyn2SCode(placementProgram);
           scodeP := listAppend(scode_builtin, SymbolTable.getSCode());
-          scodeP := listAppend(scodeP, graphicProgramSCode);
+          scodeP := listAppend(listReverse(scodeP), graphicProgramSCode);
         end if;
 
         (dae, funcs) := NFInst.instClassInProgram(className, scodeP);
