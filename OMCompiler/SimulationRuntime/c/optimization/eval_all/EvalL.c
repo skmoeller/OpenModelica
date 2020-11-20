@@ -41,6 +41,9 @@ static inline void sumLagrange0(const int i, const int j, double * res,  const m
 static inline void sym_hessian1(double * v, const double * const lambda, const double objFactor, OptData *optData, const int i, const int j);
 static inline void num_hessian1(double * v, const double * const lambda, const double objFactor, OptData *optData, const int i, const int j);
 static inline void sumLagrange1(const int i, const int j, double * res,  const modelica_boolean upC, const modelica_boolean upC2, OptData *optData);
+
+static inline void print_hessian(DATA * data, OptDataDim * dim, OptDataStructure *s, const double * const lambda);
+
 #define DF_STEP(v) (1e-5*fabsl(v) + 1e-8)
 
 /* eval hessian
@@ -275,38 +278,8 @@ static inline void sym_hessian0(double * v, const double * const lambda,
     optData->data->simulationInfo->analyticHessians[h_index].lambdaVars[nJ + 1] = 0;
   }
 
-  // REMOVE THE COMMENTS TO PLOT DIFFERENCE TO NUMERICAL APPROXIMATION - ONLY FOR DEBUGGING
-  for(ii = 0; ii < nv; ++ii){
 
-    v_save = (long double) v[ii];
-    h = (long double)DF_STEP(v_save);
-    v[ii] += h;
-    if( v[ii] >=  vmax[ii]){
-      h *= -1.0;
-      v[ii] = v_save + h;
-    }
-
-    updateDiscreteSystem(data, threadData);
-    diffSynColoredOptimizerSystem(optData, optData->tmpJ, i,j,2);
-
-    long double num_value;
-    for(jj = 0; jj < ii+1; ++jj){
-      if(optData->s.H0[ii][jj]){
-        for(l = 0; l < nJ; ++l){
-          if(optData->s.Hg[l][ii][jj] && lambda[l] != 0){
-            num_value = (long double)(optData->tmpJ[l][jj] - optData->J[i][j][l][jj])*lambda[l]/h;
-            if(abs(1 - (num_value / optData->H[l][ii][jj])) > 0.0001){
-              printf("Hcost[%i, %i, %i]]", l, ii, jj);
-              printf(" sym: %Lf \n", optData->H[l][ii][jj]);
-             // printf(" num_value: %g\n",(double)num_value);
-            }
-          }
-        }
-      }
-    }
-
-    v[ii] = (double)v_save;
-  }
+  print_hessian(data, &optData->dim, &optData->s, lambda);
 
   /* reset the values to unscaled values (without nominal) */
   for(l = 1; l<3; ++l){
@@ -314,6 +287,27 @@ static inline void sym_hessian0(double * v, const double * const lambda,
   }
 }
 
+static inline void print_hessian(DATA * data, OptDataDim * dim, OptDataStructure *s, const double * const lambda){
+
+  const int nv = dim->nv;
+  const int nJ = dim.nJ;
+
+  int i, j, l;
+
+  printf("\n========================================================");
+  printf("\n Symbolic Hessian%i x %i\tnz = %i", nv, nv,n0);
+  printf("\n========================================================");
+  for( l = 0; l < nJ; ++l){
+    for( i = 0; i < nv; ++i){
+      printf("\n");
+      for(j = 0; j < i+1; ++j){
+        printf("%Lf ", (optData->s.H0[i][j] || optData->s.Hg[l][ii][jj] && lambda[l] != 0)? 0.0:optData->H[l][ii][jj]);
+        }
+      }
+      printf("\n");
+    }
+  }
+}
 /*
  * This function computes the symbolic hessian matrix based on generated
  * functions. With mayer function and final constraints and therefore
