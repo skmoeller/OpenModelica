@@ -301,7 +301,7 @@ static inline void print_hessian(OptData *optData, OptDataDim * dim, OptDataStru
     for( i = 0; i < nv; ++i){
       printf("\n");
       for(j = 0; j < i+1; ++j){
-        printf("%Lf ", (s->H0[i][j] || (s->Hg[l][i][j] && lambda[l] != 0))? optData->H[l][i][j]:0.0);
+        printf("%Lf ", (s->H0[i][j] && (s->Hg[l][i][j] && lambda[l] != 0))? optData->H[l][i][j]:0.0);
       }
     }
       printf("\n");
