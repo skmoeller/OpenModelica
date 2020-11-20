@@ -42,7 +42,7 @@ static inline void sym_hessian1(double * v, const double * const lambda, const d
 static inline void num_hessian1(double * v, const double * const lambda, const double objFactor, OptData *optData, const int i, const int j);
 static inline void sumLagrange1(const int i, const int j, double * res,  const modelica_boolean upC, const modelica_boolean upC2, OptData *optData);
 
-static inline void print_hessian(OptData *optData, OptDataDim * dim, OptDataStructure *s, const double * const lambda);
+static inline void print_hessian(OptData *optData, OptDataDim * dim, OptDataStructure *s, const double * const lambda, char * hess_kind);
 
 #define DF_STEP(v) (1e-5*fabsl(v) + 1e-8)
 
@@ -278,8 +278,7 @@ static inline void sym_hessian0(double * v, const double * const lambda,
     optData->data->simulationInfo->analyticHessians[h_index].lambdaVars[nJ + 1] = 0;
   }
 
-
-  print_hessian(optData, &optData->dim, &optData->s, lambda);
+  print_hessian(optData, &optData->dim, &optData->s, lambda, "Symbolic");
 
   /* reset the values to unscaled values (without nominal) */
   for(l = 1; l<3; ++l){
@@ -287,7 +286,7 @@ static inline void sym_hessian0(double * v, const double * const lambda,
   }
 }
 
-static inline void print_hessian(OptData *optData, OptDataDim * dim, OptDataStructure *s, const double * const lambda){
+static inline void print_hessian(OptData *optData, OptDataDim * dim, OptDataStructure *s, const double * const lambda, char * hess_kind){
 
   const int nv = dim->nv;
   const int nJ = dim->nJ;
@@ -295,7 +294,7 @@ static inline void print_hessian(OptData *optData, OptDataDim * dim, OptDataStru
   int i, j, l;
 
   printf("\n========================================================");
-  printf("\n Symbolic Hessian %i x %i", nv, nv);
+  printf("\n Hessian %i x %i",hess_kind, nv, nv);
   printf("\n========================================================");
   for( l = 0; l < nJ; ++l){
     for( i = 0; i < nv; ++i){
