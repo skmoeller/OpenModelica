@@ -294,7 +294,7 @@ static inline void print_hessian(OptData *optData, OptDataDim * dim, OptDataStru
   int i, j, l;
 
   printf("\n========================================================");
-  printf("\n Hessian %i x %i",hess_kind, nv, nv);
+  printf("\n %s Hessian %i x %i",hess_kind, nv, nv);
   printf("\n========================================================");
   for( l = 0; l < nJ; ++l){
     for( i = 0; i < nv; ++i){
