@@ -295,12 +295,12 @@ static inline void print_hessian(OptData *optData, OptDataDim * dim, OptDataStru
   int i, j, l;
 
   printf("\n========================================================");
-  printf("\n Symbolic Hessian%i x %i", nv, nv);
+  printf("\n Symbolic Hessian %i x %i", nv, nv);
   printf("\n========================================================");
   for( l = 0; l < nJ; ++l){
     for( i = 0; i < nv; ++i){
       printf("\n");
-      for(j = 0; j < i+1; ++j){
+      for(j = 0; j < nv; ++j){
         printf("%Lf ", (s->H0[i][j] || (s->Hg[l][i][j] && lambda[l] != 0))? 0.0:optData->H[l][i][j]);
       }
     }
