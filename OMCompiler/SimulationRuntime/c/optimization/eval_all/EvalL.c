@@ -485,27 +485,15 @@ static inline void num_hessian0(double * v, const double * const lambda,
       }
     }
     /********************/
-
-          for(jj = 0; jj < ii+1; ++jj){
-            if(optData->s.H0[ii][jj]){
-              for(l = 0; l < nJ; ++l){
-                if(optData->s.Hg[l][ii][jj] && lambda[l] != 0){
-                    printf("Hcost[%i, %i, %i]]: num_value: %g \n", l, ii, jj, (double)optData->H[l][ii][jj]);
-                }
-              }
-            }
-          }
   }
 
-
+  print_hessian(optData, &optData->dim, &optData->s, lambda, "Numerical");
 
   for(l = 1; l<3; ++l){
     data->localData[l]->realVars = realV[l];
   }
 
 }
-
-
 
 /* numerical approximation
  *  hessian
