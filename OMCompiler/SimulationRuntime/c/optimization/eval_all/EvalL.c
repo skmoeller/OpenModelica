@@ -340,6 +340,8 @@ static inline void sym_hessian1(double * v, const double * const lambda,
 
   modelica_real * realV[3];
 
+  diffSynColoredOptimizerSystem(optData, optData->J[i][j], i, j, 2);
+
   /* Store the values temporarily before scaling */
   data->localData[0]->timeValue = (modelica_real) optData->time.t[i][j];
   for(l = 1; l<3; ++l){
