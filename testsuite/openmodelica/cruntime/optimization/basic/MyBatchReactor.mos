@@ -6,6 +6,3 @@ getErrorString();
 
 optimize(nmpcMyBatchReactorConstraints, numberOfIntervals=20, tolerance = 1e-08,simflags="");
 getErrorString();
-
-res := OpenModelica.Scripting.compareSimulationResults("nmpcMyBatchReactorConstraints_res.mat","ReferenceFiles/nmpcBatchReactorCon2_ref.mat","nmpcBatchReactorCon2_res.csv",0.01,0.0001);
-getErrorString();
